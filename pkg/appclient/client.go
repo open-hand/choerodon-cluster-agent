@@ -32,17 +32,17 @@ type AppClient interface {
 }
 
 type appClient struct {
-	url        *url.URL
-	token      Token
-	commandCh  chan<- *model.Command
-	responseCh <-chan *model.Response
-	conn       *websocket.Conn
-
+	url            *url.URL
+	token          Token
+	commandCh      chan<- *model.Command
+	responseCh     <-chan *model.Response
+	conn           *websocket.Conn
 	quit           chan struct{}
 	mtx            sync.Mutex
 	client         *http.Client
 	backgroundWait sync.WaitGroup
 	pipeConns      map[string]*websocket.Conn
+	respQueue      []*model.Response
 }
 
 func (c *appClient) Start(stopCh <-chan struct{}) error {
@@ -105,6 +105,17 @@ func (c *appClient) connect() error {
 		}
 	}()
 
+	end := 0
+	for ; end < len(c.respQueue); end++ {
+		c.conn.SetWriteDeadline(time.Now().Add(WriteWait))
+		resp := c.respQueue[end]
+		if err := c.sendResponse(resp); err != nil {
+			c.respQueue = c.respQueue[end:]
+			return err
+		}
+	}
+	c.respQueue = c.respQueue[end:]
+
 	for {
 		select {
 		case <-done:
@@ -115,14 +126,18 @@ func (c *appClient) connect() error {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return nil
 			}
-			content, _ := json.Marshal(resp)
-			glog.V(1).Info("send response: ", string(content))
-			err := c.conn.WriteJSON(resp)
-			if err != nil {
+			if err := c.sendResponse(resp); err != nil {
 				glog.Error(err)
+				c.respQueue = append(c.respQueue, resp)
 			}
 		}
 	}
+}
+
+func (c *appClient) sendResponse(resp *model.Response) error {
+	content, _ := json.Marshal(resp)
+	glog.V(1).Info("send response: ", string(content))
+	return c.conn.WriteJSON(resp)
 }
 
 func (c *appClient) hasQuit() bool {
@@ -291,6 +306,7 @@ func NewClient(
 		quit:       make(chan struct{}),
 		client:     httpClient,
 		pipeConns:  make(map[string]*websocket.Conn),
+		respQueue:  make([]*model.Response, 0, 100),
 	}
 
 	return c, nil

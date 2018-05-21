@@ -206,7 +206,14 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 		return nil, err
 	}
 	if releaseContentResp == nil {
-		return nil, fmt.Errorf("release %s not exist", request.ReleaseName)
+		installReq := &model_helm.InstallReleaseRequest{
+			RepoURL:      request.RepoURL,
+			ChartName:    request.ChartName,
+			ChartVersion: request.ChartVersion,
+			Values:       request.Values,
+			ReleaseName:  request.ReleaseName,
+		}
+		return c.PreInstallRelease(installReq)
 	}
 
 	revision := int(releaseContentResp.Release.Version + 1)
@@ -242,7 +249,18 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 		return nil, err
 	}
 	if releaseContentResp == nil {
-		return nil, fmt.Errorf("release %s not exist", request.ReleaseName)
+		installReq := &model_helm.InstallReleaseRequest{
+			RepoURL:      request.RepoURL,
+			ChartName:    request.ChartName,
+			ChartVersion: request.ChartVersion,
+			Values:       request.Values,
+			ReleaseName:  request.ReleaseName,
+		}
+		installResp, err := c.InstallRelease(installReq)
+		if err != nil {
+			return nil, err
+		}
+		return &model_helm.UpgradeReleaseResponse{Release: installResp.Release}, nil
 	}
 
 	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
