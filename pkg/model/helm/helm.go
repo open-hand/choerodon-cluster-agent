@@ -86,3 +86,12 @@ type StartReleaseRequest struct {
 type StartReleaseResponse struct {
 	ReleaseName string `json:"releaseName,omitempty"`
 }
+
+type GetReleaseContentRequest struct {
+	ReleaseName string `json:"releaseName,omitempty"`
+	Version     int32  `json:"version,omitempty"`
+}
+
+type GetReleaseContentResponse struct {
+	Release *Release `json:"release,omitempty"`
+}

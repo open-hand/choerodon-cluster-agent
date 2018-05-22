@@ -17,9 +17,8 @@ func (suite *CommandTestSuite) TestString() {
 		Key:     "key01",
 		Type:    "type01",
 		Payload: "payload01",
-		Retry:   2,
 	}
-	suite.Equal("{key: key01, type: type01}, retried 2 times: payload01", fmt.Sprint(cmd), "error format")
+	suite.Equal("{key: key01, type: type01}: payload01", fmt.Sprint(cmd), "error format")
 }
 
 func TestCommandTestSuite(t *testing.T) {
