@@ -12,23 +12,19 @@ import (
 )
 
 func init() {
-	registerCmdFunc(model.KubernetesGetLogs, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.GetLogsByKubernetes(cmd)
-	})
-	registerCmdFunc(model.KubernetesExec, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.ExecByKubernetes(cmd)
-	})
+	registerCmdFunc(model.KubernetesGetLogs, GetLogsByKubernetes)
+	registerCmdFunc(model.KubernetesExec, ExecByKubernetes)
 }
 
-func (w *workerManager) GetLogsByKubernetes(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func GetLogsByKubernetes(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req *model_kubernetes.GetLogsByKubernetesRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
 	readCloser, err := w.kubeClient.GetLogs(w.namespace, req.PodName, req.ContainerName)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
 	readWriter := struct {
 		io.Reader
@@ -39,25 +35,25 @@ func (w *workerManager) GetLogsByKubernetes(cmd *model.Command) ([]*model.Comman
 	}
 	pipe, err := controls.NewPipeFromEnds(nil, readWriter, w.appClient, req.PipeID, common.Log)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
 	pipe.OnClose(func() {
 		readCloser.Close()
 	})
-	return nil, nil, true
+	return nil, nil
 }
 
-func (w *workerManager) ExecByKubernetes(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func ExecByKubernetes(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req *model_kubernetes.ExecByKubernetesRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesExecFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
 	}
 	pipe, err := controls.NewPipe(w.appClient, req.PipeID, common.Exec)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesExecFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
 	}
 	local, _ := pipe.Ends()
 	w.kubeClient.Exec(w.namespace, req.PodName, req.ContainerName, local)
-	return nil, nil, true
+	return nil, nil
 }

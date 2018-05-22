@@ -59,6 +59,7 @@ type Client interface {
 	DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.DeleteReleaseResponse, error)
 	StartRelease(request *model_helm.StartReleaseRequest) (*model_helm.StartReleaseResponse, error)
 	StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error)
+	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.GetReleaseContentResponse, error)
 }
 
 type client struct {
@@ -104,7 +105,7 @@ func (c *client) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([
 		return nil, fmt.Errorf("release %s already exist", request.ReleaseName)
 	}
 
-	hooks, _, err := c.renderManifests(
+	rlsHooks, _, err := c.renderManifests(
 		request.RepoURL,
 		request.ChartName,
 		request.ReleaseName,
@@ -116,7 +117,7 @@ func (c *client) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([
 		return nil, err
 	}
 
-	for _, hook := range hooks {
+	for _, hook := range rlsHooks {
 		releaseHook := &model_helm.ReleaseHook{
 			Name:        hook.Name,
 			Manifest:    hook.Manifest,
@@ -176,10 +177,10 @@ func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, 
 	if err != nil {
 		return nil, fmt.Errorf("get resource: %v", err)
 	}
-	hooks := make([]*model_helm.ReleaseHook, len(release.GetHooks()))
-	for i := 0; i < len(hooks); i++ {
+	rlsHooks := make([]*model_helm.ReleaseHook, len(release.GetHooks()))
+	for i := 0; i < len(rlsHooks); i++ {
 		rlsHook := release.GetHooks()[i]
-		hooks[i] = &model_helm.ReleaseHook{
+		rlsHooks[i] = &model_helm.ReleaseHook{
 			Name: rlsHook.Name,
 			Kind: rlsHook.Kind,
 		}
@@ -192,7 +193,7 @@ func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, 
 		ChartName:    release.Chart.Metadata.Name,
 		ChartVersion: release.Chart.Metadata.Version,
 		Manifest:     release.Manifest,
-		Hooks:        hooks,
+		Hooks:        rlsHooks,
 		Resources:    resources,
 	}
 	return rls, nil
@@ -217,7 +218,7 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 	}
 
 	revision := int(releaseContentResp.Release.Version + 1)
-	hooks, _, err := c.renderManifests(
+	rlsHooks, _, err := c.renderManifests(
 		request.RepoURL,
 		request.ChartName,
 		request.ReleaseName,
@@ -229,7 +230,7 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 		return nil, err
 	}
 
-	for _, hook := range hooks {
+	for _, hook := range rlsHooks {
 		releaseHook := &model_helm.ReleaseHook{
 			Name:        hook.Name,
 			Manifest:    hook.Manifest,
@@ -435,6 +436,21 @@ func (c *client) renderManifests(
 		}
 	}
 	return sortManifests(files, caps.APIVersions, tiller.InstallOrder)
+}
+
+func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.GetReleaseContentResponse, error) {
+	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName, helm.ContentReleaseVersion(request.Version))
+	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
+		return nil, err
+	}
+	if releaseContentResp == nil {
+		return nil, fmt.Errorf("release %s not exist", request.ReleaseName)
+	}
+	rls, err := c.getHelmRelease(releaseContentResp.Release)
+	if err != nil {
+		return nil, err
+	}
+	return &model_helm.GetReleaseContentResponse{Release: rls}, nil
 }
 
 func InitEnvSettings() {

@@ -9,15 +9,11 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/model"
 )
 
-const (
-	retryTimes uint = 0
-)
-
 var (
 	processCmdFuncs = make(map[string]processCmdFunc)
 )
 
-type processCmdFunc func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool)
+type processCmdFunc func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response)
 
 type workerManager struct {
 	commandChan  chan *model.Command
@@ -37,7 +33,6 @@ func (w *workerManager) Start() {
 func (w *workerManager) runWorker(i int) {
 	for cmd := range w.commandChan {
 		glog.V(1).Infof("worker %d get command: %s", i, cmd)
-		var forget = false
 		var newCmds []*model.Command = nil
 		var resp *model.Response = nil
 
@@ -45,7 +40,7 @@ func (w *workerManager) runWorker(i int) {
 			glog.V(2).Infof("type %s not exist", cmd.Type)
 			continue
 		} else {
-			newCmds, resp, forget = processCmdFunc(w, cmd)
+			newCmds, resp = processCmdFunc(w, cmd)
 		}
 
 		if newCmds != nil {
@@ -54,12 +49,6 @@ func (w *workerManager) runWorker(i int) {
 					w.commandChan <- newCmds[i]
 				}
 			}(newCmds)
-		}
-		if !forget && cmd.Retry < retryTimes {
-			go func(cmd *model.Command) {
-				cmd.Retry = cmd.Retry + 1
-				w.commandChan <- cmd
-			}(cmd)
 		}
 		if resp != nil {
 			go func(resp *model.Response) {

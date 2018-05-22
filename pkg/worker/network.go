@@ -7,76 +7,68 @@ import (
 )
 
 func init() {
-	registerCmdFunc(model.NetworkService, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.configureNetworkService(cmd)
-	})
-	registerCmdFunc(model.NetworkIngress, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.configureNetworkIngress(cmd)
-	})
-	registerCmdFunc(model.NetworkServiceDelete, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.deleteNetworkService(cmd)
-	})
-	registerCmdFunc(model.NetworkIngressDelete, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.deleteNetworkIngress(cmd)
-	})
+	registerCmdFunc(model.NetworkService, configureNetworkService)
+	registerCmdFunc(model.NetworkIngress, configureNetworkIngress)
+	registerCmdFunc(model.NetworkServiceDelete, deleteNetworkService)
+	registerCmdFunc(model.NetworkIngressDelete, deleteNetworkIngress)
 }
 
-func (w *workerManager) configureNetworkService(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func configureNetworkService(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	svc, err := w.kubeClient.CreateOrUpdateService(w.namespace, cmd.Payload)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.NetworkServiceFailed, err), true
+		return nil, NewResponseError(cmd.Key, model.NetworkServiceFailed, err)
 	}
 	svcB, err := json.Marshal(svc)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.NetworkServiceFailed, err), true
+		return nil, NewResponseError(cmd.Key, model.NetworkServiceFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
 		Type:    model.NetworkService,
 		Payload: string(svcB),
 	}
-	return nil, resp, true
+	return nil, resp
 }
 
-func (w *workerManager) configureNetworkIngress(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func configureNetworkIngress(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	ing, err := w.kubeClient.CreateOrUpdateIngress(w.namespace, cmd.Payload)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.NetworkIngressFailed, err), true
+		return nil, NewResponseError(cmd.Key, model.NetworkIngressFailed, err)
 	}
 	ingB, err := json.Marshal(ing)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.NetworkIngressFailed, err), true
+		return nil, NewResponseError(cmd.Key, model.NetworkIngressFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
 		Type:    model.NetworkIngress,
 		Payload: string(ingB),
 	}
-	return nil, resp, true
+	return nil, resp
 }
 
-func (w *workerManager) deleteNetworkService(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func deleteNetworkService(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	err := w.kubeClient.DeleteService(w.namespace, cmd.Payload)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.NetworkServiceDeleteFailed, err), true
+		return nil, NewResponseError(cmd.Key, model.NetworkServiceDeleteFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
 		Type:    model.NetworkServiceDelete,
 		Payload: cmd.Payload,
 	}
-	return nil, resp, true
+	return nil, resp
 }
 
-func (w *workerManager) deleteNetworkIngress(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func deleteNetworkIngress(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	err := w.kubeClient.DeleteIngress(w.namespace, cmd.Payload)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.NetworkIngressDeleteFailed, err), true
+		return nil, NewResponseError(cmd.Key, model.NetworkIngressDeleteFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
 		Type:    model.NetworkIngressDelete,
 		Payload: cmd.Payload,
 	}
-	return nil, resp, true
+	return nil, resp
 }
