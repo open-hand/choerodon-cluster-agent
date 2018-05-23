@@ -4,14 +4,10 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/assert"
 )
 
-type URLTestSuite struct {
-	suite.Suite
-}
-
-func (suite *URLTestSuite) TestParseURL() {
+func TestParseURL(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string
@@ -22,11 +18,7 @@ func (suite *URLTestSuite) TestParseURL() {
 	for _, test := range tests {
 		base, _ := url.Parse(test.input)
 		newURL, err := ParseURL(base, "log")
-		suite.Nil(err, "no error parse url")
-		suite.Equal(test.want, newURL.String(), "error parse url")
+		assert.Nil(t, err, "no error parse url")
+		assert.Equal(t, test.want, newURL.String(), "error parse url")
 	}
-}
-
-func TestURLTestSuite(t *testing.T) {
-	suite.Run(t, new(URLTestSuite))
 }
