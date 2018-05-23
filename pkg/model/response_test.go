@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCommandString(t *testing.T) {
-	cmd := &Command{
+func TestResponseString(t *testing.T) {
+	cmd := &Response{
 		Key:     "key01",
 		Type:    "type01",
 		Payload: "payload01",

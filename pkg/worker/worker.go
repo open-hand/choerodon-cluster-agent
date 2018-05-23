@@ -1,6 +1,8 @@
 package worker
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 
 	"github.com/choerodon/choerodon-agent/pkg/appclient"
@@ -37,8 +39,9 @@ func (w *workerManager) runWorker(i int) {
 		var resp *model.Response = nil
 
 		if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
-			glog.V(2).Infof("type %s not exist", cmd.Type)
-			continue
+			err := fmt.Errorf("type %s not exist", cmd.Type)
+			glog.V(2).Info(err.Error())
+			resp = NewResponseError(cmd.Key, cmd.Type, err)
 		} else {
 			newCmds, resp = processCmdFunc(w, cmd)
 		}
