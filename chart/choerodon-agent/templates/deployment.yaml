@@ -30,7 +30,7 @@ spec:
         - --v={{ .Values.config.logLevel }}
         - --host=tiller-deploy.kube-system:44134
         - --tiller-connection-timeout={{ .Values.config.tillerConnectionTimeout }}
-        - --connect={{ .Values.config.connect }}?key=env:{{ .Release.Namespace }}&envId={{ .Values.config.envId }}
+        - --connect={{ .Values.config.connect }}?version={{ .Chart.Version }}&envId={{ .Values.config.envId }}&key=env:{{ .Release.Namespace }}
         - --token={{ .Values.config.token }}
         - --namespace={{ .Release.Namespace }}
         ports:
