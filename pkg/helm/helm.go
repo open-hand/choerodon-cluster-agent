@@ -59,7 +59,7 @@ type Client interface {
 	DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.DeleteReleaseResponse, error)
 	StartRelease(request *model_helm.StartReleaseRequest) (*model_helm.StartReleaseResponse, error)
 	StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error)
-	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.GetReleaseContentResponse, error)
+	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
 }
 
 type client struct {
@@ -195,6 +195,7 @@ func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, 
 		Manifest:     release.Manifest,
 		Hooks:        rlsHooks,
 		Resources:    resources,
+		Config:  release.Config.Raw,
 	}
 	return rls, nil
 }
@@ -438,7 +439,7 @@ func (c *client) renderManifests(
 	return sortManifests(files, caps.APIVersions, tiller.InstallOrder)
 }
 
-func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.GetReleaseContentResponse, error) {
+func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName, helm.ContentReleaseVersion(request.Version))
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -450,7 +451,7 @@ func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest)
 	if err != nil {
 		return nil, err
 	}
-	return &model_helm.GetReleaseContentResponse{Release: rls}, nil
+	return rls, nil
 }
 
 func InitEnvSettings() {
