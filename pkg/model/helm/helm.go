@@ -8,9 +8,6 @@ type InstallReleaseRequest struct {
 	ReleaseName  string `json:"releaseName,omitempty"`
 }
 
-type InstallReleaseResponse struct {
-	Release *Release `json:"release,omitempty"`
-}
 
 type Release struct {
 	Name         string             `json:"name,omitempty"`
@@ -50,26 +47,20 @@ type UpgradeReleaseRequest struct {
 	Values       string `json:"values,omitempty"`
 }
 
-type UpgradeReleaseResponse struct {
-	Release *Release `json:"release,omitempty"`
-}
+
 
 type RollbackReleaseRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`
 	Version     int    `json:"version,omitempty"`
 }
 
-type RollbackReleaseResponse struct {
-	Release *Release `json:"release,omitempty"`
-}
+
 
 type DeleteReleaseRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`
 }
 
-type DeleteReleaseResponse struct {
-	Release *Release `json:"release,omitempty"`
-}
+
 
 type StopReleaseRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`

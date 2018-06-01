@@ -51,12 +51,12 @@ var (
 
 type Client interface {
 	ListRelease(namespace string) ([]*model_helm.Release, error)
-	InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.InstallReleaseResponse, error)
+	InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.Release, error)
 	PreInstallRelease(request *model_helm.InstallReleaseRequest) ([]*model_helm.ReleaseHook, error)
 	PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([]*model_helm.ReleaseHook, error)
-	UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*model_helm.UpgradeReleaseResponse, error)
-	RollbackRelease(request *model_helm.RollbackReleaseRequest) (*model_helm.RollbackReleaseResponse, error)
-	DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.DeleteReleaseResponse, error)
+	UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*model_helm.Release, error)
+	RollbackRelease(request *model_helm.RollbackReleaseRequest) (*model_helm.Release, error)
+	DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.Release, error)
 	StartRelease(request *model_helm.StartReleaseRequest) (*model_helm.StartReleaseResponse, error)
 	StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error)
 	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
@@ -131,7 +131,7 @@ func (c *client) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([
 	return releaseHooks, nil
 }
 
-func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.InstallReleaseResponse, error) {
+func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.Release, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -157,9 +157,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 			if err != nil {
 				return nil, err
 			}
-			return &model_helm.InstallReleaseResponse{
-				Release: rls,
-			}, newError
+			return rls, newError
 		}
 		return nil, newError
 	}
@@ -167,9 +165,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	if err != nil {
 		return nil, err
 	}
-	return &model_helm.InstallReleaseResponse{
-		Release: rls,
-	}, err
+	return rls, err
 }
 
 func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, error) {
@@ -245,7 +241,7 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 	return releaseHooks, nil
 }
 
-func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*model_helm.UpgradeReleaseResponse, error) {
+func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*model_helm.Release, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -262,7 +258,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 		if err != nil {
 			return nil, err
 		}
-		return &model_helm.UpgradeReleaseResponse{Release: installResp.Release}, nil
+		return installResp, nil
 	}
 
 	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
@@ -282,10 +278,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 			if err != nil {
 				return nil, err
 			}
-			resp := &model_helm.UpgradeReleaseResponse{
-				Release: rls,
-			}
-			return resp, newErr
+			return rls, newErr
 		}
 		return nil, newErr
 	}
@@ -294,13 +287,10 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	if err != nil {
 		return nil, err
 	}
-	resp := &model_helm.UpgradeReleaseResponse{
-		Release: rls,
-	}
-	return resp, nil
+	return rls, nil
 }
 
-func (c *client) RollbackRelease(request *model_helm.RollbackReleaseRequest) (*model_helm.RollbackReleaseResponse, error) {
+func (c *client) RollbackRelease(request *model_helm.RollbackReleaseRequest) (*model_helm.Release, error) {
 	rollbackReleaseResp, err := c.helmClient.RollbackRelease(
 		request.ReleaseName,
 		helm.RollbackVersion(int32(request.Version)))
@@ -311,13 +301,11 @@ func (c *client) RollbackRelease(request *model_helm.RollbackReleaseRequest) (*m
 	if err != nil {
 		return nil, err
 	}
-	resp := &model_helm.RollbackReleaseResponse{
-		Release: rls,
-	}
-	return resp, nil
+
+	return rls, nil
 }
 
-func (c *client) DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.DeleteReleaseResponse, error) {
+func (c *client) DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.Release, error) {
 	deleteReleaseResp, err := c.helmClient.DeleteRelease(
 		request.ReleaseName,
 		helm.DeletePurge(true),
@@ -329,10 +317,7 @@ func (c *client) DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model
 	if err != nil {
 		return nil, err
 	}
-	resp := &model_helm.DeleteReleaseResponse{
-		Release: rls,
-	}
-	return resp, nil
+	return rls, nil
 }
 
 func (c *client) StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error) {
