@@ -286,12 +286,14 @@ func (c *client) StartResources(namespace string, manifest string) error {
 }
 
 func (c *client) GetLogs(namespace string, pod string, containerName string) (io.ReadCloser, error) {
+	var tailLinesDefault int64 = 3000;
 	req := c.client.CoreV1().Pods(namespace).GetLogs(
 		pod,
 		&core_v1.PodLogOptions{
 			Follow:     true,
 			Timestamps: true,
 			Container:  containerName,
+			TailLines: &tailLinesDefault,
 		},
 	)
 	readCloser, err := req.Stream()
