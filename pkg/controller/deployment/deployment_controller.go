@@ -16,6 +16,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 var (
@@ -29,15 +31,17 @@ type controller struct {
 	lister            appv1_lister.DeploymentLister
 	responseChan      chan<- *model.Response
 	deploymentsSynced cache.InformerSynced
+	namespace		  string
 }
 
-func NewDeploymentController(deploymentInformer appv1.DeploymentInformer, responseChan chan<- *model.Response) *controller {
+func NewDeploymentController(deploymentInformer appv1.DeploymentInformer, responseChan chan<- *model.Response, namespace string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "deployment"),
 		workerLoopPeriod: time.Second,
 		lister:           deploymentInformer.Lister(),
 		responseChan:     responseChan,
+		namespace: 	      namespace,
 	}
 
 	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -67,6 +71,34 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced); !ok {
 		glog.Error("failed to wait for caches to sync")
+	}
+
+	resources,err := c.lister.Deployments(c.namespace).List(labels.NewSelector())
+	if err != nil {
+		glog.Error("failed list deployment")
+	}else {
+		var resourceList []string
+		for _,resource := range resources {
+			if resource.Labels[model.ReleaseLabel] != ""{
+				resourceList = append(resourceList, resource.GetName())
+			}
+		}
+		resourceListResp := &kubernetes.ResourceList{
+			Resources: resourceList,
+			ResourceType: "Deployment",
+		}
+		content,err := json.Marshal(resourceListResp)
+		if err!= nil {
+			glog.Error("marshal deployment list error")
+		}else {
+			response := &model.Response{
+				Key: fmt.Sprintf("env:%s", c.namespace),
+				Type: model.ResourceSync,
+				Payload: string(content),
+			}
+			c.responseChan <- response
+
+		}
 	}
 
 	// Launch two workers to process Foo resources

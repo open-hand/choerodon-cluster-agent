@@ -18,6 +18,8 @@ import (
 
 	"github.com/choerodon/choerodon-agent/pkg/kube"
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"k8s.io/apimachinery/pkg/labels"
+	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
 var (
@@ -32,9 +34,10 @@ type controller struct {
 	responseChan     chan<- *model.Response
 	jobSynced        cache.InformerSynced
 	kubeClient       kube.Client
+	namespace		  string
 }
 
-func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, responseChan chan<- *model.Response) *controller {
+func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, responseChan chan<- *model.Response,namespace string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "job"),
@@ -42,6 +45,7 @@ func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, r
 		lister:           jobInformer.Lister(),
 		responseChan:     responseChan,
 		kubeClient:       client,
+		namespace:namespace,
 	}
 
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -71,6 +75,34 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.jobSynced); !ok {
 		glog.Error("failed to wait for caches to sync")
+	}
+
+	resources,err := c.lister.Jobs(c.namespace).List(labels.NewSelector())
+	if err != nil {
+		glog.Error("failed list jobs")
+	}else {
+		var resourceList []string
+		for _,resource := range resources {
+			if resource.Labels[model.ReleaseLabel] != ""{
+				resourceList = append(resourceList, resource.GetName())
+			}
+		}
+		resourceListResp := &kubernetes.ResourceList{
+			Resources: resourceList,
+			ResourceType: "Job",
+		}
+		content,err := json.Marshal(resourceListResp)
+		if err!= nil {
+			glog.Error("marshal job list error")
+		}else {
+			response := &model.Response{
+				Key: fmt.Sprintf("env:%s", c.namespace),
+				Type: model.ResourceSync,
+				Payload: string(content),
+			}
+			c.responseChan <- response
+
+		}
 	}
 
 	// Launch two workers to process Foo resources

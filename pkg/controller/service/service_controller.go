@@ -16,6 +16,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"k8s.io/apimachinery/pkg/labels"
+	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
 var (
@@ -29,15 +31,17 @@ type controller struct {
 	lister           v1_lister.ServiceLister
 	responseChan     chan<- *model.Response
 	servicesSynced   cache.InformerSynced
+	namespace		  string
 }
 
-func NewserviceController(serviceInformer v1_informer.ServiceInformer, responseChan chan<- *model.Response) *controller {
+func NewserviceController(serviceInformer v1_informer.ServiceInformer, responseChan chan<- *model.Response,namespace string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "service"),
 		workerLoopPeriod: time.Second,
 		lister:           serviceInformer.Lister(),
 		responseChan:     responseChan,
+		namespace:namespace,
 	}
 
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -67,6 +71,34 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.servicesSynced); !ok {
 		glog.Error("failed to wait for caches to sync")
+	}
+
+	resources,err := c.lister.Services(c.namespace).List(labels.NewSelector())
+	if err != nil {
+		glog.Error("failed list service")
+	}else {
+		var resourceList []string
+		for _,resource := range resources {
+			if resource.Labels[model.NetworkLabel] != "" {
+				resourceList = append(resourceList, resource.GetName())
+			}
+		}
+		resourceListResp := &kubernetes.ResourceList{
+			Resources: resourceList,
+			ResourceType: "Service",
+		}
+		content,err := json.Marshal(resourceListResp)
+		if err!= nil {
+			glog.Error("marshal service list error")
+		}else {
+			response := &model.Response{
+				Key: fmt.Sprintf("env:%s", c.namespace),
+				Type: model.ResourceSync,
+				Payload: string(content),
+			}
+			c.responseChan <- response
+
+		}
 	}
 
 	// Launch two workers to process Foo resources

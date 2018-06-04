@@ -33,6 +33,7 @@ const (
 	// kubernetes resource
 	ResourceUpdate = "resource_update"
 	ResourceDelete = "resource_delete"
+	ResourceSync  = "resource_sync"
 	// kubernetes
 	KubernetesGetLogs       = "kubernetes_get_logs"
 	KubernetesGetLogsFailed = "kubernetes_get_logs_failed"

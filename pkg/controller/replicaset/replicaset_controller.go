@@ -15,6 +15,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"k8s.io/apimachinery/pkg/labels"
+	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
 var (
@@ -28,15 +30,17 @@ type controller struct {
 	replicsetInformer appv1.ReplicaSetInformer
 	responseChan      chan<- *model.Response
 	replicasetsSynced cache.InformerSynced
+	namespace		  string
 }
 
-func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, responseChan chan<- *model.Response) *controller {
+func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, responseChan chan<- *model.Response, namespace string) *controller {
 
 	c := &controller{
 		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "replicaset"),
 		workerLoopPeriod:  time.Second,
 		replicsetInformer: replicasetInformer,
 		responseChan:      responseChan,
+		namespace: 			namespace,
 	}
 
 	replicasetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -66,6 +70,34 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.replicasetsSynced); !ok {
 		glog.Error("failed to wait for caches to sync")
+	}
+
+	resources,err := c.replicsetInformer.Lister().List(labels.NewSelector())
+	if err != nil {
+		glog.Error("failed list replica set")
+	}else {
+		var resourceList []string
+		for _,resource := range resources {
+			if resource.Labels[model.ReleaseLabel] != ""{
+				resourceList = append(resourceList, resource.GetName())
+			}
+		}
+		resourceListResp := &kubernetes.ResourceList{
+			Resources: resourceList,
+			ResourceType: "ReplicaSet",
+		}
+		content,err := json.Marshal(resourceListResp)
+		if err!= nil {
+			glog.Error("marshal pod replicaSet error")
+		}else {
+			response := &model.Response{
+				Key: fmt.Sprintf("env:%s", c.namespace),
+				Type: model.ResourceSync,
+				Payload: string(content),
+			}
+			c.responseChan <- response
+
+		}
 	}
 
 	// Launch two workers to process Foo resources
