@@ -157,9 +157,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	service, err := c.lister.Services(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			if service.Labels[model.NetworkLabel] != "" {
-				c.responseChan <- newServiceDelRep(name, namespace)
-			}
+			c.responseChan <- newServiceDelRep(name, namespace)
 			runtime.HandleError(fmt.Errorf("service '%s' in work queue no longer exists", key))
 			return true, nil
 		}

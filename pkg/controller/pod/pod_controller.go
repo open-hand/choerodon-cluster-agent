@@ -159,9 +159,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	pod, err := c.lister.Pods(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			if pod.Labels[model.ReleaseLabel] != ""{
-				c.responseChan <- newPodDelRep(name, namespace)
-			}
+			c.responseChan <- newPodDelRep(name, namespace)
 			runtime.HandleError(fmt.Errorf("pod '%s' in work queue no longer exists", key))
 			return true, nil
 		}

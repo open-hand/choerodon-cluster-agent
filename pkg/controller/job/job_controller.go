@@ -161,9 +161,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	job, err := c.lister.Jobs(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			if job.Labels[model.ReleaseLabel] != "" {
-				c.responseChan <- newJobDelRep(name, namespace)
-			}
+			c.responseChan <- newJobDelRep(name, namespace)
 			runtime.HandleError(fmt.Errorf("pod '%s' in work queue no longer exists", key))
 			return true, nil
 		}

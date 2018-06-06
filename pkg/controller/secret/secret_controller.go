@@ -157,9 +157,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	secret, err := c.lister.Secrets(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			if secret.Labels[model.ReleaseLabel] != "" {
-				c.responseChan <- newsecretDelRep(name, namespace)
-			}
+			c.responseChan <- newsecretDelRep(name, namespace)
 			runtime.HandleError(fmt.Errorf("pod '%s' in work queue no longer exists", key))
 			return true, nil
 		}
