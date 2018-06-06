@@ -157,7 +157,9 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	configMap, err := c.lister.ConfigMaps(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			c.responseChan <- newConfigMapDelRep(name, namespace)
+			if configMap.Labels[model.ReleaseLabel] != "" {
+				c.responseChan <- newConfigMapDelRep(name, namespace)
+			}
 			runtime.HandleError(fmt.Errorf("pod '%s' in work queue no longer exists", key))
 			return true, nil
 		}

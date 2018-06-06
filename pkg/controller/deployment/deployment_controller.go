@@ -157,7 +157,9 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	deployment, err := c.lister.Deployments(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			c.responseChan <- newDeploymentDelRep(name, namespace)
+			if deployment.Labels[model.ReleaseLabel] != "" {
+				c.responseChan <- newDeploymentDelRep(name, namespace)
+			}
 			runtime.HandleError(fmt.Errorf("pod '%s' in work queue no longer exists", key))
 			return true, nil
 		}

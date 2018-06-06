@@ -156,8 +156,9 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	replicaset, err := c.replicsetInformer.Lister().ReplicaSets(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-
-			c.responseChan <- newReplicaSetDelRep(name, namespace)
+			if replicaset.Labels[model.ReleaseLabel] != "" {
+				c.responseChan <- newReplicaSetDelRep(name, namespace)
+			}
 			runtime.HandleError(fmt.Errorf("pod '%s' in work queue no longer exists", key))
 			return true, nil
 		}
