@@ -1,12 +1,9 @@
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
-  annotations:
-{{ include "service.annotations.standard" . | indent 4 }}
   name: {{ .Release.Name }}
   labels:
     app: {{ .Release.Name }}
-
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
@@ -44,8 +41,7 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
-      serviceAccount: {{ .Release.Name }}
-      serviceAccountName: {{ .Release.Name }}
+      serviceAccountName: {{ if .Values.rbac.create }}"{{ include "service.fullname" . }}-sa"{{ else }}"{{ .Values.rbac.serviceAccountName }}"{{ end }}
       terminationGracePeriodSeconds: 30
   revisionHistoryLimit: 3
   minReadySeconds: 0
