@@ -4,13 +4,6 @@ default: &default
 
 version: 2
 jobs:
-  go_test:
-    <<: *default
-    working_directory: ~/repo
-    steps:
-      - checkout
-      - run: ls    
-  
   docker_build:
     <<: *default
     working_directory: ~/repo
@@ -40,19 +33,8 @@ workflows:
   version: 2
   release:
     jobs:
-      - go_test:
-          context: org-global
-          filters:
-            tags:
-              only: /^.*/
-            branches:
-              only:
-                - /^release-.*$/
-                - /^hotfix-.*$/
       - docker_build:
           context: org-global
-          requires:
-          - go_test
           filters:
             tags:
               only: /^.*/
@@ -71,11 +53,3 @@ workflows:
               only:
                 - /^release-.*$/
                 - /^hotfix-.*$/
-  daily:
-    jobs:
-      - go_test:
-          context: org-global
-          filters:
-            branches:
-              only: 
-               - /^.*$/
