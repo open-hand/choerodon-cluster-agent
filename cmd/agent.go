@@ -17,6 +17,7 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/signals"
 	"github.com/choerodon/choerodon-agent/pkg/version"
 	"github.com/choerodon/choerodon-agent/pkg/worker"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
@@ -113,11 +114,16 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory, stopCh <-chan struct{}) error {
 	if err != nil {
 		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
+	_,err = kubeClientSet.CoreV1().Pods(o.Namespace).List(v1.ListOptions{})
+	if err != nil {
+		return err
+	}
 	appClient, err := appclient.NewClient(appclient.Token(o.Token), o.UpstreamURL, commandChan, responseChan)
 	if err != nil {
 		return err
 	}
 	defer appClient.Stop()
+
 	workerManager := worker.NewWorkerManager(
 		commandChan,
 		responseChan,

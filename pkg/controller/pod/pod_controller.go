@@ -76,7 +76,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 
 	pods,err := c.lister.Pods(c.namespace).List(labels.NewSelector())
 	if err != nil {
-		glog.Error("failed list pods")
+		panic("can not list resource, no rabc bind, exit !")
 	}else {
 		var podList []string
 		for _,pod := range pods {
