@@ -1,16 +1,14 @@
 kind: Deployment
 apiVersion: extensions/v1beta1
 metadata:
-  annotations:
-{{ include "service.annotations.standard" . | indent 4 }}
   name: {{ .Release.Name }}
   labels:
-{{ include "service.labels.standard" . | indent 4 }}
+    app: {{ .Release.Name }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-{{ include "service.match.labels" . | indent 6 }}
+      app: {{ .Release.Name }}
   strategy:
     rollingUpdate:
       maxSurge: 1
@@ -19,7 +17,7 @@ spec:
   template:
     metadata:
       labels:
-{{ include "service.labels.standard" . | indent 8 }}
+        app: {{ .Release.Name }}
     spec:
       containers:
       - name: {{ .Release.Name }}
@@ -30,7 +28,7 @@ spec:
         - --v={{ .Values.config.logLevel }}
         - --host=tiller-deploy.kube-system:44134
         - --tiller-connection-timeout={{ .Values.config.tillerConnectionTimeout }}
-        - --connect={{ .Values.config.connect }}?key=env:{{ .Release.Namespace }}&envId={{ .Values.config.envId }}
+        - --connect={{ .Values.config.connect }}?version={{ .Chart.Version }}&envId={{ .Values.config.envId }}&key=env:{{ .Release.Namespace }}.envId:{{.Values.config.envId}}
         - --token={{ .Values.config.token }}
         - --namespace={{ .Release.Namespace }}
         ports:
@@ -43,8 +41,7 @@ spec:
       restartPolicy: Always
       schedulerName: default-scheduler
       securityContext: {}
-      serviceAccount: {{ .Release.Name }}
-      serviceAccountName: {{ .Release.Name }}
+      serviceAccountName: {{ if .Values.rbac.create }}"{{ .Release.Name }}"{{ else }}"{{ .Values.rbac.serviceAccountName }}"{{ end }}
       terminationGracePeriodSeconds: 30
   revisionHistoryLimit: 3
   minReadySeconds: 0

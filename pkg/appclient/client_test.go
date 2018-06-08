@@ -11,43 +11,27 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
 )
 
-type ClientTestSuite struct {
-	suite.Suite
-	upgrader     websocket.Upgrader
-	commandChan  chan *model.Command
-	responseChan chan *model.Response
-	stopCh       chan struct{}
-	server       *httptest.Server
-	serverURL    *url.URL
-}
+var (
+	clientTestUpgrader = websocket.Upgrader{}
+)
 
-func (suite *ClientTestSuite) SetupSuite() {
-	suite.upgrader = websocket.Upgrader{}
-	suite.server = httptest.NewServer(suite.router())
-	suite.serverURL, _ = url.Parse(fmt.Sprintf("ws%s/agent", strings.TrimPrefix(suite.server.URL, "http")))
-}
-
-func (suite *ClientTestSuite) TearDownSuite() {
-	suite.server.Close()
-}
-
-func (suite *ClientTestSuite) router() http.Handler {
+func clientTestRouter(t *testing.T) http.Handler {
 	router := gin.Default()
 	router.GET("/agent", func(c *gin.Context) {
-		suite.serveWs(c.Writer, c.Request)
+		clientTestServeWs(t, c.Writer, c.Request)
 	})
 	return router
 }
 
-func (suite *ClientTestSuite) serveWs(w http.ResponseWriter, r *http.Request) {
-	conn, err := suite.upgrader.Upgrade(w, r, nil)
-	suite.Nil(err, "no error upgrades")
+func clientTestServeWs(t *testing.T, w http.ResponseWriter, r *http.Request) {
+	conn, err := clientTestUpgrader.Upgrade(w, r, nil)
+	assert.Nil(t, err, "no error upgrades")
 	defer conn.Close()
 
 	helmInstallMessage := &model_helm.InstallReleaseRequest{
@@ -67,27 +51,30 @@ func (suite *ClientTestSuite) serveWs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	err = conn.WriteJSON(command)
-	suite.Nil(err, "no error write json")
+	assert.Nil(t, err, "no error write json")
 
 	_, _, err = conn.ReadMessage()
-	suite.Nil(err, "no error read message")
+	assert.Nil(t, err, "no error read message")
 
 	conn.WriteMessage(websocket.CloseMessage, []byte{})
 }
 
-func (suite *ClientTestSuite) TestClient() {
-	suite.commandChan = make(chan *model.Command)
-	suite.responseChan = make(chan *model.Response)
-	suite.stopCh = make(chan struct{})
+func TestClient(t *testing.T) {
+	commandChan := make(chan *model.Command)
+	responseChan := make(chan *model.Response)
+	stopCh := make(chan struct{})
+	server := httptest.NewServer(clientTestRouter(t))
+	defer server.Close()
 
-	c, err := NewClient(Token("token"), suite.serverURL.String(), suite.commandChan, suite.responseChan)
-	suite.Nil(err, "no error create new client")
+	serverURL, _ := url.Parse(fmt.Sprintf("ws%s/agent", strings.TrimPrefix(server.URL, "http")))
+	c, err := NewClient(Token("token"), serverURL.String(), commandChan, responseChan)
+	assert.Nil(t, err, "no error create new client")
 	defer c.Stop()
 
-	go c.Start(suite.stopCh)
+	go c.Start(stopCh)
 
-	cmd := <-suite.commandChan
-	suite.Equal("helm:release:install", cmd.Key, "Bad command")
+	cmd := <-commandChan
+	assert.Equal(t, "helm:release:install", cmd.Key, "Bad command")
 
 	helmInstallResp := &model_helm.InstallReleaseResponse{
 		Release: &model_helm.Release{
@@ -100,7 +87,7 @@ func (suite *ClientTestSuite) TestClient() {
 		},
 	}
 	helmInstallRespB, err := json.Marshal(helmInstallResp)
-	suite.Nil(err, "no error marshal json")
+	assert.Nil(t, err, "no error marshal json")
 
 	resp := &model.Response{
 		Key:     cmd.Key,
@@ -108,9 +95,5 @@ func (suite *ClientTestSuite) TestClient() {
 		Payload: string(helmInstallRespB),
 	}
 
-	suite.responseChan <- resp
-}
-
-func TestClientSuite(t *testing.T) {
-	suite.Run(t, new(ClientTestSuite))
+	responseChan <- resp
 }

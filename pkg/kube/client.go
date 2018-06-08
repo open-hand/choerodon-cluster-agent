@@ -10,9 +10,14 @@ import (
 	"github.com/golang/glog"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	appsv1beta2 "k8s.io/api/apps/v1beta2"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	batch "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
@@ -22,6 +27,8 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type Client interface {
@@ -84,6 +91,8 @@ func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
 	}
+
+	var objPods = make(map[string][]core_v1.Pod)
 	for _, info := range result {
 		if err := info.Get(); err != nil {
 			glog.Errorf("WARNING: Failed Get for resource %q: %s", info.Name, err)
@@ -96,13 +105,42 @@ func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.
 			Name:            info.Name,
 			ResourceVersion: info.ResourceVersion,
 		}
+
+
+		if err != nil {
+			glog.Error("Warning: get the relation pod is failed, err:%s", err.Error())
+		}
 		objB, err := json.Marshal(info.Object)
+
 		if err == nil {
 			hrr.Object = string(objB)
 		} else {
 			glog.Error(err)
 		}
+
+
 		resources = append(resources, hrr)
+		objPods,err =  c.getSelectRelationPod(info,objPods)
+		//here, we will add the objPods to the objs
+		for _, podItems := range objPods {
+			for i := range podItems {
+				hrr := &model_helm.ReleaseResource{
+					Group:           podItems[i].GroupVersionKind().Group,
+					Version:         podItems[i].GroupVersionKind().Version,
+					Kind:            podItems[i].GroupVersionKind().Kind,
+					Name:            podItems[i].Name,
+					ResourceVersion: podItems[i].ResourceVersion,
+				}
+				objPod,err := json.Marshal(podItems[i])
+				if err == nil {
+					hrr.Object = string(objPod)
+				} else {
+					glog.Error(err)
+				}
+
+				resources = append(resources, hrr)
+			}
+		}
 	}
 	return resources, nil
 }
@@ -248,12 +286,14 @@ func (c *client) StartResources(namespace string, manifest string) error {
 }
 
 func (c *client) GetLogs(namespace string, pod string, containerName string) (io.ReadCloser, error) {
+	var tailLinesDefault int64 = 3000;
 	req := c.client.CoreV1().Pods(namespace).GetLogs(
 		pod,
 		&core_v1.PodLogOptions{
 			Follow:     true,
 			Timestamps: true,
 			Container:  containerName,
+			TailLines: &tailLinesDefault,
 		},
 	)
 	readCloser, err := req.Stream()
@@ -289,4 +329,103 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 		Command:   []string{"/bin/sh", "-c", "TERM=xterm exec $( (type getent > /dev/null 2>&1  && getent passwd root | cut -d: -f7 2>/dev/null) || echo /bin/sh)"},
 	}, legacyscheme.ParameterCodec)
 	return execute(http.MethodPost, req.URL(), config, local, local, local, true)
+}
+
+func  (c *client)getSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
+	if info == nil {
+		return objPods, nil
+	}
+
+	glog.Info("get relation pod of object: %s/%s/%s", info.Namespace, info.Mapping.GroupVersionKind.Kind, info.Name)
+
+	versioned, err := info.Versioned()
+	switch {
+	case runtime.IsNotRegisteredError(err):
+		return objPods, nil
+	case err != nil:
+		return objPods, err
+	}
+
+	selector, ok := getSelectorFromObject(versioned)
+	if !ok {
+		return objPods, nil
+	}
+
+	pods, err := c.client.Core().Pods(info.Namespace).List(meta_v1.ListOptions{
+		FieldSelector: fields.Everything().String(),
+		LabelSelector: labels.Set(selector).AsSelector().String(),
+	})
+	if err != nil {
+		return objPods, err
+	}
+
+	for _, pod := range pods.Items {
+		if pod.APIVersion == "" {
+			pod.APIVersion = "v1"
+		}
+
+		if pod.Kind == "" {
+			pod.Kind = "Pod"
+		}
+		vk := pod.GroupVersionKind().Version + "/" + pod.GroupVersionKind().Kind
+
+		if !isFoundPod(objPods[vk], pod) {
+			objPods[vk] = append(objPods[vk], pod)
+		}
+	}
+	return objPods, nil
+}
+
+
+
+
+func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
+	for _, value := range podItem {
+		if (value.Namespace == pod.Namespace) && (value.Name == pod.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+func getSelectorFromObject(obj runtime.Object) (map[string]string, bool) {
+	switch typed := obj.(type) {
+
+	case *core_v1.ReplicationController:
+		return typed.Spec.Selector, true
+
+	case *ext_v1beta1.ReplicaSet:
+		return typed.Spec.Selector.MatchLabels, true
+	case *appsv1.ReplicaSet:
+		return typed.Spec.Selector.MatchLabels, true
+
+	case *ext_v1beta1.Deployment:
+		return typed.Spec.Selector.MatchLabels, true
+	case *appsv1beta1.Deployment:
+		return typed.Spec.Selector.MatchLabels, true
+	case *appsv1beta2.Deployment:
+		return typed.Spec.Selector.MatchLabels, true
+	case *appsv1.Deployment:
+		return typed.Spec.Selector.MatchLabels, true
+
+	case *ext_v1beta1.DaemonSet:
+		return typed.Spec.Selector.MatchLabels, true
+	case *appsv1beta2.DaemonSet:
+		return typed.Spec.Selector.MatchLabels, true
+	case *appsv1.DaemonSet:
+		return typed.Spec.Selector.MatchLabels, true
+
+	case *batch.Job:
+		return typed.Spec.Selector.MatchLabels, true
+
+	case *appsv1beta1.StatefulSet:
+		return typed.Spec.Selector.MatchLabels, true
+	case *appsv1beta2.StatefulSet:
+		return typed.Spec.Selector.MatchLabels, true
+	case *appsv1.StatefulSet:
+		return typed.Spec.Selector.MatchLabels, true
+
+	default:
+		return nil, false
+	}
 }

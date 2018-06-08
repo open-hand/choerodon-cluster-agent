@@ -16,6 +16,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"k8s.io/apimachinery/pkg/labels"
+	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
 var (
@@ -29,15 +31,17 @@ type controller struct {
 	lister           appv1_lister.IngressLister
 	responseChan     chan<- *model.Response
 	ingresssSynced   cache.InformerSynced
+	namespace		 string
 }
 
-func NewIngressController(ingressInformer appv1.IngressInformer, responseChan chan<- *model.Response) *controller {
+func NewIngressController(ingressInformer appv1.IngressInformer, responseChan chan<- *model.Response, namespace string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ingress"),
 		workerLoopPeriod: time.Second,
 		lister:           ingressInformer.Lister(),
 		responseChan:     responseChan,
+		namespace:         namespace,
 	}
 
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -67,6 +71,34 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.ingresssSynced); !ok {
 		glog.Error("failed to wait for caches to sync")
+	}
+
+	resources,err := c.lister.Ingresses(c.namespace).List(labels.NewSelector())
+	if err != nil {
+		glog.Error("failed list ingress")
+	}else {
+		var resourceList []string
+		for _,resource := range resources {
+			if resource.Labels[model.NetworkLabel] != "" {
+				resourceList = append(resourceList, resource.GetName())
+			}
+		}
+		resourceListResp := &kubernetes.ResourceList{
+			Resources: resourceList,
+			ResourceType: "Ingress",
+		}
+		content,err := json.Marshal(resourceListResp)
+		if err!= nil {
+			glog.Error("marshal ingress list error")
+		}else {
+			response := &model.Response{
+				Key: fmt.Sprintf("env:%s", c.namespace),
+				Type: model.ResourceSync,
+				Payload: string(content),
+			}
+			c.responseChan <- response
+
+		}
 	}
 
 	// Launch two workers to process Foo resources
@@ -121,7 +153,6 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", key))
 		return true, nil
 	}
-
 	ingress, err := c.lister.Ingresses(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {

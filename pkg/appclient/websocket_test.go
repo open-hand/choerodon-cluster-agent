@@ -10,36 +10,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/stretchr/testify/suite"
+	"github.com/stretchr/testify/assert"
 )
 
-type WebsocketTestSuite struct {
-	suite.Suite
-	upgrader  websocket.Upgrader
-	server    *httptest.Server
-	serverURL *url.URL
-}
+var (
+	websocketTestUpgrader = websocket.Upgrader{}
+)
 
-func (suite *WebsocketTestSuite) SetupSuite() {
-	suite.upgrader = websocket.Upgrader{}
-	suite.server = httptest.NewServer(suite.router())
-	suite.serverURL, _ = url.Parse(fmt.Sprintf("ws%s", strings.TrimPrefix(suite.server.URL, "http")))
-}
-
-func (suite *WebsocketTestSuite) TearDownSuite() {
-	suite.server.Close()
-}
-
-func (suite *WebsocketTestSuite) router() http.Handler {
+func websocketTestRouter(t *testing.T) http.Handler {
 	router := gin.Default()
 	router.GET("/", func(c *gin.Context) {
-		suite.echo(c.Writer, c.Request)
+		websocketTestEcho(t, c.Writer, c.Request)
 	})
 	return router
 }
 
-func (suite *WebsocketTestSuite) echo(w http.ResponseWriter, r *http.Request) {
-	conn, err := suite.upgrader.Upgrade(w, r, nil)
+func websocketTestEcho(t *testing.T, w http.ResponseWriter, r *http.Request) {
+	conn, err := websocketTestUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
@@ -47,20 +34,20 @@ func (suite *WebsocketTestSuite) echo(w http.ResponseWriter, r *http.Request) {
 	for {
 		mt, message, err := conn.ReadMessage()
 		if err != nil {
-			suite.Equal(true, IsExpectedWSCloseError(err), "no unexpected error read message")
+			assert.Equal(t, true, IsExpectedWSCloseError(err), "no unexpected error read message")
 			return
 		}
 		err = conn.WriteMessage(mt, message)
-		suite.Nil(err, "no error write message")
+		assert.Nil(t, err, "no error write message")
 	}
 }
 
-func (suite *WebsocketTestSuite) TestDial() {
-	s := httptest.NewServer(http.HandlerFunc(suite.echo))
-	defer s.Close()
-
-	conn, err := dial(suite.serverURL.String(), Token("token"))
-	suite.Nil(err, "no error websocket dial")
+func TestDial(t *testing.T) {
+	server := httptest.NewServer(websocketTestRouter(t))
+	defer server.Close()
+	serverURL, _ := url.Parse(fmt.Sprintf("ws%s", strings.TrimPrefix(server.URL, "http")))
+	conn, err := dial(serverURL.String(), Token("token"))
+	assert.Nil(t, err, "no error websocket dial")
 	defer conn.Close()
 
 	tests := []struct {
@@ -74,13 +61,9 @@ func (suite *WebsocketTestSuite) TestDial() {
 
 	for _, test := range tests {
 		err := conn.WriteMessage(websocket.TextMessage, []byte(test.input))
-		suite.Nil(err, "no error write message")
+		assert.Nil(t, err, "no error write message")
 		_, p, err := conn.ReadMessage()
-		suite.Nil(err, "no error read message")
-		suite.Equal(test.want, string(p), "bad message")
+		assert.Nil(t, err, "no error read message")
+		assert.Equal(t, test.want, string(p), "bad message")
 	}
-}
-
-func TestWebsocketTestSuit(t *testing.T) {
-	suite.Run(t, new(WebsocketTestSuite))
 }

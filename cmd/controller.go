@@ -29,6 +29,7 @@ type ControllerContext struct {
 	KubeClient      kube.Client
 	Stop            <-chan struct{}
 	ResponseChan    chan<- *model.Response
+	Namespace       string
 }
 
 func CreateControllerContext(
@@ -46,6 +47,7 @@ func CreateControllerContext(
 		Stop:            stop,
 		KubeClient:      kubeClient,
 		ResponseChan:    responseChan,
+		Namespace:       options.Namespace,
 	}
 	return ctx
 }
@@ -96,6 +98,7 @@ func startDeploymentController(ctx *ControllerContext) (bool, error) {
 	go deployment.NewDeploymentController(
 		ctx.InformerFactory.Extensions().V1beta1().Deployments(),
 		ctx.ResponseChan,
+		ctx.Namespace,
 	).Run(int(ctx.Options.ConcurrentDeploymentSyncs), ctx.Stop)
 	return true, nil
 }
@@ -104,6 +107,7 @@ func startIngressController(ctx *ControllerContext) (bool, error) {
 	go ingress.NewIngressController(
 		ctx.InformerFactory.Extensions().V1beta1().Ingresses(),
 		ctx.ResponseChan,
+		ctx.Namespace,
 	).Run(int(ctx.Options.ConcurrentIngressSyncs), ctx.Stop)
 	return true, nil
 }
@@ -112,6 +116,7 @@ func startReplicaSetController(ctx *ControllerContext) (bool, error) {
 	go replicaset.NewReplicaSetController(
 		ctx.InformerFactory.Extensions().V1beta1().ReplicaSets(),
 		ctx.ResponseChan,
+		ctx.Namespace,
 	).Run(int(ctx.Options.ConcurrentRSSyncs), ctx.Stop)
 	return true, nil
 }
@@ -121,6 +126,7 @@ func startJobController(ctx *ControllerContext) (bool, error) {
 		ctx.InformerFactory.Batch().V1().Jobs(),
 		ctx.KubeClient,
 		ctx.ResponseChan,
+		ctx.Namespace,
 	).Run(int(ctx.Options.ConcurrentJobSyncs), ctx.Stop)
 	return true, nil
 }
@@ -129,6 +135,7 @@ func startServiceController(ctx *ControllerContext) (bool, error) {
 	go service.NewserviceController(
 		ctx.InformerFactory.Core().V1().Services(),
 		ctx.ResponseChan,
+		ctx.Namespace,
 	).Run(int(ctx.Options.ConcurrentServiceSyncs), ctx.Stop)
 	return true, nil
 }
@@ -137,6 +144,7 @@ func startSecretController(ctx *ControllerContext) (bool, error) {
 	go secret.NewSecretController(
 		ctx.InformerFactory.Core().V1().Secrets(),
 		ctx.ResponseChan,
+		ctx.Namespace,
 	).Run(int(ctx.Options.ConcurrentSecretSyncs), ctx.Stop)
 	return true, nil
 }
@@ -145,6 +153,7 @@ func startConfigMapController(ctx *ControllerContext) (bool, error) {
 	go configMap.NewconfigMapController(
 		ctx.InformerFactory.Core().V1().ConfigMaps(),
 		ctx.ResponseChan,
+		ctx.Namespace,
 	).Run(int(ctx.Options.ConcurrentConfigMapSyncs), ctx.Stop)
 	return true, nil
 }
@@ -153,6 +162,7 @@ func startPodController(ctx *ControllerContext) (bool, error) {
 	go pod.NewpodController(
 		ctx.InformerFactory.Core().V1().Pods(),
 		ctx.ResponseChan,
+		ctx.Namespace,
 	).Run(int(ctx.Options.ConcurrentPodSyncs), ctx.Stop)
 	return true, nil
 }

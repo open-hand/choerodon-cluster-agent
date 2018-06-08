@@ -11,3 +11,8 @@ type ExecByKubernetesRequest struct {
 	ContainerName string `json:"containerName,omitempty"`
 	PipeID        string `json:"pipeID,omitempty"`
 }
+
+type ResourceList struct {
+	Resources      []string `json:"resources,omitempty"`
+	ResourceType   string  `json:"resourceType,omitempty"`
+}

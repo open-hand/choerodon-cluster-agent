@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
@@ -16,10 +14,10 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/http"
 	"github.com/choerodon/choerodon-agent/pkg/kube"
 	"github.com/choerodon/choerodon-agent/pkg/model"
-	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
 	"github.com/choerodon/choerodon-agent/pkg/signals"
 	"github.com/choerodon/choerodon-agent/pkg/version"
 	"github.com/choerodon/choerodon-agent/pkg/worker"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
@@ -105,10 +103,8 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory, stopCh <-chan struct{}) error {
 	}
 
 	helm.InitEnvSettings()
-
 	commandChan := make(chan *model.Command, 100)
 	responseChan := make(chan *model.Response, 100)
-
 	kubeClient, err := kube.NewClient(f)
 	if err != nil {
 		return err
@@ -118,11 +114,16 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory, stopCh <-chan struct{}) error {
 	if err != nil {
 		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())
 	}
+	_,err = kubeClientSet.CoreV1().Pods(o.Namespace).List(v1.ListOptions{})
+	if err != nil {
+		return err
+	}
 	appClient, err := appclient.NewClient(appclient.Token(o.Token), o.UpstreamURL, commandChan, responseChan)
 	if err != nil {
 		return err
 	}
 	defer appClient.Stop()
+
 	workerManager := worker.NewWorkerManager(
 		commandChan,
 		responseChan,
@@ -132,40 +133,13 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory, stopCh <-chan struct{}) error {
 		o.Namespace,
 	)
 	httpServer := http.NewServer(o.Listen)
-
 	ctx := CreateControllerContext(o, kubeClientSet, kubeClient, stopCh, responseChan)
 
 	go workerManager.Start()
 	go httpServer.Run()
 
-	releases, err := helmClient.ListRelease(o.Namespace)
-	releasesRep, err := newReleasesRep(releases, o.Namespace)
-	if err != nil {
-		return fmt.Errorf("error get releases: %v", err)
-	} else {
-		responseChan <- releasesRep
-	}
-
-	go func() {
-		time.Sleep(5 * time.Second)
-		StartControllers(ctx, NewControllerInitializers())
-		ctx.InformerFactory.Start(ctx.Stop)
-	}()
+	StartControllers(ctx, NewControllerInitializers())
+	ctx.InformerFactory.Start(ctx.Stop)
 
 	return appClient.Start(stopCh)
-}
-
-func newReleasesRep(releases []*model_helm.Release, namespace string) (*model.Response, error) {
-	content, err := json.Marshal(releases)
-	if err != nil {
-		glog.Error("marshal releases error ", err)
-		return nil, err
-	}
-	reResponse := &model.Response{
-		Key:     fmt.Sprintf("env:%s", namespace),
-		Type:    model.HelmReleases,
-		Payload: string(content),
-	}
-	return reResponse, nil
-
 }

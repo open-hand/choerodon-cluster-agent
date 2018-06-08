@@ -30,3 +30,7 @@ resources:
   requests:
     # cpu: 100m
     memory: 256Mi
+
+rbac:
+  create: false
+  serviceAccountName: default

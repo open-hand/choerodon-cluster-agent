@@ -1,9 +1,10 @@
+{{- if .Values.rbac.create -}}
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: {{ .Release.Name }}
   labels:
-{{ include "service.labels.standard" . | indent 4 }}
+    app: {{ .Release.Name }}
 rules:
 - apiGroups:
   - "*"
@@ -11,3 +12,4 @@ rules:
   - "*"
   verbs:
   - "*"
+{{- end -}}

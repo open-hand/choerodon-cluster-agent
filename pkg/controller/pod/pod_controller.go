@@ -17,6 +17,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"k8s.io/apimachinery/pkg/labels"
+	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
 var (
@@ -30,15 +32,17 @@ type controller struct {
 	lister           v1_lister.PodLister
 	responseChan     chan<- *model.Response
 	podsSynced       cache.InformerSynced
+	namespace        string
 }
 
-func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *model.Response) *controller {
+func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *model.Response, namespace string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pod"),
 		workerLoopPeriod: time.Second,
 		lister:           podInformer.Lister(),
 		responseChan:     responseChan,
+		namespace: namespace,
 	}
 
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -69,6 +73,35 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	if ok := cache.WaitForCacheSync(stopCh, c.podsSynced); !ok {
 		glog.Error("failed to wait for caches to sync")
 	}
+
+	pods,err := c.lister.Pods(c.namespace).List(labels.NewSelector())
+	if err != nil {
+		panic("can not list resource, no rabc bind, exit !")
+	}else {
+		var podList []string
+		for _,pod := range pods {
+			if pod.Labels[model.ReleaseLabel] != ""{
+				podList = append(podList, pod.GetName())
+			}
+		}
+		resourceList := &kubernetes.ResourceList{
+			Resources: podList,
+			ResourceType: "Pod",
+		}
+		content,err := json.Marshal(resourceList)
+		if err!= nil {
+			glog.Error("marshal pod list error")
+		}else {
+			response := &model.Response{
+				Key: fmt.Sprintf("env:%s", c.namespace),
+				Type: model.ResourceSync,
+				Payload: string(content),
+			}
+			c.responseChan <- response
+
+		}
+	}
+
 
 	// Launch two workers to process Foo resources
 	for i := 0; i < workers; i++ {
@@ -141,7 +174,6 @@ func (c *controller) syncHandler(key string) (bool, error) {
 }
 
 func newPodDelRep(name string, namespace string) *model.Response {
-
 	return &model.Response{
 		Key:  fmt.Sprintf("env:%s.Pod:%s", namespace, name),
 		Type: model.ResourceDelete,

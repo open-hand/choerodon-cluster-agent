@@ -16,6 +16,8 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"k8s.io/apimachinery/pkg/labels"
+	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
 var (
@@ -29,15 +31,17 @@ type controller struct {
 	lister           v1_listers.SecretLister
 	responseChan     chan<- *model.Response
 	secretsSynced    cache.InformerSynced
+	namespace		  string
 }
 
-func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan chan<- *model.Response) *controller {
+func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan chan<- *model.Response, namespace	string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "endpoint"),
 		workerLoopPeriod: time.Second,
 		lister:           secretInformer.Lister(),
 		responseChan:     responseChan,
+		namespace:namespace,
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -67,6 +71,34 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.secretsSynced); !ok {
 		glog.Error("failed to wait for caches to sync")
+	}
+
+	resources,err := c.lister.Secrets(c.namespace).List(labels.NewSelector())
+	if err != nil {
+		glog.Error("failed list secret")
+	}else {
+		var resourceList []string
+		for _,resource := range resources {
+			if resource.Labels[model.ReleaseLabel] != ""{
+				resourceList = append(resourceList, resource.GetName())
+			}
+		}
+		resourceListResp := &kubernetes.ResourceList{
+			Resources: resourceList,
+			ResourceType: "Secret",
+		}
+		content,err := json.Marshal(resourceListResp)
+		if err!= nil {
+			glog.Error("marshal secret list error")
+		}else {
+			response := &model.Response{
+				Key: fmt.Sprintf("env:%s", c.namespace),
+				Type: model.ResourceSync,
+				Payload: string(content),
+			}
+			c.responseChan <- response
+
+		}
 	}
 
 	// Launch two workers to process Foo resources
@@ -125,7 +157,6 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	secret, err := c.lister.Secrets(namespace).Get(name)
 	if err != nil {
 		if errors.IsNotFound(err) {
-
 			c.responseChan <- newsecretDelRep(name, namespace)
 			runtime.HandleError(fmt.Errorf("pod '%s' in work queue no longer exists", key))
 			return true, nil

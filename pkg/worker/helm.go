@@ -8,278 +8,221 @@ import (
 )
 
 func init() {
-	registerCmdFunc(model.HelmInstallRelease, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.installHelmRelease(cmd)
-	})
-	registerCmdFunc(model.HelmReleasePreInstall, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.preInstallHelmRelease(cmd)
-	})
-	registerCmdFunc(model.HelmReleasePreUpgrade, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.preUpdateHelmRelease(cmd)
-	})
-	registerCmdFunc(model.HelmReleaseUpgrade, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.updateHelmRelease(cmd)
-	})
-	registerCmdFunc(model.HelmReleaseRollback, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.rollbackHelmRelease(cmd)
-	})
-	registerCmdFunc(model.HelmReleaseDelete, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.deleteHelmRelease(cmd)
-	})
-	registerCmdFunc(model.HelmReleaseStart, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.startHelmRelease(cmd)
-	})
-	registerCmdFunc(model.HelmReleaseStop, func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response, bool) {
-		return w.stopHelmRelease(cmd)
-	})
+	registerCmdFunc(model.HelmInstallRelease, installHelmRelease)
+	registerCmdFunc(model.HelmReleasePreInstall, preInstallHelmRelease)
+	registerCmdFunc(model.HelmReleasePreUpgrade, preUpdateHelmRelease)
+	registerCmdFunc(model.HelmReleaseUpgrade, updateHelmRelease)
+	registerCmdFunc(model.HelmReleaseRollback, rollbackHelmRelease)
+	registerCmdFunc(model.HelmReleaseDelete, deleteHelmRelease)
+	registerCmdFunc(model.HelmReleaseStart, startHelmRelease)
+	registerCmdFunc(model.HelmReleaseStop, stopHelmRelease)
+	registerCmdFunc(model.HelmReleaseGetContent, getHelmReleaseContent)
 }
 
-func (w *workerManager) preInstallHelmRelease(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func preInstallHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req model_helm.InstallReleaseRequest
 	var newCmds []*model.Command
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
 	}
-
 	hooks, err := w.helmClient.PreInstallRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
 	}
 	hooksJsonB, err := json.Marshal(hooks)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
 		Type:    model.HelmReleasePreInstall,
 		Payload: string(hooksJsonB),
 	}
-
 	newCmd := &model.Command{
 		Key:     cmd.Key,
 		Type:    model.HelmInstallRelease,
 		Payload: cmd.Payload,
 	}
 	newCmds = append(newCmds, newCmd)
-	return newCmds, resp, true
+	return newCmds, resp
 }
 
-func (w *workerManager) installHelmRelease(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func installHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req model_helm.InstallReleaseRequest
-	var installResp *model_helm.InstallReleaseResponse
-	var newCmds []*model.Command
-	var resp *model.Response
-
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
 	}
-	installResp, err = w.helmClient.InstallRelease(&req)
+	resp, err := w.helmClient.InstallRelease(&req)
 	if err != nil {
-		if installResp == nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err), false
-		}
-		resp = NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
-	} else {
-		installRespB, err := json.Marshal(installResp)
-		if err != nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err), false
-		}
-		resp = &model.Response{
-			Key:     cmd.Key,
-			Type:    model.HelmInstallRelease,
-			Payload: string(installRespB),
-		}
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
 	}
-	return newCmds, resp, true
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+	}
+	return nil, &model.Response{
+		Key:     cmd.Key,
+		Type:    model.HelmInstallRelease,
+		Payload: string(respB),
+	}
 }
 
-func (w *workerManager) preUpdateHelmRelease(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func preUpdateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req model_helm.UpgradeReleaseRequest
 	var newCmds []*model.Command
-
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
 	}
 	hooks, err := w.helmClient.PreUpgradeRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
 	}
 	hooksJsonB, err := json.Marshal(hooks)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
 		Type:    model.HelmReleasePreUpgrade,
 		Payload: string(hooksJsonB),
 	}
-
 	newCmd := &model.Command{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseUpgrade,
 		Payload: cmd.Payload,
 	}
 	newCmds = append(newCmds, newCmd)
-	return newCmds, resp, true
+	return newCmds, resp
 }
 
-func (w *workerManager) updateHelmRelease(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func updateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req model_helm.UpgradeReleaseRequest
-	var upgradeResp *model_helm.UpgradeReleaseResponse
-	var newCmds []*model.Command
-	var resp *model.Response
-
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
 	}
-	upgradeResp, err = w.helmClient.UpgradeRelease(&req)
+	resp, err := w.helmClient.UpgradeRelease(&req)
 	if err != nil {
-		if upgradeResp == nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err), false
-		}
-		resp = NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
-	} else {
-		installRespB, err := json.Marshal(upgradeResp)
-		if err != nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err), false
-		}
-		resp = &model.Response{
-			Key:     cmd.Key,
-			Type:    model.HelmReleaseUpgrade,
-			Payload: string(installRespB),
-		}
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
 	}
-	return newCmds, resp, true
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+	}
+	return nil, &model.Response{
+		Key:     cmd.Key,
+		Type:    model.HelmReleaseUpgrade,
+		Payload: string(respB),
+	}
 }
 
-func (w *workerManager) rollbackHelmRelease(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func rollbackHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req model_helm.RollbackReleaseRequest
-	var rollbackResp *model_helm.RollbackReleaseResponse
-	var newCmds []*model.Command
-	var resp *model.Response
-
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err)
 	}
-
-	rollbackResp, err = w.helmClient.RollbackRelease(&req)
+	resp, err := w.helmClient.RollbackRelease(&req)
 	if err != nil {
-		if rollbackResp == nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err), false
-		}
-		resp = NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err)
-	} else {
-		upgradeRollbackB, err := json.Marshal(rollbackResp)
-		if err != nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err), false
-		}
-		resp = &model.Response{
-			Key:     cmd.Key,
-			Type:    model.HelmReleaseRollback,
-			Payload: string(upgradeRollbackB),
-		}
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err)
 	}
-
-	return newCmds, resp, true
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err)
+	}
+	return nil, &model.Response{
+		Key:     cmd.Key,
+		Type:    model.HelmReleaseRollback,
+		Payload: string(respB),
+	}
 }
 
-func (w *workerManager) deleteHelmRelease(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func deleteHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req model_helm.DeleteReleaseRequest
-	var deleteResp *model_helm.DeleteReleaseResponse
-	var newCmds []*model.Command
-	var resp *model.Response
-
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err)
 	}
-
-	deleteResp, err = w.helmClient.DeleteRelease(&req)
+	deleteResp, err := w.helmClient.DeleteRelease(&req)
 	if err != nil {
-		if deleteResp == nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err), false
-		}
-		resp = NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err)
-	} else {
-		deleteRespB, err := json.Marshal(deleteResp)
-		if err != nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err), false
-		}
-		resp = &model.Response{
-			Key:     cmd.Key,
-			Type:    model.HelmReleaseDelete,
-			Payload: string(deleteRespB),
-		}
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err)
 	}
-
-	return newCmds, resp, true
+	respB, err := json.Marshal(deleteResp)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err)
+	}
+	return nil, &model.Response{
+		Key:     cmd.Key,
+		Type:    model.HelmReleaseDelete,
+		Payload: string(respB),
+	}
 }
 
-func (w *workerManager) stopHelmRelease(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func stopHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req model_helm.StopReleaseRequest
-	var stopResp *model_helm.StopReleaseResponse
-	var newCmds []*model.Command
-	var resp *model.Response
-
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err)
 	}
-
-	stopResp, err = w.helmClient.StopRelease(&req)
+	resp, err := w.helmClient.StopRelease(&req)
 	if err != nil {
-		if stopResp == nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err), false
-		}
-		resp = NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err)
-	} else {
-		stopRespB, err := json.Marshal(stopResp)
-		if err != nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err), false
-		}
-		resp = &model.Response{
-			Key:     cmd.Key,
-			Type:    model.HelmReleaseStop,
-			Payload: string(stopRespB),
-		}
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err)
 	}
-
-	return newCmds, resp, true
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err)
+	}
+	return nil, &model.Response{
+		Key:     cmd.Key,
+		Type:    model.HelmReleaseStop,
+		Payload: string(respB),
+	}
 }
 
-func (w *workerManager) startHelmRelease(cmd *model.Command) ([]*model.Command, *model.Response, bool) {
+func startHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
 	var req model_helm.StartReleaseRequest
-	var startResp *model_helm.StartReleaseResponse
-	var newCmds []*model.Command
-	var resp *model.Response
-
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err), false
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err)
 	}
-
-	startResp, err = w.helmClient.StartRelease(&req)
+	startResp, err := w.helmClient.StartRelease(&req)
 	if err != nil {
-		if startResp == nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err), false
-		}
-		resp = NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err)
-	} else {
-		startRespB, err := json.Marshal(startResp)
-		if err != nil {
-			return nil, NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err), false
-		}
-		resp = &model.Response{
-			Key:     cmd.Key,
-			Type:    model.HelmReleaseStart,
-			Payload: string(startRespB),
-		}
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err)
 	}
+	respB, err := json.Marshal(startResp)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err)
+	}
+	return nil, &model.Response{
+		Key:     cmd.Key,
+		Type:    model.HelmReleaseStart,
+		Payload: string(respB),
+	}
+}
 
-	return newCmds, resp, true
+func getHelmReleaseContent(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+	var req model_helm.GetReleaseContentRequest
+	err := json.Unmarshal([]byte(cmd.Payload), &req)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
+	}
+	resp, err := w.helmClient.GetReleaseContent(&req)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
+	}
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
+	}
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
+	}
+	return nil, &model.Response{
+		Key:     cmd.Key,
+		Type:    model.HelmReleaseGetContent,
+		Payload: string(respB),
+	}
 }
