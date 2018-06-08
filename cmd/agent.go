@@ -118,6 +118,7 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory, stopCh <-chan struct{}) error {
 		return err
 	}
 	defer appClient.Stop()
+
 	workerManager := worker.NewWorkerManager(
 		commandChan,
 		responseChan,
