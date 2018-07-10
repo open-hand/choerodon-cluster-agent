@@ -18,6 +18,7 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/controller/service"
 	"github.com/choerodon/choerodon-agent/pkg/kube"
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"github.com/choerodon/choerodon-agent/pkg/controller/event"
 )
 
 type InitFunc func(ctx *ControllerContext) (bool, error)
@@ -63,6 +64,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	controllers["ingress"] = startIngressController
 	controllers["replicaset"] = startReplicaSetController
 	controllers["pod"] = startPodController
+	controllers["event"] = startEventController
 	return controllers
 }
 
@@ -80,7 +82,6 @@ func StartControllers(ctx *ControllerContext, controllers map[string]InitFunc) e
 		}
 		glog.Infof("Started %q", controllerName)
 	}
-
 	return nil
 }
 
@@ -163,6 +164,16 @@ func startPodController(ctx *ControllerContext) (bool, error) {
 		ctx.InformerFactory.Core().V1().Pods(),
 		ctx.ResponseChan,
 		ctx.Namespace,
+	).Run(int(ctx.Options.ConcurrentPodSyncs), ctx.Stop)
+	return true, nil
+}
+
+func startEventController(ctx *ControllerContext) (bool, error) {
+	go event.NewEventController(
+		ctx.InformerFactory.Core().V1().Events(),
+		ctx.ResponseChan,
+		ctx.Namespace,
+		ctx.Client,
 	).Run(int(ctx.Options.ConcurrentPodSyncs), ctx.Stop)
 	return true, nil
 }
