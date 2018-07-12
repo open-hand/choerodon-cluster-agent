@@ -291,7 +291,6 @@ func (c *client) GetLogs(namespace string, pod string, containerName string) (io
 		pod,
 		&core_v1.PodLogOptions{
 			Follow:     true,
-			Timestamps: true,
 			Container:  containerName,
 			TailLines: &tailLinesDefault,
 		},
