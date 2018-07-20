@@ -123,7 +123,6 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory, stopCh <-chan struct{}) error {
 		return err
 	}
 	defer appClient.Stop()
-
 	workerManager := worker.NewWorkerManager(
 		commandChan,
 		responseChan,
@@ -137,7 +136,6 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory, stopCh <-chan struct{}) error {
 
 	go workerManager.Start()
 	go httpServer.Run()
-
 	StartControllers(ctx, NewControllerInitializers())
 	ctx.InformerFactory.Start(ctx.Stop)
 
