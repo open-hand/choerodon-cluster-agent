@@ -3,10 +3,10 @@ All notable changes to devops-service will be documented in this file.
 
 ## [0.8.0] - 2018-07-20
 ### Added
-- Job operation event message.
+- Job event listener.
 
 ### Changed
-- Change the default number of message lines.
+- Change the default tail lines of pod log.
 
 ### Fixed
 - Remove useless timestamp in pod logs.
