@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -62,29 +63,27 @@ func clientTestServeWs(t *testing.T, w http.ResponseWriter, r *http.Request) {
 func TestClient(t *testing.T) {
 	commandChan := make(chan *model.Command)
 	responseChan := make(chan *model.Response)
-	stopCh := make(chan struct{})
+	shutdown := make(chan struct{})
+	shutdownWg := &sync.WaitGroup{}
 	server := httptest.NewServer(clientTestRouter(t))
 	defer server.Close()
 
 	serverURL, _ := url.Parse(fmt.Sprintf("ws%s/agent", strings.TrimPrefix(server.URL, "http")))
 	c, err := NewClient(Token("token"), serverURL.String(), commandChan, responseChan)
 	assert.Nil(t, err, "no error create new client")
-	defer c.Stop()
 
-	go c.Start(stopCh)
+	go c.Loop(shutdown, shutdownWg)
 
 	cmd := <-commandChan
 	assert.Equal(t, "helm:release:install", cmd.Key, "Bad command")
 
-	helmInstallResp := &model_helm.InstallReleaseResponse{
-		Release: &model_helm.Release{
-			Name:         "test-test-service",
-			Revision:     1,
-			Namespace:    "test",
-			Status:       "DEPLOYED",
-			ChartName:    "test-service",
-			ChartVersion: "0.1.0",
-		},
+	helmInstallResp := &model_helm.Release{
+		Name:         "test-test-service",
+		Revision:     1,
+		Namespace:    "test",
+		Status:       "DEPLOYED",
+		ChartName:    "test-service",
+		ChartVersion: "0.1.0",
 	}
 	helmInstallRespB, err := json.Marshal(helmInstallResp)
 	assert.Nil(t, err, "no error marshal json")

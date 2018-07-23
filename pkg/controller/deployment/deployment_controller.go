@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	appv1 "k8s.io/client-go/informers/extensions/v1beta1"
@@ -17,7 +18,6 @@ import (
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 var (
@@ -31,7 +31,7 @@ type controller struct {
 	lister            appv1_lister.DeploymentLister
 	responseChan      chan<- *model.Response
 	deploymentsSynced cache.InformerSynced
-	namespace		  string
+	namespace         string
 }
 
 func NewDeploymentController(deploymentInformer appv1.DeploymentInformer, responseChan chan<- *model.Response, namespace string) *controller {
@@ -41,7 +41,7 @@ func NewDeploymentController(deploymentInformer appv1.DeploymentInformer, respon
 		workerLoopPeriod: time.Second,
 		lister:           deploymentInformer.Lister(),
 		responseChan:     responseChan,
-		namespace: 	      namespace,
+		namespace:        namespace,
 	}
 
 	deploymentInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -65,39 +65,38 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Pod controller")
+	glog.Info("Starting deployment controller")
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced); !ok {
-		glog.Error("failed to wait for caches to sync")
+		glog.Fatal("failed to wait for caches to sync")
 	}
 
-	resources,err := c.lister.Deployments(c.namespace).List(labels.NewSelector())
+	resources, err := c.lister.Deployments(c.namespace).List(labels.NewSelector())
 	if err != nil {
-		glog.Error("failed list deployment")
-	}else {
+		glog.Fatal("failed list deployment")
+	} else {
 		var resourceList []string
-		for _,resource := range resources {
-			if resource.Labels[model.ReleaseLabel] != ""{
+		for _, resource := range resources {
+			if resource.Labels[model.ReleaseLabel] != "" {
 				resourceList = append(resourceList, resource.GetName())
 			}
 		}
 		resourceListResp := &kubernetes.ResourceList{
-			Resources: resourceList,
+			Resources:    resourceList,
 			ResourceType: "Deployment",
 		}
-		content,err := json.Marshal(resourceListResp)
-		if err!= nil {
-			glog.Error("marshal deployment list error")
-		}else {
+		content, err := json.Marshal(resourceListResp)
+		if err != nil {
+			glog.Fatal("marshal deployment list error")
+		} else {
 			response := &model.Response{
-				Key: fmt.Sprintf("env:%s", c.namespace),
-				Type: model.ResourceSync,
+				Key:     fmt.Sprintf("env:%s", c.namespace),
+				Type:    model.ResourceSync,
 				Payload: string(content),
 			}
 			c.responseChan <- response
-
 		}
 	}
 
@@ -106,9 +105,9 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	glog.Info("Started deployment workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	glog.Info("Shutting down deployment workers")
 }
 func (c *controller) enqueueDeployment(obj interface{}) {
 	var key string

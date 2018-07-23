@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	"k8s.io/client-go/informers"
+	kubeinformers "k8s.io/client-go/informers"
 	clientset "k8s.io/client-go/kubernetes"
 
 	"github.com/choerodon/choerodon-agent/pkg/controller/configmap"
@@ -16,39 +16,56 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/controller/replicaset"
 	"github.com/choerodon/choerodon-agent/pkg/controller/secret"
 	"github.com/choerodon/choerodon-agent/pkg/controller/service"
+
+	chrclientset "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned"
+	c7ninformers "github.com/choerodon/choerodon-agent/pkg/client/informers/externalversions"
+	"github.com/choerodon/choerodon-agent/pkg/controller/c7nhelmrelease"
+	"github.com/choerodon/choerodon-agent/pkg/controller/event"
+	"github.com/choerodon/choerodon-agent/pkg/helm"
 	"github.com/choerodon/choerodon-agent/pkg/kube"
 	"github.com/choerodon/choerodon-agent/pkg/model"
-	"github.com/choerodon/choerodon-agent/pkg/controller/event"
 )
 
 type InitFunc func(ctx *ControllerContext) (bool, error)
 
 type ControllerContext struct {
-	Options         *AgentRunOptions
-	InformerFactory informers.SharedInformerFactory
-	Client          clientset.Interface
-	KubeClient      kube.Client
-	Stop            <-chan struct{}
-	ResponseChan    chan<- *model.Response
-	Namespace       string
+	options       *AgentRunOptions
+	kubeInformer  kubeinformers.SharedInformerFactory
+	kubeClientset clientset.Interface
+	c7nClientset  chrclientset.Interface
+	c7nInformer   c7ninformers.SharedInformerFactory
+	kubeClient    kube.Client
+	helmClient    helm.Client
+	stop          <-chan struct{}
+	commandChan   chan<- *model.Command
+	responseChan  chan<- *model.Response
+	namespace     string
 }
 
 func CreateControllerContext(
 	options *AgentRunOptions,
-	client clientset.Interface,
+	kubeClientset clientset.Interface,
+	c7nClientset chrclientset.Interface,
 	kubeClient kube.Client,
+	helmClient helm.Client,
 	stop <-chan struct{},
+	commandChan chan<- *model.Command,
 	responseChan chan<- *model.Response) *ControllerContext {
-	informerFactory := informers.NewFilteredSharedInformerFactory(client, time.Second*30, options.Namespace, nil)
+	kubeInformer := kubeinformers.NewFilteredSharedInformerFactory(kubeClientset, time.Second*30, options.Namespace, nil)
+	c7nInformer := c7ninformers.NewFilteredSharedInformerFactory(c7nClientset, time.Second*30, options.Namespace, nil)
 
 	ctx := &ControllerContext{
-		Options:         options,
-		InformerFactory: informerFactory,
-		Client:          client,
-		Stop:            stop,
-		KubeClient:      kubeClient,
-		ResponseChan:    responseChan,
-		Namespace:       options.Namespace,
+		options:       options,
+		kubeInformer:  kubeInformer,
+		kubeClientset: kubeClientset,
+		c7nClientset:  c7nClientset,
+		c7nInformer:   c7nInformer,
+		kubeClient:    kubeClient,
+		helmClient:    helmClient,
+		stop:          stop,
+		commandChan:   commandChan,
+		responseChan:  responseChan,
+		namespace:     options.Namespace,
 	}
 	return ctx
 }
@@ -65,6 +82,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	controllers["replicaset"] = startReplicaSetController
 	controllers["pod"] = startPodController
 	controllers["event"] = startEventController
+	controllers["c7nhelmrelease"] = startC7NHelmReleaseController
 	return controllers
 }
 
@@ -87,93 +105,104 @@ func StartControllers(ctx *ControllerContext, controllers map[string]InitFunc) e
 
 func startEndpointController(ctx *ControllerContext) (bool, error) {
 	go endpoint.NewEndpointController(
-		ctx.InformerFactory.Core().V1().Pods(),
-		ctx.InformerFactory.Core().V1().Services(),
-		ctx.InformerFactory.Core().V1().Endpoints(),
-		ctx.Client,
-	).Run(int(ctx.Options.ConcurrentEndpointSyncs), ctx.Stop)
+		ctx.kubeInformer.Core().V1().Pods(),
+		ctx.kubeInformer.Core().V1().Services(),
+		ctx.kubeInformer.Core().V1().Endpoints(),
+		ctx.kubeClientset,
+	).Run(int(ctx.options.ConcurrentEndpointSyncs), ctx.stop)
 	return true, nil
 }
 
 func startDeploymentController(ctx *ControllerContext) (bool, error) {
 	go deployment.NewDeploymentController(
-		ctx.InformerFactory.Extensions().V1beta1().Deployments(),
-		ctx.ResponseChan,
-		ctx.Namespace,
-	).Run(int(ctx.Options.ConcurrentDeploymentSyncs), ctx.Stop)
+		ctx.kubeInformer.Extensions().V1beta1().Deployments(),
+		ctx.responseChan,
+		ctx.namespace,
+	).Run(int(ctx.options.ConcurrentDeploymentSyncs), ctx.stop)
 	return true, nil
 }
 
 func startIngressController(ctx *ControllerContext) (bool, error) {
 	go ingress.NewIngressController(
-		ctx.InformerFactory.Extensions().V1beta1().Ingresses(),
-		ctx.ResponseChan,
-		ctx.Namespace,
-	).Run(int(ctx.Options.ConcurrentIngressSyncs), ctx.Stop)
+		ctx.kubeInformer.Extensions().V1beta1().Ingresses(),
+		ctx.responseChan,
+		ctx.namespace,
+	).Run(int(ctx.options.ConcurrentIngressSyncs), ctx.stop)
 	return true, nil
 }
 
 func startReplicaSetController(ctx *ControllerContext) (bool, error) {
 	go replicaset.NewReplicaSetController(
-		ctx.InformerFactory.Extensions().V1beta1().ReplicaSets(),
-		ctx.ResponseChan,
-		ctx.Namespace,
-	).Run(int(ctx.Options.ConcurrentRSSyncs), ctx.Stop)
+		ctx.kubeInformer.Extensions().V1beta1().ReplicaSets(),
+		ctx.responseChan,
+		ctx.namespace,
+	).Run(int(ctx.options.ConcurrentRSSyncs), ctx.stop)
 	return true, nil
 }
 
 func startJobController(ctx *ControllerContext) (bool, error) {
 	go job.NewJobController(
-		ctx.InformerFactory.Batch().V1().Jobs(),
-		ctx.KubeClient,
-		ctx.ResponseChan,
-		ctx.Namespace,
-	).Run(int(ctx.Options.ConcurrentJobSyncs), ctx.Stop)
+		ctx.kubeInformer.Batch().V1().Jobs(),
+		ctx.kubeClient,
+		ctx.responseChan,
+		ctx.namespace,
+	).Run(int(ctx.options.ConcurrentJobSyncs), ctx.stop)
 	return true, nil
 }
 
 func startServiceController(ctx *ControllerContext) (bool, error) {
 	go service.NewserviceController(
-		ctx.InformerFactory.Core().V1().Services(),
-		ctx.ResponseChan,
-		ctx.Namespace,
-	).Run(int(ctx.Options.ConcurrentServiceSyncs), ctx.Stop)
+		ctx.kubeInformer.Core().V1().Services(),
+		ctx.responseChan,
+		ctx.namespace,
+	).Run(int(ctx.options.ConcurrentServiceSyncs), ctx.stop)
 	return true, nil
 }
 
 func startSecretController(ctx *ControllerContext) (bool, error) {
 	go secret.NewSecretController(
-		ctx.InformerFactory.Core().V1().Secrets(),
-		ctx.ResponseChan,
-		ctx.Namespace,
-	).Run(int(ctx.Options.ConcurrentSecretSyncs), ctx.Stop)
+		ctx.kubeInformer.Core().V1().Secrets(),
+		ctx.responseChan,
+		ctx.namespace,
+	).Run(int(ctx.options.ConcurrentSecretSyncs), ctx.stop)
 	return true, nil
 }
 
 func startConfigMapController(ctx *ControllerContext) (bool, error) {
 	go configMap.NewconfigMapController(
-		ctx.InformerFactory.Core().V1().ConfigMaps(),
-		ctx.ResponseChan,
-		ctx.Namespace,
-	).Run(int(ctx.Options.ConcurrentConfigMapSyncs), ctx.Stop)
+		ctx.kubeInformer.Core().V1().ConfigMaps(),
+		ctx.responseChan,
+		ctx.namespace,
+	).Run(int(ctx.options.ConcurrentConfigMapSyncs), ctx.stop)
 	return true, nil
 }
 
 func startPodController(ctx *ControllerContext) (bool, error) {
 	go pod.NewpodController(
-		ctx.InformerFactory.Core().V1().Pods(),
-		ctx.ResponseChan,
-		ctx.Namespace,
-	).Run(int(ctx.Options.ConcurrentPodSyncs), ctx.Stop)
+		ctx.kubeInformer.Core().V1().Pods(),
+		ctx.responseChan,
+		ctx.namespace,
+	).Run(int(ctx.options.ConcurrentPodSyncs), ctx.stop)
+	return true, nil
+}
+
+func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
+	go c7nhelmrelease.NewController(
+		ctx.kubeClientset,
+		ctx.c7nClientset,
+		ctx.c7nInformer.Choerodon().V1alpha1().C7NHelmReleases(),
+		ctx.helmClient,
+		ctx.commandChan,
+	).Run(int(ctx.options.ConcurrentC7NHelmReleaseSyncs), ctx.stop)
 	return true, nil
 }
 
 func startEventController(ctx *ControllerContext) (bool, error) {
 	go event.NewEventController(
-		ctx.InformerFactory.Core().V1().Events(),
-		ctx.ResponseChan,
-		ctx.Namespace,
-		ctx.Client,
-	).Run(int(ctx.Options.ConcurrentPodSyncs), ctx.Stop)
+		ctx.kubeInformer.Core().V1().Events(),
+		ctx.responseChan,
+		ctx.namespace,
+		ctx.kubeClientset,
+	).Run(int(ctx.options.ConcurrentPodSyncs), ctx.stop)
 	return true, nil
 }

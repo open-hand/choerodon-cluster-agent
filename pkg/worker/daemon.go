@@ -1,0 +1,260 @@
+// Copyright 2016 Weaveworks Ltd.
+// Use of this source code is governed by a Apache License Version 2.0 license
+// that can be found at https://github.com/weaveworks/flux/blob/master/LICENSE
+
+package worker
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/golang/glog"
+	"github.com/pkg/errors"
+
+	"github.com/choerodon/choerodon-agent/pkg/cluster"
+	"github.com/choerodon/choerodon-agent/pkg/event"
+	"github.com/choerodon/choerodon-agent/pkg/git"
+	"github.com/choerodon/choerodon-agent/pkg/model"
+	"github.com/choerodon/choerodon-agent/pkg/resource"
+	c7n_sync "github.com/choerodon/choerodon-agent/pkg/sync"
+	"github.com/gin-gonic/gin/json"
+)
+
+type note struct {
+	Spec Spec `json:"spec"`
+}
+
+// How did this update get triggered?
+type Cause struct {
+	Message string
+	User    string
+}
+
+// A tagged union for all (both) kinds of update. The type is just so
+// we know how to decode the rest of the struct.
+type Spec struct {
+	Type  string      `json:"type"`
+	Cause Cause       `json:"cause"`
+	Spec  interface{} `json:"spec"`
+}
+
+func (w *workerManager) syncLoop(stop <-chan struct{}, done *sync.WaitGroup) {
+	defer done.Done()
+
+	// We want to sync at least every `SyncInterval`. Being told to
+	// sync, or completing a job, may intervene (in which case,
+	// reschedule the next sync).
+	syncTimer := time.NewTimer(w.syncInterval)
+
+	// Keep track of current HEAD, so we can know when to treat a repo
+	// mirror notification as a change. Otherwise, we'll just sync
+	// every timer tick as well as every mirror refresh.
+	syncHead := ""
+
+	// Ask for a sync
+	w.AskForSync()
+	for {
+		select {
+		case <-stop:
+			glog.Info("sync loop stopping")
+			return
+		case <-syncTimer.C:
+			w.AskForSync()
+		case <-w.gitRepo.C:
+			ctx, cancel := context.WithTimeout(context.Background(), gitOpTimeout)
+			newSyncHead, err := w.gitRepo.Revision(ctx, w.gitConfig.Branch)
+			cancel()
+			if err != nil {
+				glog.Infof("%s error: %v", w.gitRepo.Origin().URL, err)
+				continue
+			}
+			glog.Infof("get refreshed event for git repository %s, branch %s, HEAD %s, previous HEAD %s", w.gitRepo.Origin().URL, w.gitConfig.Branch, newSyncHead, syncHead)
+			if newSyncHead != syncHead {
+				syncHead = newSyncHead
+				w.AskForSync()
+			}
+		case <-w.syncSoon:
+			if !syncTimer.Stop() {
+				select {
+				case <-syncTimer.C:
+				default:
+				}
+			}
+			if err := w.doSync(); err != nil {
+				glog.Errorf("do sync: %v", err)
+			}
+			syncTimer.Reset(w.syncInterval)
+		}
+	}
+}
+
+func (w *workerManager) AskForSync() {
+	select {
+	case w.syncSoon <- struct{}{}:
+	default:
+	}
+}
+
+func (w *workerManager) doSync() error {
+	started := time.Now().UTC()
+
+	// We don't care how long this takes overall, only about not
+	// getting bogged down in certain operations, so use an
+	// undeadlined context in general.
+	ctx := context.Background()
+
+	// checkout a working clone so we can mess around with tags later
+	var working *git.Checkout
+	{
+		var err error
+		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		defer cancel()
+		working, err = w.gitRepo.Clone(ctx, w.gitConfig)
+		if err != nil {
+			return err
+		}
+		defer working.Clean()
+	}
+
+	// For comparison later.
+	oldTagRev, err := working.SyncRevision(ctx)
+	if err != nil && !isUnknownRevision(err) {
+		return err
+	}
+
+	newTagRev, err := working.HeadRevision(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Get a map of all resources defined in the repo
+	allResources, err := w.manifests.LoadManifests(working.Dir(), working.ManifestDir())
+	if err != nil {
+		return errors.Wrap(err, "loading resources from repo")
+	}
+
+	var syncErrors []event.ResourceError
+	if err := c7n_sync.Sync(w.manifests, allResources, w.cluster); err != nil {
+		glog.Errorf("sync: %v", err)
+		switch syncerr := err.(type) {
+		case cluster.SyncError:
+			for _, e := range syncerr {
+				syncErrors = append(syncErrors, event.ResourceError{
+					ID:    e.ResourceID(),
+					Path:  e.Source(),
+					Error: e.Error.Error(),
+				})
+			}
+		default:
+			return err
+		}
+	}
+
+	// update notes and emit events for applied commits
+	var initialSync bool
+	var commits []git.Commit
+	{
+		var err error
+		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		if oldTagRev != "" {
+			commits, err = w.gitRepo.CommitsBetween(ctx, oldTagRev, newTagRev, w.gitConfig.Path)
+		} else {
+			initialSync = true
+			commits, err = w.gitRepo.CommitsBefore(ctx, newTagRev, w.gitConfig.Path)
+		}
+		cancel()
+		if err != nil {
+			return err
+		}
+	}
+
+	// Figure out which service IDs changed in this release
+	changedResources := map[string]resource.Resource{}
+
+	if initialSync {
+		// no synctag, We are syncing everything from scratch
+		changedResources = allResources
+	} else {
+		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		changedFiles, err := working.ChangedFiles(ctx, oldTagRev)
+		if err == nil && len(changedFiles) > 0 {
+			// We had some changed files, we're syncing a diff
+			changedResources, err = w.manifests.LoadManifests(working.Dir(), changedFiles[0], changedFiles[1:]...)
+		}
+		cancel()
+		if err != nil {
+			return errors.Wrap(err, "loading resources from repo")
+		}
+	}
+
+	resourceIDs := resource.ResourceIDSet{}
+	for _, r := range changedResources {
+		resourceIDs.Add([]resource.ResourceID{r.ResourceID()})
+	}
+
+	if len(commits) > 0 {
+		cs := make([]event.Commit, len(commits))
+		for i, c := range commits {
+			cs[i].Revision = c.Revision
+			cs[i].Message = c.Message
+		}
+
+		if err := w.LogEvent(event.Event{
+			ResourceIDs: resourceIDs.ToSlice(),
+			Type:        event.EventSync,
+			StartedAt:   started,
+			EndedAt:     started,
+			Metadata: &event.SyncEventMetadata{
+				Commits: cs,
+				Errors:  syncErrors,
+			},
+		}); err != nil {
+			glog.Errorf("sync log event: %v", err)
+		}
+	}
+
+	if oldTagRev == newTagRev {
+		return nil
+	}
+
+	// Move the tag and push it so we know how far we've gotten.
+	{
+		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		err := working.MoveSyncTagAndPush(ctx, newTagRev, "Sync pointer")
+		cancel()
+		if err != nil {
+			return err
+		}
+	}
+	// repo refresh
+	{
+		glog.Infof("tag: %s, old: %s, new: %s", w.gitConfig.SyncTag, oldTagRev, newTagRev)
+		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		err := w.gitRepo.Refresh(ctx)
+		cancel()
+		return err
+	}
+}
+
+func (w *workerManager) LogEvent(ev event.Event) error {
+	evBytes, err := json.Marshal(ev)
+	if err != nil {
+		return err
+	}
+	resp := &model.Response{
+		Key:     fmt.Sprintf("env:%s", w.namespace),
+		Type:    model.GitOpsSyncEvent,
+		Payload: string(evBytes),
+	}
+	w.responseChan <- resp
+	return nil
+}
+
+func isUnknownRevision(err error) bool {
+	return err != nil &&
+		(strings.Contains(err.Error(), "unknown revision or path not in the working tree.") ||
+			strings.Contains(err.Error(), "bad revision"))
+}
