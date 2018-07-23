@@ -25,10 +25,9 @@ const (
 )
 
 type AppClient interface {
-	Start(stopCh <-chan struct{}) error
+	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
 	PipeConnection(pipeID string, pipe common.Pipe) error
 	PipeClose(pipeID string, pipe common.Pipe) error
-	Stop()
 }
 
 type appClient struct {
@@ -45,17 +44,41 @@ type appClient struct {
 	respQueue      []*model.Response
 }
 
-func (c *appClient) Start(stopCh <-chan struct{}) error {
-	go c.loop(stopCh)
+func NewClient(
+	t Token,
+	endpoint string,
+	commandChan chan<- *model.Command,
+	responseChan <-chan *model.Response) (AppClient, error) {
+	if endpoint == "" {
+		return nil, fmt.Errorf("no upstream URL given")
+	}
 
-	glog.Info("Started agent")
-	<-stopCh
-	glog.Info("Shutting down agent")
+	endpointURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("parsing endpoint %s: %v", endpoint, err)
+	}
 
-	return nil
+	httpClient := cleanhttp.DefaultClient()
+
+	c := &appClient{
+		url:        endpointURL,
+		token:      t,
+		commandCh:  commandChan,
+		responseCh: responseChan,
+		quit:       make(chan struct{}),
+		client:     httpClient,
+		pipeConns:  make(map[string]*websocket.Conn),
+		respQueue:  make([]*model.Response, 0, 100),
+	}
+
+	return c, nil
 }
 
-func (c *appClient) loop(stopCh <-chan struct{}) {
+func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
+	defer done.Done()
+
+	glog.Info("Started agent")
+
 	backOff := 5 * time.Second
 	errCh := make(chan error, 1)
 	for {
@@ -68,7 +91,9 @@ func (c *appClient) loop(stopCh <-chan struct{}) {
 				glog.Error(err)
 			}
 			time.Sleep(backOff)
-		case <-stopCh:
+		case <-stop:
+			glog.Info("Shutting down agent")
+			c.stop()
 			return
 		}
 	}
@@ -163,7 +188,7 @@ func (c *appClient) releaseGoroutine() {
 	c.backgroundWait.Done()
 }
 
-func (c *appClient) Stop() {
+func (c *appClient) stop() {
 	c.mtx.Lock()
 	close(c.quit)
 	c.mtx.Unlock()
@@ -280,34 +305,4 @@ func (c *appClient) pipeConnection(id string, pipe common.Pipe) (bool, error) {
 	}
 	pipe.Close()
 	return true, nil
-}
-
-func NewClient(
-	t Token,
-	endpoint string,
-	commandChan chan<- *model.Command,
-	responseChan <-chan *model.Response) (AppClient, error) {
-	if endpoint == "" {
-		return nil, fmt.Errorf("no upstream URL given")
-	}
-
-	endpointURL, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("parsing endpoint %s: %v", endpoint, err)
-	}
-
-	httpClient := cleanhttp.DefaultClient()
-
-	c := &appClient{
-		url:        endpointURL,
-		token:      t,
-		commandCh:  commandChan,
-		responseCh: responseChan,
-		quit:       make(chan struct{}),
-		client:     httpClient,
-		pipeConns:  make(map[string]*websocket.Conn),
-		respQueue:  make([]*model.Response, 0, 100),
-	}
-
-	return c, nil
 }

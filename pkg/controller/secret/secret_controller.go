@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1_informer "k8s.io/client-go/informers/core/v1"
@@ -16,7 +17,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
-	"k8s.io/apimachinery/pkg/labels"
 	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
@@ -31,17 +31,17 @@ type controller struct {
 	lister           v1_listers.SecretLister
 	responseChan     chan<- *model.Response
 	secretsSynced    cache.InformerSynced
-	namespace		  string
+	namespace        string
 }
 
-func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan chan<- *model.Response, namespace	string) *controller {
+func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan chan<- *model.Response, namespace string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "endpoint"),
 		workerLoopPeriod: time.Second,
 		lister:           secretInformer.Lister(),
 		responseChan:     responseChan,
-		namespace:namespace,
+		namespace:        namespace,
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -65,39 +65,38 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Pod controller")
+	glog.Info("Starting secret controller")
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.secretsSynced); !ok {
-		glog.Error("failed to wait for caches to sync")
+		glog.Fatal("failed to wait for caches to sync")
 	}
 
-	resources,err := c.lister.Secrets(c.namespace).List(labels.NewSelector())
+	resources, err := c.lister.Secrets(c.namespace).List(labels.NewSelector())
 	if err != nil {
-		glog.Error("failed list secret")
-	}else {
+		glog.Fatal("failed list secret")
+	} else {
 		var resourceList []string
-		for _,resource := range resources {
-			if resource.Labels[model.ReleaseLabel] != ""{
+		for _, resource := range resources {
+			if resource.Labels[model.ReleaseLabel] != "" {
 				resourceList = append(resourceList, resource.GetName())
 			}
 		}
 		resourceListResp := &kubernetes.ResourceList{
-			Resources: resourceList,
+			Resources:    resourceList,
 			ResourceType: "Secret",
 		}
-		content,err := json.Marshal(resourceListResp)
-		if err!= nil {
-			glog.Error("marshal secret list error")
-		}else {
+		content, err := json.Marshal(resourceListResp)
+		if err != nil {
+			glog.Fatal("marshal secret list error")
+		} else {
 			response := &model.Response{
-				Key: fmt.Sprintf("env:%s", c.namespace),
-				Type: model.ResourceSync,
+				Key:     fmt.Sprintf("env:%s", c.namespace),
+				Type:    model.ResourceSync,
 				Payload: string(content),
 			}
 			c.responseChan <- response
-
 		}
 	}
 
@@ -106,9 +105,9 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	glog.Info("Started secret workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	glog.Info("Shutting down secret workers")
 }
 func (c *controller) enqueueSecret(obj interface{}) {
 	var key string

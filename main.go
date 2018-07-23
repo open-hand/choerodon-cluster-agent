@@ -21,7 +21,6 @@ func main() {
 
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	goflag.CommandLine.Parse([]string{})
-	//pflag.Parse()
 
 	defer glog.Flush()
 

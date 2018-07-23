@@ -7,17 +7,19 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
-	core_v1 "k8s.io/api/core/v1"
-	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
-	appsv1 "k8s.io/api/apps/v1"
+	batch "k8s.io/api/batch/v1"
+	core_v1 "k8s.io/api/core/v1"
+	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
-
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	batch "k8s.io/api/batch/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
@@ -26,9 +28,8 @@ import (
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 
+	"github.com/choerodon/choerodon-agent/pkg/model"
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 type Client interface {
@@ -44,6 +45,7 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
+	LabelObjects(namespace string, manifest string, releaseName string) (*bytes.Buffer, error)
 }
 
 type client struct {
@@ -106,7 +108,6 @@ func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.
 			ResourceVersion: info.ResourceVersion,
 		}
 
-
 		if err != nil {
 			glog.Error("Warning: get the relation pod is failed, err:%s", err.Error())
 		}
@@ -118,9 +119,8 @@ func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.
 			glog.Error(err)
 		}
 
-
 		resources = append(resources, hrr)
-		objPods,err =  c.getSelectRelationPod(info,objPods)
+		objPods, err = c.getSelectRelationPod(info, objPods)
 		//here, we will add the objPods to the objs
 		for _, podItems := range objPods {
 			for i := range podItems {
@@ -131,7 +131,7 @@ func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.
 					Name:            podItems[i].Name,
 					ResourceVersion: podItems[i].ResourceVersion,
 				}
-				objPod,err := json.Marshal(podItems[i])
+				objPod, err := json.Marshal(podItems[i])
 				if err == nil {
 					hrr.Object = string(objPod)
 				} else {
@@ -286,12 +286,12 @@ func (c *client) StartResources(namespace string, manifest string) error {
 }
 
 func (c *client) GetLogs(namespace string, pod string, containerName string) (io.ReadCloser, error) {
-	var tailLinesDefault int64 = 1000;
+	var tailLinesDefault int64 = 1000
 	req := c.client.CoreV1().Pods(namespace).GetLogs(
 		pod,
 		&core_v1.PodLogOptions{
-			Follow:     true,
-			Container:  containerName,
+			Follow:    true,
+			Container: containerName,
 			TailLines: &tailLinesDefault,
 		},
 	)
@@ -330,12 +330,12 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 	return execute(http.MethodPost, req.URL(), config, local, local, local, true)
 }
 
-func  (c *client)getSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
+func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
 	if info == nil {
 		return objPods, nil
 	}
 
-	glog.Info("get relation pod of object: %s/%s/%s", info.Namespace, info.Mapping.GroupVersionKind.Kind, info.Name)
+	glog.Infof("get relation pod of object: %s/%s/%s", info.Namespace, info.Mapping.GroupVersionKind.Kind, info.Name)
 
 	versioned, err := info.Versioned()
 	switch {
@@ -375,8 +375,211 @@ func  (c *client)getSelectRelationPod(info *resource.Info, objPods map[string][]
 	return objPods, nil
 }
 
+func (c *client) LabelObjects(namespace string, manifest string, releaseName string) (*bytes.Buffer, error) {
+	result, err := c.buildUnstructured(namespace, manifest)
+	if err != nil {
+		return nil, fmt.Errorf("build unstructured: %v", err)
+	}
 
+	newManifestBuf := bytes.NewBuffer(nil)
+	for _, info := range result {
 
+		// add object and pod template label
+		obj, err := labelObject(info, releaseName)
+		if err != nil {
+			return nil, fmt.Errorf("label object: %v", err)
+		}
+
+		objB, err := yaml.Marshal(obj)
+		if err != nil {
+			return nil, fmt.Errorf("yaml marshal: %v", err)
+		}
+		newManifestBuf.WriteString("\n---\n")
+		newManifestBuf.Write(objB)
+	}
+
+	return newManifestBuf, nil
+}
+
+func labelObject(info *resource.Info, releaseName string) (runtime.Object, error) {
+	versioned, err := info.Versioned()
+	switch {
+	case runtime.IsNotRegisteredError(err):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+
+	obj := versioned.DeepCopyObject()
+	switch typed := obj.(type) {
+	// ReplicationController
+	case *core_v1.ReplicationController:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+	// ReplicaSet
+	case *ext_v1beta1.ReplicaSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1.ReplicaSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+	// Deployment
+	case *ext_v1beta1.Deployment:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1beta1.Deployment:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1beta2.Deployment:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1.Deployment:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+	// ConfigMap
+	case *core_v1.ConfigMap:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+
+	// Service
+	case *core_v1.Service:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+
+	// Ingress
+	case *ext_v1beta1.Ingress:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+
+	// Job
+	case *batch.Job:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+
+	// DaemonSet
+	case *ext_v1beta1.DaemonSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1beta2.DaemonSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1.DaemonSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+	// StatefulSet
+	case *appsv1beta1.StatefulSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1beta2.StatefulSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1.StatefulSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+	// Secret
+	case *core_v1.Secret:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+
+	default:
+		return nil, fmt.Errorf("label object not matched: %v", obj)
+	}
+
+	return obj, nil
+}
 
 func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
 	for _, value := range podItem {
