@@ -21,6 +21,7 @@ type Config struct {
 	UserEmail   string
 	SetAuthor   bool
 	SkipMessage string
+	DevOpsTag   string
 }
 
 // Checkout is a local working clone of the remote repo. It is
@@ -48,7 +49,7 @@ type CommitAction struct {
 // the config given.
 func (r *Repo) Clone(ctx context.Context, conf Config) (*Checkout, error) {
 	upstream := r.Origin()
-	repoDir, err := r.workingClone(ctx, conf.Branch)
+	repoDir, err := r.workingClone(ctx, conf.DevOpsTag)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +148,10 @@ func (c *Checkout) HeadRevision(ctx context.Context) (string, error) {
 
 func (c *Checkout) SyncRevision(ctx context.Context) (string, error) {
 	return refRevision(ctx, c.dir, c.config.SyncTag)
+}
+
+func (c *Checkout) DevOpsSyncRevision(ctx context.Context) (string, error) {
+	return refRevision(ctx, c.dir, c.config.DevOpsTag)
 }
 
 func (c *Checkout) MoveSyncTagAndPush(ctx context.Context, ref, msg string) error {

@@ -32,8 +32,12 @@ import (
 
 const (
 	defaultGitSyncTag  = "choerodon-sync"
+	defaultGitDevOpsSyncTag  = "GitOps"
+
 	defaultGitNotesRef = "choerodon"
 )
+
+var EnvId int32
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 	options := NewAgentRunOptions()
@@ -76,6 +80,7 @@ type AgentRunOptions struct {
 	gitEmail          string
 	gitPollInterval   time.Duration
 	gitSyncTag        string
+	gitDevOpsSyncTag  string
 	gitNotesRef       string
 	syncInterval      time.Duration
 	kubernetesKubectl string
@@ -105,6 +110,8 @@ func (o *AgentRunOptions) AddFlag(fs *pflag.FlagSet) {
 	// upstream
 	fs.StringVar(&o.UpstreamURL, "connect", "", "Connect to an upstream service")
 	fs.StringVar(&o.Token, "token", "", "Authentication token for upstream service")
+	fs.Int32Var(&EnvId, "envId", 0, "the env agent id in devops")
+
 	// kubernetes controller
 	fs.StringVar(&o.Namespace, "namespace", "", "Kubernetes namespace")
 	fs.Int32Var(&o.ConcurrentEndpointSyncs, "concurrent-endpoint-syncs", o.ConcurrentEndpointSyncs, "The number of endpoint syncing operations that will be done concurrently. Larger number = faster endpoint updating, but more CPU (and network) load")
@@ -120,11 +127,12 @@ func (o *AgentRunOptions) AddFlag(fs *pflag.FlagSet) {
 	// git repo
 	fs.StringVar(&o.gitURL, "git-url", "", "URL of git repo manifests")
 	fs.StringVar(&o.gitBranch, "git-branch", "master", "branch of git repo to use for manifests")
-	fs.StringVar(&o.gitPath, "git-path", "", "path within git repo to locate manifests (relative path)")
+	fs.StringVar(&o.gitPath, "git-path", ".", "path within git repo to locate manifests (relative path)")
 	fs.StringVar(&o.gitUser, "git-user", "Choerodon", "username to use as git committer")
 	fs.StringVar(&o.gitEmail, "git-email", "support@choerodon.io", "email to use as git committer")
 	fs.DurationVar(&o.gitPollInterval, "git-poll-interval", 5*time.Minute, "period at which to poll git repo for new commits")
 	fs.StringVar(&o.gitSyncTag, "git-sync-tag", defaultGitSyncTag, "tag to use to mark sync progress for this cluster")
+	fs.StringVar(&o.gitDevOpsSyncTag, "git-devops-sync-tag", defaultGitDevOpsSyncTag, "tag to use to mark sync progress for this cluster")
 	fs.StringVar(&o.gitNotesRef, "git-notes-ref", defaultGitNotesRef, "ref to use for keeping commit annotations in git notes")
 	fs.DurationVar(&o.syncInterval, "sync-interval", 5*time.Minute, "apply config in git to cluster at least this often, even if there are no new commits")
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
@@ -191,6 +199,7 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 		UserName:  o.gitUser,
 		UserEmail: o.gitEmail,
 		SyncTag:   o.gitSyncTag,
+		DevOpsTag: o.gitDevOpsSyncTag,
 		NotesRef:  o.gitNotesRef,
 	}
 	gitRepo := git.NewRepo(gitRemote, git.PollInterval(o.gitPollInterval))

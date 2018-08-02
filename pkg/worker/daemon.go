@@ -65,10 +65,10 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, done *sync.WaitGroup) {
 			w.AskForSync()
 		case <-w.gitRepo.C:
 			ctx, cancel := context.WithTimeout(context.Background(), gitOpTimeout)
-			newSyncHead, err := w.gitRepo.Revision(ctx, w.gitConfig.Branch)
+			newSyncHead, err := w.gitRepo.Revision(ctx, w.gitConfig.DevOpsTag)
 			cancel()
 			if err != nil {
-				glog.Infof("%s error: %v", w.gitRepo.Origin().URL, err)
+				glog.Infof("%s get DevOps sync head error error: %v", w.gitRepo.Origin().URL, err)
 				continue
 			}
 			glog.Infof("get refreshed event for git repository %s, branch %s, HEAD %s, previous HEAD %s", w.gitRepo.Origin().URL, w.gitConfig.Branch, newSyncHead, syncHead)
@@ -125,7 +125,8 @@ func (w *workerManager) doSync() error {
 		return err
 	}
 
-	newTagRev, err := working.HeadRevision(ctx)
+	newTagRev, err := working.DevOpsSyncRevision(
+		ctx)
 	if err != nil {
 		return err
 	}
