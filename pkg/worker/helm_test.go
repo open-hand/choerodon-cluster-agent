@@ -7,6 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"time"
+
+	"github.com/choerodon/choerodon-agent/pkg/git"
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
 )
@@ -20,9 +23,9 @@ func (c *helmClientTest) ListRelease(namespace string) ([]*model_helm.Release, e
 	return args.Get(0).([]*model_helm.Release), args.Error(0)
 }
 
-func (c *helmClientTest) InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.InstallReleaseResponse, error) {
+func (c *helmClientTest) InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.Release, error) {
 	args := c.Called(request)
-	return args.Get(0).(*model_helm.InstallReleaseResponse), args.Error(1)
+	return args.Get(0).(*model_helm.Release), args.Error(1)
 }
 
 func (c *helmClientTest) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([]*model_helm.ReleaseHook, error) {
@@ -35,19 +38,19 @@ func (c *helmClientTest) PreUpgradeRelease(request *model_helm.UpgradeReleaseReq
 	return args.Get(0).([]*model_helm.ReleaseHook), args.Error(1)
 }
 
-func (c *helmClientTest) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*model_helm.UpgradeReleaseResponse, error) {
+func (c *helmClientTest) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*model_helm.Release, error) {
 	args := c.Called(request)
-	return args.Get(0).(*model_helm.UpgradeReleaseResponse), args.Error(1)
+	return args.Get(0).(*model_helm.Release), args.Error(1)
 }
 
-func (c *helmClientTest) RollbackRelease(request *model_helm.RollbackReleaseRequest) (*model_helm.RollbackReleaseResponse, error) {
+func (c *helmClientTest) RollbackRelease(request *model_helm.RollbackReleaseRequest) (*model_helm.Release, error) {
 	args := c.Called(request)
-	return args.Get(0).(*model_helm.RollbackReleaseResponse), args.Error(1)
+	return args.Get(0).(*model_helm.Release), args.Error(1)
 }
 
-func (c *helmClientTest) DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.DeleteReleaseResponse, error) {
+func (c *helmClientTest) DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.Release, error) {
 	args := c.Called(request)
-	return args.Get(0).(*model_helm.DeleteReleaseResponse), args.Error(1)
+	return args.Get(0).(*model_helm.Release), args.Error(1)
 }
 
 func (c *helmClientTest) StartRelease(request *model_helm.StartReleaseRequest) (*model_helm.StartReleaseResponse, error) {
@@ -60,14 +63,26 @@ func (c *helmClientTest) StopRelease(request *model_helm.StopReleaseRequest) (*m
 	return args.Get(0).(*model_helm.StopReleaseResponse), args.Error(1)
 }
 
-func (c *helmClientTest) GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.GetReleaseContentResponse, error) {
+func (c *helmClientTest) GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error) {
 	args := c.Called(request)
-	return args.Get(0).(*model_helm.GetReleaseContentResponse), args.Error(1)
+	return args.Get(0).(*model_helm.Release), args.Error(1)
 }
 
 func TestPreInstallHelmRelease(t *testing.T) {
 	helmClient := &helmClientTest{}
-	wm := NewWorkerManager(nil, nil, nil, helmClient, nil, "")
+	wm := NewWorkerManager(
+		nil,
+		nil,
+		nil,
+		helmClient,
+		nil,
+		"",
+		git.Config{},
+		nil,
+		5*time.Minute,
+		nil,
+		nil,
+	)
 
 	req := &model_helm.InstallReleaseRequest{
 		ChartName:    "test",

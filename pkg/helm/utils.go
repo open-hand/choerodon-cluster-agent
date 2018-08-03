@@ -1,3 +1,7 @@
+// Copyright 2016 The Kubernetes Authors All rights reserved.
+// Use of this source code is governed by a Apache License Version 2.0 license
+// that can be found at https://github.com/kubernetes/helm/blob/master/LICENSE
+
 package helm
 
 import (
@@ -8,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
-	yaml "gopkg.in/yaml.v2"
 	"k8s.io/client-go/discovery"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/downloader"

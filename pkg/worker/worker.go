@@ -2,10 +2,15 @@ package worker
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/golang/glog"
 
+	"time"
+
 	"github.com/choerodon/choerodon-agent/pkg/appclient"
+	"github.com/choerodon/choerodon-agent/pkg/cluster"
+	"github.com/choerodon/choerodon-agent/pkg/git"
 	"github.com/choerodon/choerodon-agent/pkg/helm"
 	"github.com/choerodon/choerodon-agent/pkg/kube"
 	"github.com/choerodon/choerodon-agent/pkg/model"
@@ -24,45 +29,12 @@ type workerManager struct {
 	kubeClient   kube.Client
 	appClient    appclient.AppClient
 	namespace    string
-}
-
-func (w *workerManager) Start() {
-	for i := 0; i < 5; i++ {
-		go w.runWorker(i)
-	}
-}
-
-func (w *workerManager) runWorker(i int) {
-	for cmd := range w.commandChan {
-		glog.V(1).Infof("worker %d get command: %s", i, cmd)
-		var newCmds []*model.Command = nil
-		var resp *model.Response = nil
-
-		if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
-			err := fmt.Errorf("type %s not exist", cmd.Type)
-			glog.V(2).Info(err.Error())
-			resp = NewResponseError(cmd.Key, cmd.Type, err)
-		} else {
-			newCmds, resp = processCmdFunc(w, cmd)
-		}
-
-		if newCmds != nil {
-			go func(newCmds []*model.Command) {
-				for i := 0; i < len(newCmds); i++ {
-					w.commandChan <- newCmds[i]
-				}
-			}(newCmds)
-		}
-		if resp != nil {
-			go func(resp *model.Response) {
-				w.responseChan <- resp
-			}(resp)
-		}
-	}
-}
-
-func registerCmdFunc(funcType string, f processCmdFunc) {
-	processCmdFuncs[funcType] = f
+	gitConfig    git.Config
+	gitRepo      *git.Repo
+	syncSoon     chan struct{}
+	syncInterval time.Duration
+	manifests    cluster.Manifests
+	cluster      cluster.Cluster
 }
 
 func NewWorkerManager(
@@ -71,7 +43,12 @@ func NewWorkerManager(
 	kubeClient kube.Client,
 	helmClient helm.Client,
 	appClient appclient.AppClient,
-	namespace string) *workerManager {
+	namespace string,
+	gitConfig git.Config,
+	gitRepo *git.Repo,
+	syncInterval time.Duration,
+	manifests cluster.Manifests,
+	cluster cluster.Cluster) *workerManager {
 
 	return &workerManager{
 		commandChan:  commandChan,
@@ -80,5 +57,61 @@ func NewWorkerManager(
 		kubeClient:   kubeClient,
 		appClient:    appClient,
 		namespace:    namespace,
+		gitConfig:    gitConfig,
+		gitRepo:      gitRepo,
+		syncSoon:     make(chan struct{}, 1),
+		syncInterval: syncInterval,
+		manifests:    manifests,
+		cluster:      cluster,
 	}
+}
+
+func (w *workerManager) Start(stop <-chan struct{}, wg *sync.WaitGroup) {
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go w.runWorker(i, stop, wg)
+	}
+
+	wg.Add(1)
+	go w.syncLoop(stop, wg)
+}
+
+func (w *workerManager) runWorker(i int, stop <-chan struct{}, done *sync.WaitGroup) {
+	defer done.Done()
+
+	for {
+		select {
+		case <-stop:
+			return
+		case cmd := <-w.commandChan:
+			glog.V(1).Infof("worker %d get command: %s", i, cmd)
+			var newCmds []*model.Command = nil
+			var resp *model.Response = nil
+
+			if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
+				err := fmt.Errorf("type %s not exist", cmd.Type)
+				glog.V(2).Info(err.Error())
+				resp = NewResponseError(cmd.Key, cmd.Type, err)
+			} else {
+				newCmds, resp = processCmdFunc(w, cmd)
+			}
+
+			if newCmds != nil {
+				go func(newCmds []*model.Command) {
+					for i := 0; i < len(newCmds); i++ {
+						w.commandChan <- newCmds[i]
+					}
+				}(newCmds)
+			}
+			if resp != nil {
+				go func(resp *model.Response) {
+					w.responseChan <- resp
+				}(resp)
+			}
+		}
+	}
+}
+
+func registerCmdFunc(funcType string, f processCmdFunc) {
+	processCmdFuncs[funcType] = f
 }

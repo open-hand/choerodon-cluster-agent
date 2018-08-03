@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1_informer "k8s.io/client-go/informers/core/v1"
@@ -16,7 +17,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
-	"k8s.io/apimachinery/pkg/labels"
 	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
@@ -31,17 +31,17 @@ type controller struct {
 	lister           v1_lister.ServiceLister
 	responseChan     chan<- *model.Response
 	servicesSynced   cache.InformerSynced
-	namespace		  string
+	namespace        string
 }
 
-func NewserviceController(serviceInformer v1_informer.ServiceInformer, responseChan chan<- *model.Response,namespace string) *controller {
+func NewserviceController(serviceInformer v1_informer.ServiceInformer, responseChan chan<- *model.Response, namespace string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "service"),
 		workerLoopPeriod: time.Second,
 		lister:           serviceInformer.Lister(),
 		responseChan:     responseChan,
-		namespace:namespace,
+		namespace:        namespace,
 	}
 
 	serviceInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -65,39 +65,38 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Pod controller")
+	glog.Info("Starting service controller")
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.servicesSynced); !ok {
-		glog.Error("failed to wait for caches to sync")
+		glog.Fatal("failed to wait for caches to sync")
 	}
 
-	resources,err := c.lister.Services(c.namespace).List(labels.NewSelector())
+	resources, err := c.lister.Services(c.namespace).List(labels.NewSelector())
 	if err != nil {
-		glog.Error("failed list service")
-	}else {
+		glog.Fatal("failed list service")
+	} else {
 		var resourceList []string
-		for _,resource := range resources {
+		for _, resource := range resources {
 			if resource.Labels[model.NetworkLabel] != "" {
 				resourceList = append(resourceList, resource.GetName())
 			}
 		}
 		resourceListResp := &kubernetes.ResourceList{
-			Resources: resourceList,
+			Resources:    resourceList,
 			ResourceType: "Service",
 		}
-		content,err := json.Marshal(resourceListResp)
-		if err!= nil {
-			glog.Error("marshal service list error")
-		}else {
+		content, err := json.Marshal(resourceListResp)
+		if err != nil {
+			glog.Fatal("marshal service list error")
+		} else {
 			response := &model.Response{
-				Key: fmt.Sprintf("env:%s", c.namespace),
-				Type: model.ResourceSync,
+				Key:     fmt.Sprintf("env:%s", c.namespace),
+				Type:    model.ResourceSync,
 				Payload: string(content),
 			}
 			c.responseChan <- response
-
 		}
 	}
 
@@ -106,9 +105,9 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	glog.Info("Started service workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	glog.Info("Shutting down service workers")
 }
 func (c *controller) enqueueservice(obj interface{}) {
 	var key string

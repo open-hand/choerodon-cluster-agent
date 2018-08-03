@@ -15,6 +15,10 @@ config:
   port: 8088
   logLevel: 0
   envId: ""
+  sshIdentity: ""
+  git:
+    url: ""
+  extraArgs:
 
 logs:
   parser: docker

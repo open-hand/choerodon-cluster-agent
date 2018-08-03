@@ -1,6 +1,7 @@
 package helm
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -17,7 +18,6 @@ import (
 	"k8s.io/helm/pkg/tiller"
 	tillerenv "k8s.io/helm/pkg/tiller/environment"
 	"k8s.io/helm/pkg/timeconv"
-	"k8s.io/helm/pkg/version"
 
 	envkube "github.com/choerodon/choerodon-agent/pkg/kube"
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
@@ -72,6 +72,29 @@ func init() {
 	settings.AddFlags(pflag.CommandLine)
 }
 
+func NewClient(
+	kubeClient envkube.Client,
+	namespace string) Client {
+	if _, err := os.Stat(settings.Home.Archive()); os.IsNotExist(err) {
+		os.MkdirAll(settings.Home.Archive(), 0755)
+
+	}
+	if _, err := os.Stat(settings.Home.Repository()); os.IsNotExist(err) {
+		os.MkdirAll(settings.Home.Repository(), 0755)
+		ioutil.WriteFile(settings.Home.RepositoryFile(),
+			[]byte("apiVersion: v1\nrepositories: []"), 0644)
+	}
+
+	setupConnection()
+	helmClient := helm.NewClient(helm.Host(settings.TillerHost), helm.ConnectTimeout(settings.TillerConnectionTimeout))
+
+	return &client{
+		helmClient: helmClient,
+		kubeClient: kubeClient,
+		namespace:  namespace,
+	}
+}
+
 func (c *client) ListRelease(namespace string) ([]*model_helm.Release, error) {
 	releases := make([]*model_helm.Release, 0)
 	hlr, err := c.helmClient.ListReleases(helm.ReleaseListNamespace(namespace))
@@ -105,11 +128,14 @@ func (c *client) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([
 		return nil, fmt.Errorf("release %s already exist", request.ReleaseName)
 	}
 
+	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
+	if err != nil {
+		return nil, fmt.Errorf("load chart: %v", err)
+	}
+
 	rlsHooks, _, err := c.renderManifests(
-		request.RepoURL,
-		request.ChartName,
+		chartRequested,
 		request.ReleaseName,
-		request.ChartVersion,
 		request.Values,
 		1)
 	if err != nil {
@@ -144,6 +170,43 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
+
+	hooks, manifestDoc, err := c.renderManifests(
+		chartRequested,
+		request.ReleaseName,
+		request.Values,
+		1)
+	if err != nil {
+		glog.V(1).Infof("sort error...")
+		return nil, err
+	}
+
+	manifestDocs := []string{}
+	newTemplates := []*chart.Template{}
+
+	if manifestDoc != nil {
+		manifestDocs = append(manifestDocs, manifestDoc.String())
+	}
+	for _,hook := range hooks {
+		manifestDocs = append(manifestDocs, hook.Manifest)
+	}
+
+	for index,manifestToInsert := range manifestDocs  {
+		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName)
+		if err != nil {
+			return nil, fmt.Errorf("label objects: %v", err)
+		}
+		if index == 0 {
+			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
+		} else {
+			newTemplate := &chart.Template{Name: "hook"+string(index), Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
+		}
+	}
+
+	chartRequested.Templates = newTemplates
+
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
 		c.namespace,
@@ -191,7 +254,7 @@ func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, 
 		Manifest:     release.Manifest,
 		Hooks:        rlsHooks,
 		Resources:    resources,
-		Config:  release.Config.Raw,
+		Config:       release.Config.Raw,
 	}
 	return rls, nil
 }
@@ -214,12 +277,15 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 		return c.PreInstallRelease(installReq)
 	}
 
+	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
+	if err != nil {
+		return nil, fmt.Errorf("load chart: %v", err)
+	}
+
 	revision := int(releaseContentResp.Release.Version + 1)
 	rlsHooks, _, err := c.renderManifests(
-		request.RepoURL,
-		request.ChartName,
+		chartRequested,
 		request.ReleaseName,
-		request.ChartVersion,
 		request.Values,
 		revision)
 	if err != nil {
@@ -265,6 +331,42 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
+
+	hooks, manifestDoc, err := c.renderManifests(
+		chartRequested,
+		request.ReleaseName,
+		request.Values,
+		1)
+	if err != nil {
+		glog.V(1).Infof("sort error...")
+		return nil, err
+	}
+
+	manifestDocs := []string{}
+	newTemplates := []*chart.Template{}
+
+	if manifestDoc != nil {
+		manifestDocs = append(manifestDocs, manifestDoc.String())
+	}
+	for _,hook := range hooks {
+		manifestDocs = append(manifestDocs, hook.Manifest)
+	}
+
+	for index,manifestToInsert := range manifestDocs  {
+		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName)
+		if err != nil {
+			return nil, fmt.Errorf("label objects: %v", err)
+		}
+		if index == 0 {
+			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
+		} else {
+			newTemplate := &chart.Template{Name: "hook"+string(index), Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
+		}
+	}
+
+	chartRequested.Templates = newTemplates
 
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,
@@ -359,25 +461,11 @@ func (c *client) StartRelease(request *model_helm.StartReleaseRequest) (*model_h
 }
 
 func (c *client) renderManifests(
-	repoURL string,
-	chartName string,
+	chartRequested *chart.Chart,
 	releaseName string,
-	chartVersion string,
 	values string,
-	revision int) ([]*release.Hook, []tiller.Manifest, error) {
-	chartRequested, err := getChart(repoURL, chartName, chartVersion)
-	if err != nil {
-		return nil, nil, fmt.Errorf("load chart: %v", err)
-	}
-
+	revision int) ([]*release.Hook, *bytes.Buffer, error) {
 	env := tillerenv.New()
-	//releaseServer.
-	sver := version.GetVersion()
-	if chartRequested.Metadata.TillerVersion != "" &&
-		!version.IsCompatibleRange(chartRequested.Metadata.TillerVersion, sver) {
-		glog.V(1).Infof("version compatible error ...")
-		return nil, nil, err
-	}
 
 	ts := timeconv.Now()
 	options := chartutil.ReleaseOptions{
@@ -421,7 +509,26 @@ func (c *client) renderManifests(
 			delete(files, k)
 		}
 	}
-	return sortManifests(files, caps.APIVersions, tiller.InstallOrder)
+	hooks, manifests, err := sortManifests(files, caps.APIVersions, tiller.InstallOrder)
+	if err != nil {
+		b := bytes.NewBuffer(nil)
+		for name, content := range files {
+			if len(strings.TrimSpace(content)) == 0 {
+				continue
+			}
+			b.WriteString("\n---\n# Source: " + name + "\n")
+			b.WriteString(content)
+		}
+		return nil, b, err
+	}
+
+	b := bytes.NewBuffer(nil)
+	for _, m := range manifests {
+		b.WriteString("\n---\n# Source: " + m.Name + "\n")
+		b.WriteString(m.Content)
+	}
+
+	return hooks, b, nil
 }
 
 func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error) {
@@ -442,27 +549,4 @@ func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest)
 func InitEnvSettings() {
 	// set defaults from environment
 	settings.Init(pflag.CommandLine)
-}
-
-func NewClient(
-	kubeClient envkube.Client,
-	namespace string) Client {
-	if _, err := os.Stat(settings.Home.Archive()); os.IsNotExist(err) {
-		os.MkdirAll(settings.Home.Archive(), 0755)
-
-	}
-	if _, err := os.Stat(settings.Home.Repository()); os.IsNotExist(err) {
-		os.MkdirAll(settings.Home.Repository(), 0755)
-		ioutil.WriteFile(settings.Home.RepositoryFile(),
-			[]byte("apiVersion: v1\nrepositories: []"), 0644)
-	}
-
-	setupConnection()
-	helmClient := helm.NewClient(helm.Host(settings.TillerHost), helm.ConnectTimeout(settings.TillerConnectionTimeout))
-
-	return &client{
-		helmClient: helmClient,
-		kubeClient: kubeClient,
-		namespace:  namespace,
-	}
 }

@@ -19,6 +19,11 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+      volumes:
+      - name: git-key
+        secret:
+          secretName: choerodon-git-deploy
+          defaultMode: 0400
       containers:
       - name: {{ .Release.Name }}
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
@@ -31,10 +36,19 @@ spec:
         - --connect={{ .Values.config.connect }}?version={{ .Chart.Version }}&envId={{ .Values.config.envId }}&key=env:{{ .Release.Namespace }}.envId:{{.Values.config.envId}}
         - --token={{ .Values.config.token }}
         - --namespace={{ .Release.Namespace }}
+        - --git-url={{ .Values.config.git.url }}
+        - --envId={{ .Values.config.envId }}
+      {{- range $key, $value := .Values.config.extraArgs }}
+        - --{{ $key }}={{ $value }}
+      {{- end }}
         ports:
         - name: http
           containerPort: {{ .Values.config.port }}
           protocol: TCP
+        volumeMounts:
+        - name: git-key
+          mountPath: /etc/choerodon/ssh
+          readOnly: true
         resources:
 {{ toYaml .Values.resources | indent 12 }}
       dnsPolicy: ClusterFirst

@@ -33,7 +33,7 @@ const (
 	// kubernetes resource
 	ResourceUpdate = "resource_update"
 	ResourceDelete = "resource_delete"
-	ResourceSync  = "resource_sync"
+	ResourceSync   = "resource_sync"
 
 	//kubernetes event
 	JobEvent = "job_event"
@@ -45,4 +45,8 @@ const (
 	KubernetesGetLogsFailed = "kubernetes_get_logs_failed"
 	KubernetesExec          = "kubernetes_exec"
 	KubernetesExecFailed    = "kubernetes_exec_failed"
+	// git ops
+	GitOpsSync       = "git_ops_sync"
+	GitOpsSyncFailed = "git_ops_sync_failed"
+	GitOpsSyncEvent  = "git_ops_sync_event"
 )

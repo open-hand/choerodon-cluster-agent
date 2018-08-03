@@ -8,6 +8,7 @@ import (
 	"github.com/golang/glog"
 	extensions "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	appv1 "k8s.io/client-go/informers/extensions/v1beta1"
@@ -15,7 +16,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
-	"k8s.io/apimachinery/pkg/labels"
 	"github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
@@ -30,7 +30,7 @@ type controller struct {
 	replicsetInformer appv1.ReplicaSetInformer
 	responseChan      chan<- *model.Response
 	replicasetsSynced cache.InformerSynced
-	namespace		  string
+	namespace         string
 }
 
 func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, responseChan chan<- *model.Response, namespace string) *controller {
@@ -40,7 +40,7 @@ func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, respon
 		workerLoopPeriod:  time.Second,
 		replicsetInformer: replicasetInformer,
 		responseChan:      responseChan,
-		namespace: 			namespace,
+		namespace:         namespace,
 	}
 
 	replicasetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -64,39 +64,38 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer c.queue.ShutDown()
 
 	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Pod controller")
+	glog.Info("Starting replicaset controller")
 
 	// Wait for the caches to be synced before starting workers
 	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.replicasetsSynced); !ok {
-		glog.Error("failed to wait for caches to sync")
+		glog.Fatal("failed to wait for caches to sync")
 	}
 
-	resources,err := c.replicsetInformer.Lister().List(labels.NewSelector())
+	resources, err := c.replicsetInformer.Lister().List(labels.NewSelector())
 	if err != nil {
-		glog.Error("failed list replica set")
-	}else {
+		glog.Fatal("failed list replicaset")
+	} else {
 		var resourceList []string
-		for _,resource := range resources {
-			if resource.Labels[model.ReleaseLabel] != ""{
+		for _, resource := range resources {
+			if resource.Labels[model.ReleaseLabel] != "" {
 				resourceList = append(resourceList, resource.GetName())
 			}
 		}
 		resourceListResp := &kubernetes.ResourceList{
-			Resources: resourceList,
+			Resources:    resourceList,
 			ResourceType: "ReplicaSet",
 		}
-		content,err := json.Marshal(resourceListResp)
-		if err!= nil {
-			glog.Error("marshal pod replicaSet error")
-		}else {
+		content, err := json.Marshal(resourceListResp)
+		if err != nil {
+			glog.Fatal("marshal pod replicaSet error")
+		} else {
 			response := &model.Response{
-				Key: fmt.Sprintf("env:%s", c.namespace),
-				Type: model.ResourceSync,
+				Key:     fmt.Sprintf("env:%s", c.namespace),
+				Type:    model.ResourceSync,
 				Payload: string(content),
 			}
 			c.responseChan <- response
-
 		}
 	}
 
@@ -105,9 +104,9 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started workers")
+	glog.Info("Started replicaset workers")
 	<-stopCh
-	glog.Info("Shutting down workers")
+	glog.Info("Shutting down replicaset workers")
 }
 func (c *controller) enqueueReplicaSet(obj interface{}) {
 	var key string

@@ -492,6 +492,12 @@
   version = "v2.0.1"
 
 [[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
+
+[[projects]]
   name = "github.com/pmezard/go-difflib"
   packages = ["difflib"]
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
@@ -661,6 +667,16 @@
   ]
   revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
   version = "v0.3.0"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/tools"
+  packages = [
+    "go/ast/astutil",
+    "imports",
+    "internal/fastwalk"
+  ]
+  revision = "75d2ffb453d53bed20f95f0d563ee000dc4c0c83"
 
 [[projects]]
   name = "google.golang.org/appengine"
@@ -873,6 +889,7 @@
   name = "k8s.io/client-go"
   packages = [
     "discovery",
+    "discovery/fake",
     "dynamic",
     "informers",
     "informers/admissionregistration",
@@ -976,6 +993,7 @@
     "plugin/pkg/client/auth/openstack",
     "rest",
     "rest/watch",
+    "testing",
     "third_party/forked/golang/template",
     "tools/auth",
     "tools/cache",
@@ -1004,6 +1022,45 @@
   ]
   revision = "78700dec6369ba22221b72770783300f143df150"
   version = "v6.0.0"
+
+[[projects]]
+  name = "k8s.io/code-generator"
+  packages = [
+    "cmd/client-gen",
+    "cmd/client-gen/args",
+    "cmd/client-gen/generators",
+    "cmd/client-gen/generators/fake",
+    "cmd/client-gen/generators/scheme",
+    "cmd/client-gen/generators/util",
+    "cmd/client-gen/path",
+    "cmd/client-gen/types",
+    "cmd/conversion-gen",
+    "cmd/conversion-gen/generators",
+    "cmd/deepcopy-gen",
+    "cmd/defaulter-gen",
+    "cmd/informer-gen",
+    "cmd/informer-gen/generators",
+    "cmd/lister-gen",
+    "cmd/lister-gen/generators",
+    "cmd/openapi-gen"
+  ]
+  revision = "91d3f6a57905178524105a085085901bb73bd3dc"
+  version = "kubernetes-1.9.1"
+
+[[projects]]
+  branch = "master"
+  name = "k8s.io/gengo"
+  packages = [
+    "args",
+    "examples/deepcopy-gen/generators",
+    "examples/defaulter-gen/generators",
+    "examples/set-gen/sets",
+    "generator",
+    "namer",
+    "parser",
+    "types"
+  ]
+  revision = "fdcf9f9480fdd5bf2b3c3df9bf4ecd22b25b87e2"
 
 [[projects]]
   name = "k8s.io/helm"
@@ -1049,6 +1106,7 @@
   name = "k8s.io/kube-openapi"
   packages = [
     "pkg/common",
+    "pkg/generators",
     "pkg/util/proto",
     "pkg/util/proto/validation"
   ]
@@ -1238,6 +1296,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "122d1538ab2e6989ad18a7a38ac3210dc83ab0ebf61ec98f44ab8295a7cda398"
+  inputs-digest = "688684fb617e5437e089e072915f6b2f7ce5dcc10e67b190cfa3dbe32c9188db"
   solver-name = "gps-cdcl"
   solver-version = 1
