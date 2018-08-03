@@ -38,6 +38,8 @@ const (
 	MessageResourceSynced = "C7NHelmRelease synced successfully"
 )
 
+var EnvId int32
+
 type Controller struct {
 	kubeClientset kubernetes.Interface
 	chrClientset  chrclientset.Interface
@@ -242,7 +244,7 @@ func deleteHelmReleaseCmd(namespace, name string) *model.Command {
 		return nil
 	}
 	return &model.Command{
-		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", namespace, 93, name),
+		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", namespace, 99, name),
 		Type:    model.HelmReleaseDelete,
 		Payload: string(reqBytes),
 	}
@@ -262,7 +264,7 @@ func installHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Command {
 		return nil
 	}
 	return &model.Command{
-		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, 93, chr.Name),
+		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, 99, chr.Name),
 		Type:    model.HelmReleasePreInstall,
 		Payload: string(reqBytes),
 	}
@@ -282,7 +284,7 @@ func updateHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Command {
 		return nil
 	}
 	return &model.Command{
-		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, 93, chr.Name),
+		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, 99, chr.Name),
 		Type:    model.HelmReleasePreUpgrade,
 		Payload: string(reqBytes),
 	}

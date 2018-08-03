@@ -20,6 +20,7 @@ type resourceKind interface {
 func init() {
 	resourceKinds["deployment"] = &deploymentKind{}
 	resourceKinds["service"] = &serviceKind{}
+	resourceKinds["ingress"] = &ingressKind{}
 	resourceKinds["c7nhelmrelease"] = &c7nHelmReleaseKind{}
 }
 
@@ -75,13 +76,42 @@ func (dk *serviceKind) getResources(c *Cluster, namespace string) ([]k8sResource
 
 	var k8sResources []k8sResource
 	for i := range services.Items {
-		if _, ok := services.Items[i].Labels[model.ReleaseLabel]; ok {
+		if _, ok := services.Items[i].Labels[model.NetworkLabel]; !ok {
 			continue
 		}
 		k8sResources = append(k8sResources, makeServiceK8sResource(&services.Items[i]))
 	}
 
 	return k8sResources, nil
+}
+
+type ingressKind struct {
+}
+
+func (dk *ingressKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
+	ingresses, err := c.client.Ingresses(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var k8sResources []k8sResource
+	for i := range ingresses.Items {
+		if _, ok := ingresses.Items[i].Labels[model.NetworkLabel]; !ok {
+			continue
+		}
+		k8sResources = append(k8sResources, makeIngressK8sResource(&ingresses.Items[i]))
+	}
+
+	return k8sResources, nil
+}
+
+func makeIngressK8sResource(ingress *ext_v1beta1.Ingress) k8sResource {
+	return k8sResource{
+		apiVersion: "extensions/v1beta1",
+		kind:       "Ingress",
+		name:       ingress.Name,
+		k8sObject:  ingress,
+	}
 }
 
 func makeServiceK8sResource(service *core_v1.Service) k8sResource {

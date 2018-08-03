@@ -28,6 +28,7 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	"github.com/choerodon/choerodon-agent/pkg/version"
 	"github.com/choerodon/choerodon-agent/pkg/worker"
+	"github.com/choerodon/choerodon-agent/pkg/controller/c7nhelmrelease"
 )
 
 const (
@@ -36,8 +37,6 @@ const (
 
 	defaultGitNotesRef = "choerodon"
 )
-
-var EnvId int32
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 	options := NewAgentRunOptions()
@@ -110,7 +109,7 @@ func (o *AgentRunOptions) AddFlag(fs *pflag.FlagSet) {
 	// upstream
 	fs.StringVar(&o.UpstreamURL, "connect", "", "Connect to an upstream service")
 	fs.StringVar(&o.Token, "token", "", "Authentication token for upstream service")
-	fs.Int32Var(&EnvId, "envId", 0, "the env agent id in devops")
+	fs.Int32Var(&c7nhelmrelease.EnvId, "envId", 0, "the env agent id in devops")
 
 	// kubernetes controller
 	fs.StringVar(&o.Namespace, "namespace", "", "Kubernetes namespace")

@@ -171,7 +171,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
 
-	_, manifestDoc, err := c.renderManifests(
+	hooks, manifestDoc, err := c.renderManifests(
 		chartRequested,
 		request.ReleaseName,
 		request.Values,
@@ -180,15 +180,32 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		glog.V(1).Infof("sort error...")
 		return nil, err
 	}
+
+	manifestDocs := []string{}
+	newTemplates := []*chart.Template{}
+
 	if manifestDoc != nil {
-		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestDoc.String(), request.ReleaseName)
+		manifestDocs = append(manifestDocs, manifestDoc.String())
+	}
+	for _,hook := range hooks {
+		manifestDocs = append(manifestDocs, hook.Manifest)
+	}
+
+	for index,manifestToInsert := range manifestDocs  {
+		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
-		chartRequested.Templates = []*chart.Template{
-			{Name: request.ReleaseName, Data: newManifestBuf.Bytes()},
+		if index == 0 {
+			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
+		} else {
+			newTemplate := &chart.Template{Name: "hook"+string(index), Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
 		}
 	}
+
+	chartRequested.Templates = newTemplates
 
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
@@ -315,7 +332,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
 
-	_, manifestDoc, err := c.renderManifests(
+	hooks, manifestDoc, err := c.renderManifests(
 		chartRequested,
 		request.ReleaseName,
 		request.Values,
@@ -324,15 +341,32 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 		glog.V(1).Infof("sort error...")
 		return nil, err
 	}
+
+	manifestDocs := []string{}
+	newTemplates := []*chart.Template{}
+
 	if manifestDoc != nil {
-		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestDoc.String(), request.ReleaseName)
+		manifestDocs = append(manifestDocs, manifestDoc.String())
+	}
+	for _,hook := range hooks {
+		manifestDocs = append(manifestDocs, hook.Manifest)
+	}
+
+	for index,manifestToInsert := range manifestDocs  {
+		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
-		chartRequested.Templates = []*chart.Template{
-			{Name: request.ReleaseName, Data: newManifestBuf.Bytes()},
+		if index == 0 {
+			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
+		} else {
+			newTemplate := &chart.Template{Name: "hook"+string(index), Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
 		}
 	}
+
+	chartRequested.Templates = newTemplates
 
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,

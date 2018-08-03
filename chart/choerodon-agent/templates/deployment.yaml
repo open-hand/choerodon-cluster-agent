@@ -37,6 +37,7 @@ spec:
         - --token={{ .Values.config.token }}
         - --namespace={{ .Release.Namespace }}
         - --git-url={{ .Values.config.git.url }}
+        - --envId={{ .Values.config.envId }}
       {{- range $key, $value := .Values.config.extraArgs }}
         - --{{ $key }}={{ $value }}
       {{- end }}
