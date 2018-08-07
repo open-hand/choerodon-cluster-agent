@@ -13,7 +13,7 @@ docker-build:
 .auto_devops: &auto_devops |
     curl -o .auto_devops.sh \
         "${CHOERODON_URL}/devops/ci?token=${Token}&type=microservice"
-    if [ $? -ne 0 ];≥
+    if [ $? -ne 0 ];then
       cat .auto_devops.sh
       exit 1
     fi
