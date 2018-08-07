@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	defaultGitSyncTag  = "choerodon-sync"
-	defaultGitDevOpsSyncTag  = "GitOps"
+	defaultGitSyncTag  = "agent-sync"
+	defaultGitDevOpsSyncTag  = "devops-sync"
 
 	defaultGitNotesRef = "choerodon"
 )

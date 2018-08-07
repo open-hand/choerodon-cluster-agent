@@ -53,7 +53,7 @@ type resourceID struct {
 }
 
 func (id resourceID) String() string {
-	return fmt.Sprintf("%s:%s/%s", id.namespace, id.kind, id.name)
+	return fmt.Sprintf("%s/%s", id.kind, id.name)
 }
 
 // ParseResourceID constructs a ResourceID from a string representation

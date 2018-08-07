@@ -156,20 +156,9 @@ func (w *workerManager) doSync() error {
 
 	// update notes and emit events for applied commits
 	var initialSync bool
-	var commits []git.Commit
-	{
-		var err error
-		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
-		if oldTagRev != "" {
-			commits, err = w.gitRepo.CommitsBetween(ctx, oldTagRev, newTagRev, w.gitConfig.Path)
-		} else {
-			initialSync = true
-			commits, err = w.gitRepo.CommitsBefore(ctx, newTagRev, w.gitConfig.Path)
-		}
-		cancel()
-		if err != nil {
-			return err
-		}
+
+	if oldTagRev == "" {
+		initialSync = true
 	}
 
 	// Figure out which service IDs changed in this release
@@ -196,26 +185,21 @@ func (w *workerManager) doSync() error {
 		resourceIDs.Add([]resource.ResourceID{r.ResourceID()})
 	}
 
-	if len(commits) > 0 {
-		cs := make([]event.Commit, len(commits))
-		for i, c := range commits {
-			cs[i].Revision = c.Revision
-			cs[i].Message = c.Message
-		}
 
-		if err := w.LogEvent(event.Event{
-			ResourceIDs: resourceIDs.ToSlice(),
-			Type:        event.EventSync,
-			StartedAt:   started,
-			EndedAt:     started,
-			Metadata: &event.SyncEventMetadata{
-				Commits: cs,
-				Errors:  syncErrors,
-			},
-		}); err != nil {
-			glog.Errorf("sync log event: %v", err)
-		}
+
+	if err := w.LogEvent(event.Event{
+		ResourceIDs: resourceIDs.ToSlice(),
+		Type:        event.EventSync,
+		StartedAt:   started,
+		EndedAt:     started,
+		Metadata: &event.SyncEventMetadata{
+			Commit: newTagRev,
+			Errors:  syncErrors,
+		},
+	}); err != nil {
+		glog.Errorf("sync log event: %v", err)
 	}
+
 
 	if oldTagRev == newTagRev {
 		return nil

@@ -244,7 +244,7 @@ func deleteHelmReleaseCmd(namespace, name string) *model.Command {
 		return nil
 	}
 	return &model.Command{
-		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", namespace, 99, name),
+		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", namespace, EnvId, name),
 		Type:    model.HelmReleaseDelete,
 		Payload: string(reqBytes),
 	}
@@ -264,7 +264,7 @@ func installHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Command {
 		return nil
 	}
 	return &model.Command{
-		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, 99, chr.Name),
+		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, EnvId, chr.Name),
 		Type:    model.HelmReleasePreInstall,
 		Payload: string(reqBytes),
 	}
@@ -284,7 +284,7 @@ func updateHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Command {
 		return nil
 	}
 	return &model.Command{
-		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, 99, chr.Name),
+		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, EnvId, chr.Name),
 		Type:    model.HelmReleasePreUpgrade,
 		Payload: string(reqBytes),
 	}
