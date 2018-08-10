@@ -43,9 +43,9 @@ func Sync(m cluster.Manifests, repoResources map[string]resource.Resource, clus 
 }
 
 func prepareSyncDelete(repoResources map[string]resource.Resource, id string, res resource.Resource, sync *cluster.SyncDef) {
-	if len(repoResources) == 0 {
-		return
-	}
+	//if len(repoResources) == 0 {
+	//	return
+	//}
 	if _, ok := repoResources[id]; !ok {
 		sync.Actions = append(sync.Actions, cluster.SyncAction{
 			Delete: res,

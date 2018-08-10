@@ -159,14 +159,19 @@ func (c *Checkout) MoveSyncTagAndPush(ctx context.Context, ref, msg string) erro
 }
 
 // ChangedFiles does a git diff listing changed files
-func (c *Checkout) ChangedFiles(ctx context.Context, ref string) ([]string, error) {
+func (c *Checkout) ChangedFiles(ctx context.Context, ref string) ([]string, []string, error) {
 	list, err := changedFiles(ctx, c.dir, c.config.Path, ref)
+	absolutePath := make([]string, len(list))
 	if err == nil {
 		for i, file := range list {
-			list[i] = filepath.Join(c.dir, file)
+			absolutePath[i] = filepath.Join(c.dir, file)
 		}
 	}
-	return list, err
+	return absolutePath, list, err
+}
+
+func (c *Checkout) FileLastCommit(ctx context.Context, file string) (string, error)  {
+	return fileLastCommit(ctx, c.dir, c.config.Path, file)
 }
 
 func (c *Checkout) NoteRevList(ctx context.Context) (map[string]struct{}, error) {

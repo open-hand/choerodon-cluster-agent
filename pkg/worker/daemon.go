@@ -163,20 +163,49 @@ func (w *workerManager) doSync() error {
 
 	// Figure out which service IDs changed in this release
 	changedResources := map[string]resource.Resource{}
+	filesCommits := make([]event.FileCommit, 0)
+	fileCommitMap := map[string]string{}
+
+
 
 	if initialSync {
 		// no synctag, We are syncing everything from scratch
 		changedResources = allResources
 	} else {
 		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
-		changedFiles, err := working.ChangedFiles(ctx, oldTagRev)
+		changedFiles,fileList, err := working.ChangedFiles(ctx, oldTagRev)
 		if err == nil && len(changedFiles) > 0 {
+
+			for _,file := range fileList {
+				commit, err := working.FileLastCommit(ctx, file)
+				if err != nil {
+					glog.Errorf("get file commit error : v%", err)
+					continue
+				}
+			    filesCommits = append(filesCommits, event.FileCommit{File:file, Commit: commit})
+			    fileCommitMap[file] = commit
+			}
 			// We had some changed files, we're syncing a diff
 			changedResources, err = w.manifests.LoadManifests(working.Dir(), changedFiles[0], changedFiles[1:]...)
 		}
 		cancel()
 		if err != nil {
 			return errors.Wrap(err, "loading resources from repo")
+		}
+	}
+
+	for i,_ := range syncErrors {
+		if fileCommitMap[syncErrors[i].Path] != "" {
+			syncErrors[i].Commit = fileCommitMap[syncErrors[i].Path]
+		}else {
+			ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+			commit,err := working.FileLastCommit(ctx, syncErrors[i].Path)
+			if err != nil {
+				glog.Errorf("get file commit error : v%", err)
+			} else {
+				syncErrors[i].Commit = commit
+			}
+			cancel()
 		}
 	}
 
@@ -195,6 +224,7 @@ func (w *workerManager) doSync() error {
 		Metadata: &event.SyncEventMetadata{
 			Commit: newTagRev,
 			Errors:  syncErrors,
+			FileCommits: filesCommits,
 		},
 	}); err != nil {
 		glog.Errorf("sync log event: %v", err)
