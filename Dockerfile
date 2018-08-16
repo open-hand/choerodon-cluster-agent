@@ -3,7 +3,7 @@ WORKDIR /go/src/github.com/choerodon/choerodon-agent
 COPY . .
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build .
 
-FROM carllhw/kubectl:1.9.0
+FROM registry.cn-hangzhou.aliyuncs.com/choerodon-tools/agent-kubectl:1.9.0
 WORKDIR /
 
 RUN apk --no-cache add \
