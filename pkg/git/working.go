@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // Config holds some values we use when working in the working clone of
@@ -22,6 +23,7 @@ type Config struct {
 	SetAuthor   bool
 	SkipMessage string
 	DevOpsTag   string
+	GitPollInterval time.Duration
 }
 
 // Checkout is a local working clone of the remote repo. It is

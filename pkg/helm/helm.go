@@ -192,7 +192,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	}
 
 	for index,manifestToInsert := range manifestDocs  {
-		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName)
+		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
@@ -353,7 +353,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	}
 
 	for index,manifestToInsert := range manifestDocs  {
-		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName)
+		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}

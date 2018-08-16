@@ -21,6 +21,8 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/resource"
 	c7n_sync "github.com/choerodon/choerodon-agent/pkg/sync"
 	"github.com/gin-gonic/gin/json"
+	"github.com/choerodon/choerodon-agent/pkg/kube"
+	resource2 "github.com/choerodon/choerodon-agent/pkg/cluster/kubernetes/resource"
 )
 
 type note struct {
@@ -138,6 +140,22 @@ func (w *workerManager) doSync() error {
 	}
 
 	var syncErrors []event.ResourceError
+	for key,k8sResource := range allResources{
+
+		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(w.namespace, string(k8sResource.Bytes()), kube.AgentVersion)
+		if err != nil {
+			return errors.Wrap(err, "label for repo obj failed")
+		} else if k8sResourceBuff != nil {
+			obj := resource2.BaseObject{
+				SourceName :k8sResource.Source(),
+				BytesArray: k8sResourceBuff.Bytes(),
+				Meta: k8sResource.Metas(),
+				Kind: k8sResource.SourceKind(),
+
+			}
+			allResources[key] = obj
+		}
+	}
 	if err := c7n_sync.Sync(w.manifests, allResources, w.cluster); err != nil {
 		glog.Errorf("sync: %v", err)
 		switch syncerr := err.(type) {

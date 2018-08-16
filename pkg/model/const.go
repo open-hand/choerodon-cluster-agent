@@ -1,6 +1,10 @@
 package model
 
 const (
+
+	//init
+	InitAgent					= "init_agent"
+	InitAgentFailed				= "init_agent_failed"
 	// helm
 	HelmReleasePreInstall       = "helm_release_pre_install"
 	HelmInstallRelease          = "helm_install_release"

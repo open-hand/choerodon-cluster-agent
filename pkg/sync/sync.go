@@ -38,7 +38,6 @@ func Sync(m cluster.Manifests, repoResources map[string]resource.Resource, clus 
 	for _, res := range repoResources {
 		prepareSyncApply(res, &sync)
 	}
-
 	return clus.Sync(sync)
 }
 
