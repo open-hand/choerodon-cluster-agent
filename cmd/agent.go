@@ -195,6 +195,7 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 		Branch:    o.gitBranch,
 		Path:      o.gitPath,
 		UserName:  o.gitUser,
+		GitUrl:    o.gitURL,
 		UserEmail: o.gitEmail,
 		SyncTag:   o.gitSyncTag,
 		DevOpsTag: o.gitDevOpsSyncTag,

@@ -156,23 +156,7 @@ func (w *workerManager) doSync() error {
 			allResources[key] = obj
 		}
 	}
-	if err := c7n_sync.Sync(w.manifests, allResources, w.cluster); err != nil {
-		glog.Errorf("sync: %v", err)
-		switch syncerr := err.(type) {
-		case cluster.SyncError:
-			for _, e := range syncerr {
-				syncErrors = append(syncErrors, event.ResourceError{
-					ID:    e.ResourceID(),
-					Path:  e.Source(),
-					Error: e.Error.Error(),
-				})
-			}
-		default:
-			return err
-		}
-	}
 
-	// update notes and emit events for applied commits
 	var initialSync bool
 
 	if oldTagRev == "" {
@@ -200,8 +184,8 @@ func (w *workerManager) doSync() error {
 					glog.Errorf("get file commit error : v%", err)
 					continue
 				}
-			    filesCommits = append(filesCommits, event.FileCommit{File:file, Commit: commit})
-			    fileCommitMap[file] = commit
+				filesCommits = append(filesCommits, event.FileCommit{File:file, Commit: commit})
+				fileCommitMap[file] = commit
 			}
 			// We had some changed files, we're syncing a diff
 			changedResources, err = w.manifests.LoadManifests(working.Dir(), changedFiles[0], changedFiles[1:]...)
@@ -211,6 +195,25 @@ func (w *workerManager) doSync() error {
 			return errors.Wrap(err, "loading resources from repo")
 		}
 	}
+
+	if err := c7n_sync.Sync(w.manifests, allResources, changedResources, w.cluster); err != nil {
+		glog.Errorf("sync: %v", err)
+		switch syncerr := err.(type) {
+		case cluster.SyncError:
+			for _, e := range syncerr {
+				syncErrors = append(syncErrors, event.ResourceError{
+					ID:    e.ResourceID(),
+					Path:  e.Source(),
+					Error: e.Error.Error(),
+				})
+			}
+		default:
+			return err
+		}
+	}
+
+	// update notes and emit events for applied commits
+
 
 	for i,_ := range syncErrors {
 		if fileCommitMap[syncErrors[i].Path] != "" {

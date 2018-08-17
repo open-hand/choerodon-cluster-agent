@@ -75,29 +75,30 @@ func (w *workerManager) Start(stop <-chan struct{}, wg *sync.WaitGroup) {
 		wg.Add(1)
 		go w.runWorker(i, stop, gitconfigChan, wg)
 	}
-	for {
-		gitConfig := <- gitconfigChan
-		gitRemote := git.Remote{URL: gitConfig.GitUrl}
-		if err := writeSSHkey(gitConfig.SshKey); err != nil {
-			glog.Errorf("write git ssh key error",err	)
-		}else {
-			glog.Info("Init Git Config Success")
-			w.gitRepo = git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
+	if w.gitConfig.GitUrl == "" {
+		for {
+			gitConfig := <- gitconfigChan
+			gitRemote := git.Remote{URL: gitConfig.GitUrl}
+			glog.Infof("receive init git url %s and git ssh key :\n%s",gitConfig.GitUrl,gitConfig.SshKey)
+			if err := writeSSHkey(gitConfig.SshKey); err != nil {
+				glog.Errorf("write git ssh key error",err	)
+			}else {
+				glog.Info("Init Git Config Success")
+				w.gitRepo = git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
 
-			{
-				wg.Add(1)
-				go func() {
-					err := w.gitRepo.Start(stop, wg)
-					if err != nil {
-						glog.Errorf("git repo start failed", err)
-					}
-				}()
+				{
+					wg.Add(1)
+					go func() {
+						err := w.gitRepo.Start(stop, wg)
+						if err != nil {
+							glog.Errorf("git repo start failed", err)
+						}
+					}()
+				}
+				break
 			}
-			break
 		}
 	}
-
-
 	wg.Add(1)
 	go w.syncLoop(stop, wg)
 }
@@ -153,17 +154,22 @@ func registerCmdFunc(funcType string, f processCmdFunc) {
 
 
 func writeSSHkey(key string) error {
-	filename := "/etc/choerodon/ssh/identity"
-	var f *os.File
-	var err error
-	if checkFileIsExist(filename) { //如果文件存在
-		f, err = os.OpenFile(filename, os.O_APPEND, 0666) //打开文件
-	} else {
-		f, err = os.Create(filename) //创建文件
-	}
+	path := "/Users/crcokitwood/ssh"
+	err :=  os.MkdirAll(path,0777)
 	if err != nil {
 		return err
 	}
+	//filename := "/etc/choerodon/ssh/identity"
+	filename := "/Users/crcokitwood/ssh/identity"
+	var f *os.File
+	if checkFileIsExist(filename) { //如果文件存在
+		os.Remove(filename)
+	}
+	f, err = os.Create(filename) //创建文件
+	if err != nil {
+		return err
+	}
+	defer f.Close()
 	_, err = io.WriteString(f, key) //写入文件(字符串)
 	if  err != nil {
 		return err;

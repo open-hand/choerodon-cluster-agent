@@ -23,6 +23,7 @@ type Config struct {
 	SetAuthor   bool
 	SkipMessage string
 	DevOpsTag   string
+	GitUrl      string
 	GitPollInterval time.Duration
 }
 
