@@ -154,13 +154,12 @@ func registerCmdFunc(funcType string, f processCmdFunc) {
 
 
 func writeSSHkey(key string) error {
-	path := "/Users/crcokitwood/ssh"
+	path := "/etc/choerodon/ssh"
 	err :=  os.MkdirAll(path,0777)
 	if err != nil {
 		return err
 	}
-	//filename := "/etc/choerodon/ssh/identity"
-	filename := "/Users/crcokitwood/ssh/identity"
+	filename := "/etc/choerodon/ssh/identity"
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)
