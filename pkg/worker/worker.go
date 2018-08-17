@@ -16,7 +16,7 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	"encoding/json"
 	"os"
-	"io"
+	"io/ioutil"
 )
 
 var (
@@ -159,17 +159,17 @@ func writeSSHkey(key string) error {
 	if err != nil {
 		return err
 	}
-	filename := "/etc/choerodon/ssh/identity"
+	filename := path+"/identity"
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)
 	}
-	f, err = os.Create(filename) //创建文件
+	f, err = os.OpenFile(filename, os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = io.WriteString(f, key) //写入文件(字符串)
+	f.Close()
+	 err = ioutil.WriteFile(filename,[]byte(key),0600) //写入文件(字符串)
 	if  err != nil {
 		return err;
 	}
