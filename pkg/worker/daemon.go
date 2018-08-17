@@ -144,7 +144,7 @@ func (w *workerManager) doSync() error {
 
 		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(w.namespace, string(k8sResource.Bytes()), kube.AgentVersion)
 		if err != nil {
-			return errors.Wrap(err, "label for repo obj failed")
+			glog.Errorf("label of object error ",err)
 		} else if k8sResourceBuff != nil {
 			obj := resource2.BaseObject{
 				SourceName :k8sResource.Source(),
@@ -156,6 +156,7 @@ func (w *workerManager) doSync() error {
 			allResources[key] = obj
 		}
 	}
+
 
 	var initialSync bool
 
