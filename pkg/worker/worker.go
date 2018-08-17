@@ -14,6 +14,9 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/helm"
 	"github.com/choerodon/choerodon-agent/pkg/kube"
 	"github.com/choerodon/choerodon-agent/pkg/model"
+	"encoding/json"
+	"os"
+	"io/ioutil"
 )
 
 var (
@@ -67,16 +70,40 @@ func NewWorkerManager(
 }
 
 func (w *workerManager) Start(stop <-chan struct{}, wg *sync.WaitGroup) {
+	gitconfigChan :=  make(chan  model.GitInitConfig,1 )
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
-		go w.runWorker(i, stop, wg)
+		go w.runWorker(i, stop, gitconfigChan, wg)
 	}
+	if w.gitConfig.GitUrl == "" {
+		for {
+			gitConfig := <- gitconfigChan
+			gitRemote := git.Remote{URL: gitConfig.GitUrl}
+			glog.Infof("receive init git url %s and git ssh key :\n%s",gitConfig.GitUrl,gitConfig.SshKey)
+			if err := writeSSHkey(gitConfig.SshKey); err != nil {
+				glog.Errorf("write git ssh key error",err	)
+			}else {
+				glog.Info("Init Git Config Success")
+				w.gitRepo = git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
 
+				{
+					wg.Add(1)
+					go func() {
+						err := w.gitRepo.Start(stop, wg)
+						if err != nil {
+							glog.Errorf("git repo start failed", err)
+						}
+					}()
+				}
+				break
+			}
+		}
+	}
 	wg.Add(1)
 	go w.syncLoop(stop, wg)
 }
 
-func (w *workerManager) runWorker(i int, stop <-chan struct{}, done *sync.WaitGroup) {
+func (w *workerManager) runWorker(i int, stop <-chan struct{}, gitConfig chan <- model.GitInitConfig , done *sync.WaitGroup) {
 	defer done.Done()
 
 	for {
@@ -104,6 +131,15 @@ func (w *workerManager) runWorker(i int, stop <-chan struct{}, done *sync.WaitGr
 				}(newCmds)
 			}
 			if resp != nil {
+				if resp.Type == model.InitAgent{
+					var config model.GitInitConfig
+					err := json.Unmarshal([]byte(resp.Payload), &config)
+					if err != nil {
+						glog.Errorf("unmarshal git config error", err)
+					}
+					gitConfig <- config
+					break;
+				}
 				go func(resp *model.Response) {
 					w.responseChan <- resp
 				}(resp)
@@ -114,4 +150,36 @@ func (w *workerManager) runWorker(i int, stop <-chan struct{}, done *sync.WaitGr
 
 func registerCmdFunc(funcType string, f processCmdFunc) {
 	processCmdFuncs[funcType] = f
+}
+
+
+func writeSSHkey(key string) error {
+	path := "/etc/choerodon/ssh"
+	err :=  os.MkdirAll(path,0777)
+	if err != nil {
+		return err
+	}
+	filename := path+"/identity"
+	var f *os.File
+	if checkFileIsExist(filename) { //如果文件存在
+		os.Remove(filename)
+	}
+	f, err = os.OpenFile(filename, os.O_CREATE, 0600)
+	if err != nil {
+		return err
+	}
+	f.Close()
+	 err = ioutil.WriteFile(filename,[]byte(key),0600) //写入文件(字符串)
+	if  err != nil {
+		return err;
+	}
+	return nil
+}
+
+func checkFileIsExist(filename string) bool {
+	var exist = true
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		exist = false
+	}
+	return exist
 }

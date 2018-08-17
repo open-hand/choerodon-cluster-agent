@@ -14,6 +14,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+type Meta struct{
+	Namespace   string            `yaml:"namespace"`
+	Name        string            `yaml:"name"`
+	Annotations map[string]string `yaml:"annotations,omitempty"`
+}
+
 var (
 	ErrInvalidServiceID = errors.New("invalid service ID")
 
@@ -26,6 +32,8 @@ type Resource interface {
 	ResourceID() ResourceID // name, to correlate with what's in the cluster
 	Source() string         // where did this come from (informational)
 	Bytes() []byte          // the definition, for sending to cluster.Sync
+	Metas() Meta
+	SourceKind() string
 }
 
 // ResourceID is an opaque type which uniquely identifies a resource in an
@@ -53,7 +61,7 @@ type resourceID struct {
 }
 
 func (id resourceID) String() string {
-	return fmt.Sprintf("%s:%s/%s", id.namespace, id.kind, id.name)
+	return fmt.Sprintf("%s/%s", id.kind, id.name)
 }
 
 // ParseResourceID constructs a ResourceID from a string representation

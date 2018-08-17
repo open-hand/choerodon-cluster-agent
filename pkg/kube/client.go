@@ -45,8 +45,11 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, manifest string, releaseName string) (*bytes.Buffer, error)
+	LabelObjects(namespace string, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
+	LabelRepoObj (namespace, manifest, version string) (*bytes.Buffer, error)
 }
+
+var	AgentVersion string
 
 type client struct {
 	cmdutil.Factory
@@ -375,7 +378,7 @@ func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]
 	return objPods, nil
 }
 
-func (c *client) LabelObjects(namespace string, manifest string, releaseName string) (*bytes.Buffer, error) {
+func (c *client) LabelRepoObj (namespace, manifest, version string) (*bytes.Buffer, error) {
 	result, err := c.buildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -385,7 +388,37 @@ func (c *client) LabelObjects(namespace string, manifest string, releaseName str
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelObject(info, releaseName)
+		obj, err := labelRepoObj(info, version)
+
+		if err != nil {
+			return nil, fmt.Errorf("label object: %v", err)
+		}
+		if obj == nil {
+			return nil,nil
+		}
+
+		objB, err := yaml.Marshal(obj)
+		if err != nil {
+			return nil, fmt.Errorf("yaml marshal: %v", err)
+		}
+		newManifestBuf.WriteString("\n---\n")
+		newManifestBuf.Write(objB)
+	}
+
+	return newManifestBuf, nil
+}
+
+func (c *client) LabelObjects(namespace string, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error) {
+	result, err := c.buildUnstructured(namespace, manifest)
+	if err != nil {
+		return nil, fmt.Errorf("build unstructured: %v", err)
+	}
+
+	newManifestBuf := bytes.NewBuffer(nil)
+	for _, info := range result {
+
+		// add object and pod template label
+		obj, err := labelObject(info, releaseName, app, version)
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
 		}
@@ -401,7 +434,47 @@ func (c *client) LabelObjects(namespace string, manifest string, releaseName str
 	return newManifestBuf, nil
 }
 
-func labelObject(info *resource.Info, releaseName string) (runtime.Object, error) {
+func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
+	versioned, err := info.Versioned()
+	switch {
+	case runtime.IsNotRegisteredError(err):
+		return nil, nil
+
+	case err != nil:
+		return nil, err
+	}
+	obj := versioned.DeepCopyObject()
+	if obj.GetObjectKind().GroupVersionKind().Kind ==  "C7NHelmRelease"{
+		return nil,nil
+	}
+	switch typed := obj.(type) {
+	// ReplicationController
+		// Deployment
+
+		// Service
+	case *core_v1.Service:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.NetworkService] = "service"
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		// Ingress
+	case *ext_v1beta1.Ingress:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.NetworkService] = "ingress"
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+	default:
+		return nil, fmt.Errorf("label object not matched: %v", obj)
+	}
+
+	return obj, nil
+}
+
+func labelObject(info *resource.Info, releaseName string, app string, version string) (runtime.Object, error) {
 	versioned, err := info.Versioned()
 	switch {
 	case runtime.IsNotRegisteredError(err):
@@ -421,6 +494,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 
 	// ReplicaSet
@@ -433,6 +509,10 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	case *appsv1.ReplicaSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -442,6 +522,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	// Deployment
 	case *ext_v1beta1.Deployment:
@@ -453,6 +536,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	case *appsv1beta1.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -462,6 +548,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	case *appsv1beta2.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -471,6 +560,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	case *appsv1.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -480,13 +572,16 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	// ConfigMap
 	case *core_v1.ConfigMap:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	// Service
 	case *core_v1.Service:
@@ -494,6 +589,8 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.NetworkService] = "service"
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	// Ingress
 	case *ext_v1beta1.Ingress:
@@ -501,6 +598,8 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.NetworkService] = "ingress"
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	// Job
 	case *batch.Job:
@@ -508,6 +607,7 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	// DaemonSet
 	case *ext_v1beta1.DaemonSet:
@@ -518,6 +618,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 	case *appsv1beta2.DaemonSet:
 		if typed.Labels == nil {
@@ -527,6 +630,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 	case *appsv1.DaemonSet:
 		if typed.Labels == nil {
@@ -536,6 +642,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 
 	// StatefulSet
@@ -547,6 +656,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 	case *appsv1beta2.StatefulSet:
 		if typed.Labels == nil {
@@ -556,6 +668,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 	case *appsv1.StatefulSet:
 		if typed.Labels == nil {
@@ -565,6 +680,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 
 	// Secret
@@ -573,7 +691,9 @@ func labelObject(info *resource.Info, releaseName string) (runtime.Object, error
 			typed.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
-
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	default:
 		return nil, fmt.Errorf("label object not matched: %v", obj)
 	}

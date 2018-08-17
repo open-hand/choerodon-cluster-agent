@@ -32,9 +32,8 @@ import (
 )
 
 const (
-	defaultGitSyncTag  = "choerodon-sync"
-	defaultGitDevOpsSyncTag  = "GitOps"
-
+	defaultGitSyncTag  = "agent-sync"
+	defaultGitDevOpsSyncTag  = "devops-sync"
 	defaultGitNotesRef = "choerodon"
 )
 
@@ -106,6 +105,7 @@ func NewAgentRunOptions() *AgentRunOptions {
 func (o *AgentRunOptions) AddFlag(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
 	fs.StringVar(&o.Listen, "listen", o.Listen, "address:port to listen on")
+	fs.StringVar(&kube.AgentVersion, "agent-version", "", "address:port to listen on")
 	// upstream
 	fs.StringVar(&o.UpstreamURL, "connect", "", "Connect to an upstream service")
 	fs.StringVar(&o.Token, "token", "", "Authentication token for upstream service")
@@ -142,7 +142,6 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 		fmt.Println(version.GetVersion())
 		os.Exit(0)
 	}
-
 	errChan := make(chan error)
 	shutdown := make(chan struct{})
 	shutdownWg := &sync.WaitGroup{}
@@ -196,10 +195,12 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 		Branch:    o.gitBranch,
 		Path:      o.gitPath,
 		UserName:  o.gitUser,
+		GitUrl:    o.gitURL,
 		UserEmail: o.gitEmail,
 		SyncTag:   o.gitSyncTag,
 		DevOpsTag: o.gitDevOpsSyncTag,
 		NotesRef:  o.gitNotesRef,
+		GitPollInterval: o.gitPollInterval,
 	}
 	gitRepo := git.NewRepo(gitRemote, git.PollInterval(o.gitPollInterval))
 	{

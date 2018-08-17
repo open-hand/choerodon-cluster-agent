@@ -21,6 +21,8 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/resource"
 	c7n_sync "github.com/choerodon/choerodon-agent/pkg/sync"
 	"github.com/gin-gonic/gin/json"
+	"github.com/choerodon/choerodon-agent/pkg/kube"
+	resource2 "github.com/choerodon/choerodon-agent/pkg/cluster/kubernetes/resource"
 )
 
 type note struct {
@@ -138,7 +140,63 @@ func (w *workerManager) doSync() error {
 	}
 
 	var syncErrors []event.ResourceError
-	if err := c7n_sync.Sync(w.manifests, allResources, w.cluster); err != nil {
+	for key,k8sResource := range allResources{
+
+		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(w.namespace, string(k8sResource.Bytes()), kube.AgentVersion)
+		if err != nil {
+			return errors.Wrap(err, "label for repo obj failed")
+		} else if k8sResourceBuff != nil {
+			obj := resource2.BaseObject{
+				SourceName :k8sResource.Source(),
+				BytesArray: k8sResourceBuff.Bytes(),
+				Meta: k8sResource.Metas(),
+				Kind: k8sResource.SourceKind(),
+
+			}
+			allResources[key] = obj
+		}
+	}
+
+	var initialSync bool
+
+	if oldTagRev == "" {
+		initialSync = true
+	}
+
+	// Figure out which service IDs changed in this release
+	changedResources := map[string]resource.Resource{}
+	filesCommits := make([]event.FileCommit, 0)
+	fileCommitMap := map[string]string{}
+
+
+
+	if initialSync {
+		// no synctag, We are syncing everything from scratch
+		changedResources = allResources
+	} else {
+		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		changedFiles,fileList, err := working.ChangedFiles(ctx, oldTagRev)
+		if err == nil && len(changedFiles) > 0 {
+
+			for _,file := range fileList {
+				commit, err := working.FileLastCommit(ctx, file)
+				if err != nil {
+					glog.Errorf("get file commit error : v%", err)
+					continue
+				}
+				filesCommits = append(filesCommits, event.FileCommit{File:file, Commit: commit})
+				fileCommitMap[file] = commit
+			}
+			// We had some changed files, we're syncing a diff
+			changedResources, err = w.manifests.LoadManifests(working.Dir(), changedFiles[0], changedFiles[1:]...)
+		}
+		cancel()
+		if err != nil {
+			return errors.Wrap(err, "loading resources from repo")
+		}
+	}
+
+	if err := c7n_sync.Sync(w.manifests, allResources, changedResources, w.cluster); err != nil {
 		glog.Errorf("sync: %v", err)
 		switch syncerr := err.(type) {
 		case cluster.SyncError:
@@ -155,39 +213,20 @@ func (w *workerManager) doSync() error {
 	}
 
 	// update notes and emit events for applied commits
-	var initialSync bool
-	var commits []git.Commit
-	{
-		var err error
-		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
-		if oldTagRev != "" {
-			commits, err = w.gitRepo.CommitsBetween(ctx, oldTagRev, newTagRev, w.gitConfig.Path)
-		} else {
-			initialSync = true
-			commits, err = w.gitRepo.CommitsBefore(ctx, newTagRev, w.gitConfig.Path)
-		}
-		cancel()
-		if err != nil {
-			return err
-		}
-	}
 
-	// Figure out which service IDs changed in this release
-	changedResources := map[string]resource.Resource{}
 
-	if initialSync {
-		// no synctag, We are syncing everything from scratch
-		changedResources = allResources
-	} else {
-		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
-		changedFiles, err := working.ChangedFiles(ctx, oldTagRev)
-		if err == nil && len(changedFiles) > 0 {
-			// We had some changed files, we're syncing a diff
-			changedResources, err = w.manifests.LoadManifests(working.Dir(), changedFiles[0], changedFiles[1:]...)
-		}
-		cancel()
-		if err != nil {
-			return errors.Wrap(err, "loading resources from repo")
+	for i,_ := range syncErrors {
+		if fileCommitMap[syncErrors[i].Path] != "" {
+			syncErrors[i].Commit = fileCommitMap[syncErrors[i].Path]
+		}else {
+			ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+			commit,err := working.FileLastCommit(ctx, syncErrors[i].Path)
+			if err != nil {
+				glog.Errorf("get file commit error : v%", err)
+			} else {
+				syncErrors[i].Commit = commit
+			}
+			cancel()
 		}
 	}
 
@@ -196,26 +235,22 @@ func (w *workerManager) doSync() error {
 		resourceIDs.Add([]resource.ResourceID{r.ResourceID()})
 	}
 
-	if len(commits) > 0 {
-		cs := make([]event.Commit, len(commits))
-		for i, c := range commits {
-			cs[i].Revision = c.Revision
-			cs[i].Message = c.Message
-		}
 
-		if err := w.LogEvent(event.Event{
-			ResourceIDs: resourceIDs.ToSlice(),
-			Type:        event.EventSync,
-			StartedAt:   started,
-			EndedAt:     started,
-			Metadata: &event.SyncEventMetadata{
-				Commits: cs,
-				Errors:  syncErrors,
-			},
-		}); err != nil {
-			glog.Errorf("sync log event: %v", err)
-		}
+
+	if err := w.LogEvent(event.Event{
+		ResourceIDs: resourceIDs.ToSlice(),
+		Type:        event.EventSync,
+		StartedAt:   started,
+		EndedAt:     started,
+		Metadata: &event.SyncEventMetadata{
+			Commit: newTagRev,
+			Errors:  syncErrors,
+			FileCommits: filesCommits,
+		},
+	}); err != nil {
+		glog.Errorf("sync log event: %v", err)
 	}
+
 
 	if oldTagRev == newTagRev {
 		return nil

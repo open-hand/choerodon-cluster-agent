@@ -5,4 +5,5 @@ const (
 	AppVersionLabel = "choerodon.io/version"
 	ReleaseLabel    = "choerodon.io/release"
 	NetworkLabel    = "choerodon.io/network"
-)
+	AgentVersionLabel = "choerodon.io"
+	)

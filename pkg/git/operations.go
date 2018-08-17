@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"log"
 )
 
 // If true, every git invocation will be echoed to stdout
@@ -254,6 +255,36 @@ func changedFiles(ctx context.Context, path, subPath, ref string) ([]string, err
 	}
 	return splitList(out.String()), nil
 }
+
+func fileLastCommit(ctx context.Context, path, subPath ,file string)  (string, error){
+	out := &bytes.Buffer{}
+	err := execGitCmd(ctx, path, out, "log", "-n", "1" ,"--pretty=format:%H","--", file)
+	if err != nil {
+		return "", err
+	}
+	return out.String(), nil
+}
+
+func listToString(files []string) string {
+	result := ""
+	for _,file := range files {
+		result = result+file+" "
+	}
+	return result;
+}
+
+func filesPreviousCommit(ctx context.Context, path , subPath , ref string, files []string) ( map[string]string ,error) {
+	result := map[string]string{}
+	if len(subPath) > 0 && subPath[0] == '/' {
+		return result, errors.New("git subdirectory should not have leading forward slash")
+	}
+	out := &bytes.Buffer{}
+	if err := execGitCmd(ctx, path, out, "log", "-n", "1" ,"--pretty=format:%h --",listToString(files)); err != nil {
+		log.Fatal(out.String())
+	}
+	return  nil,nil;
+}
+
 
 func execGitCmd(ctx context.Context, dir string, out io.Writer, args ...string) error {
 	if trace {

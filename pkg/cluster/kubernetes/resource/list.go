@@ -7,6 +7,6 @@ package resource
 import "github.com/choerodon/choerodon-agent/pkg/resource"
 
 type List struct {
-	baseObject
+	BaseObject
 	Items []resource.Resource
 }

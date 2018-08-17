@@ -13,19 +13,16 @@ import (
 
 // -- unmarshaling code for specific object and field types
 
+
 // struct to embed in objects, to provide default implementation
-type baseObject struct {
-	source string
-	bytes  []byte
+type BaseObject struct {
+	SourceName string
+	BytesArray  []byte
 	Kind   string `yaml:"kind"`
-	Meta   struct {
-		Namespace   string            `yaml:"namespace"`
-		Name        string            `yaml:"name"`
-		Annotations map[string]string `yaml:"annotations,omitempty"`
-	} `yaml:"metadata"`
+	Meta   resource.Meta   `yaml:"metadata"`
 }
 
-func (o baseObject) ResourceID() resource.ResourceID {
+func (o BaseObject) ResourceID() resource.ResourceID {
 	ns := o.Meta.Namespace
 	if ns == "" {
 		ns = "default"
@@ -35,20 +32,28 @@ func (o baseObject) ResourceID() resource.ResourceID {
 
 // It's useful for comparisons in tests to be able to remove the
 // record of bytes
-func (o *baseObject) debyte() {
-	o.bytes = nil
+func (o *BaseObject) debyte() {
+	o.BytesArray = nil
 }
 
-func (o baseObject) Source() string {
-	return o.source
+func (o BaseObject) Source() string {
+	return o.SourceName
 }
 
-func (o baseObject) Bytes() []byte {
-	return o.bytes
+func (o BaseObject) SourceKind() string {
+	return o.Kind
+}
+
+func (o BaseObject) Bytes() []byte {
+	return o.BytesArray
+}
+
+func (o BaseObject)Metas() resource.Meta{
+	return o.Meta
 }
 
 func unmarshalObject(namespace string, source string, bytes []byte) (resource.Resource, error) {
-	var base = baseObject{source: source, bytes: bytes}
+	var base = BaseObject{SourceName: source, BytesArray: bytes}
 	if err := yaml.Unmarshal(bytes, &base); err != nil {
 		return nil, err
 	}
@@ -60,15 +65,15 @@ type rawList struct {
 	Items []map[string]interface{}
 }
 
-func unmarshalList(namespace string, base baseObject, raw *rawList, list *List) error {
-	list.baseObject = base
+func unmarshalList(namespace string, base BaseObject, raw *rawList, list *List) error {
+	list.BaseObject = base
 	list.Items = make([]resource.Resource, len(raw.Items), len(raw.Items))
 	for i, item := range raw.Items {
 		bytes, err := yaml.Marshal(item)
 		if err != nil {
 			return err
 		}
-		res, err := unmarshalObject(namespace, base.source, bytes)
+		res, err := unmarshalObject(namespace, base.SourceName, bytes)
 		if err != nil {
 			return err
 		}
