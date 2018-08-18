@@ -18,7 +18,6 @@ type resourceKind interface {
 }
 
 func init() {
-	resourceKinds["deployment"] = &deploymentKind{}
 	resourceKinds["service"] = &serviceKind{}
 	resourceKinds["ingress"] = &ingressKind{}
 	resourceKinds["c7nhelmrelease"] = &c7nHelmReleaseKind{}
@@ -31,39 +30,9 @@ type k8sResource struct {
 	name       string
 }
 
-// ==============================================
-// extensions/v1beta1 Deployment
 
-type deploymentKind struct{}
-
-func (dk *deploymentKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	deployments, err := c.client.Deployments(namespace).List(meta_v1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var k8sResources []k8sResource
-	for i := range deployments.Items {
-		if _, ok := deployments.Items[i].Labels[model.ReleaseLabel]; ok {
-			continue
-		}
-		k8sResources = append(k8sResources, makeDeploymentK8sResource(&deployments.Items[i]))
-	}
-
-	return k8sResources, nil
-}
-
-func makeDeploymentK8sResource(deployment *ext_v1beta1.Deployment) k8sResource {
-	return k8sResource{
-		apiVersion: "extensions/v1beta1",
-		kind:       "Deployment",
-		name:       deployment.Name,
-		k8sObject:  deployment,
-	}
-}
 
 // ==============================================
-// core/v1 Deployment
 
 type serviceKind struct {
 }
