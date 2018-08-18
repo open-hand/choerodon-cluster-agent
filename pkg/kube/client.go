@@ -507,6 +507,9 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Template.Labels == nil {
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
@@ -515,7 +518,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Spec.Template.Labels[model.AppVersionLabel] = version
 		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels = typed.Spec.Template.Labels
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
 	case *appsv1.ReplicaSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -531,7 +534,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Spec.Template.Labels[model.AppVersionLabel] = version
 		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels = typed.Spec.Template.Labels
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
@@ -552,7 +555,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Spec.Template.Labels[model.AppVersionLabel] = version
 		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels = typed.Spec.Template.Labels
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
@@ -571,7 +574,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Spec.Template.Labels[model.AppVersionLabel] = version
 		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels = typed.Spec.Template.Labels
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
@@ -590,7 +593,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Spec.Template.Labels[model.AppVersionLabel] = version
 		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels = typed.Spec.Template.Labels
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
@@ -611,7 +614,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Spec.Template.Labels[model.AppLabel] = app
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
-		typed.Spec.Selector.MatchLabels = typed.Spec.Template.Labels
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	// ConfigMap
 	case *core_v1.ConfigMap:
