@@ -510,6 +510,9 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Selector.MatchLabels == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
 		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
@@ -528,6 +531,9 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		}
 		if typed.Spec.Selector.MatchLabels == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
@@ -550,6 +556,9 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Selector.MatchLabels == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
 		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.AppVersionLabel] = version
@@ -568,6 +577,9 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		}
 		if typed.Spec.Selector.MatchLabels == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
@@ -588,6 +600,9 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Selector == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
 		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.AppVersionLabel] = version
@@ -606,6 +621,9 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		}
 		if typed.Spec.Selector.MatchLabels == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
