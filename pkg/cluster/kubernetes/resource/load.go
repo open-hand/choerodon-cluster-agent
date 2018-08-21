@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/choerodon/choerodon-agent/pkg/resource"
+	"strings"
 )
 
 // Load takes paths to directories or files, and creates an object set
@@ -76,6 +77,9 @@ func ParseMultidoc(namespace string, multidoc []byte, source string) (map[string
 		// https://golang.org/pkg/bufio/#Scanner.Bytes
 		// But we will be snaffling it away, so make a copy.
 		bytes := chunks.Bytes()
+		if strings.TrimSpace(string(bytes)) == "" {
+			continue
+		}
 		bytes2 := make([]byte, len(bytes), cap(bytes))
 		copy(bytes2, bytes)
 		if obj, err = unmarshalObject(namespace, source, bytes2); err != nil {

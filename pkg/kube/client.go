@@ -636,7 +636,11 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	// ConfigMap
 	case *core_v1.ConfigMap:
-		glog.Infof("helm chart %s contain config map %s and do not labeled ",releaseName,typed.Name)
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	// Service
 	case *core_v1.Service:
@@ -742,9 +746,15 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 
 	// Secret
 	case *core_v1.Secret:
-		glog.Infof("helm chart %s contain secret %s and do not labeled ",releaseName,typed.Name)
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 	default:
-		return nil, fmt.Errorf("label object not matched: %v", obj)
+		glog.Warningf("label object not matched: %v", obj)
 	}
 
 	return obj, nil

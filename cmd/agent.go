@@ -227,9 +227,13 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 		}
 		glog.Infof("kubectl %s", kubectl)
 		kubectlApplier := kubernetes.NewKubectl(kubectl, kubeCfg)
+		kubectlApplier.ApplySingleObj(o.Namespace,model.CRD_YAML)
+
 		k8s = kubernetes.NewCluster(o.Namespace, kubeClientSet, c7nClientset, kubectlApplier)
 		k8sManifests = &kubernetes.Manifests{Namespace: o.Namespace}
 	}
+
+
 
 	workerManager := worker.NewWorkerManager(
 		commandChan,
