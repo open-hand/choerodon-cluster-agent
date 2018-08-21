@@ -140,22 +140,7 @@ func (w *workerManager) doSync() error {
 	}
 
 	var syncErrors []event.ResourceError
-	for key,k8sResource := range allResources{
 
-		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(w.namespace, string(k8sResource.Bytes()), kube.AgentVersion)
-		if err != nil {
-			glog.Errorf("label of object error ",err)
-		} else if k8sResourceBuff != nil {
-			obj := resource2.BaseObject{
-				SourceName :k8sResource.Source(),
-				BytesArray: k8sResourceBuff.Bytes(),
-				Meta: k8sResource.Metas(),
-				Kind: k8sResource.SourceKind(),
-
-			}
-			allResources[key] = obj
-		}
-	}
 
 
 	var initialSync bool
@@ -175,6 +160,7 @@ func (w *workerManager) doSync() error {
 		// no synctag, We are syncing everything from scratch
 		changedResources = allResources
 	} else {
+
 		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
 		changedFiles,fileList, err := working.ChangedFiles(ctx, oldTagRev)
 		if err == nil && len(changedFiles) > 0 {
@@ -194,6 +180,22 @@ func (w *workerManager) doSync() error {
 		cancel()
 		if err != nil {
 			return errors.Wrap(err, "loading resources from repo")
+		}
+	}
+
+	for key,k8sResource := range changedResources{
+
+		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(w.namespace, string(k8sResource.Bytes()), kube.AgentVersion)
+		if err != nil {
+			glog.Errorf("label of object error ",err)
+		} else if k8sResourceBuff != nil {
+			obj := resource2.BaseObject{
+				SourceName :k8sResource.Source(),
+				BytesArray: k8sResourceBuff.Bytes(),
+				Meta: k8sResource.Metas(),
+				Kind: k8sResource.SourceKind(),
+			}
+			changedResources[key] = obj
 		}
 	}
 

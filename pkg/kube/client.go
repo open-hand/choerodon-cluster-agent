@@ -456,7 +456,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
 		}
-		typed.Labels[model.NetworkService] = "service"
+		typed.Labels[model.NetworkLabel] = "service"
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 		// Ingress
@@ -464,7 +464,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
 		}
-		typed.Labels[model.NetworkService] = "ingress"
+		typed.Labels[model.NetworkLabel] = "ingress"
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	default:
@@ -648,7 +648,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 			typed.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.NetworkService] = "service"
+		typed.Labels[model.NetworkLabel] = "service"
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	// Ingress
@@ -657,7 +657,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 			typed.Labels = make(map[string]string)
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.NetworkService] = "ingress"
+		typed.Labels[model.NetworkLabel] = "ingress"
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	// Job
