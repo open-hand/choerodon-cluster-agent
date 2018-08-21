@@ -507,7 +507,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Template.Labels == nil {
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
-		if typed.Spec.Selector.MatchLabels == nil {
+		if typed.Spec.Selector == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
 		}
 		if typed.Spec.Selector.MatchLabels == nil {
@@ -529,7 +529,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Template.Labels == nil {
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
-		if typed.Spec.Selector.MatchLabels == nil {
+		if typed.Spec.Selector == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
 		}
 		if typed.Spec.Selector.MatchLabels == nil {
@@ -553,7 +553,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Template.Labels == nil {
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
-		if typed.Spec.Selector.MatchLabels == nil {
+		if typed.Spec.Selector == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
 		}
 		if typed.Spec.Selector.MatchLabels == nil {
@@ -575,7 +575,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Template.Labels == nil {
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
-		if typed.Spec.Selector.MatchLabels == nil {
+		if typed.Spec.Selector == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
 		}
 		if typed.Spec.Selector.MatchLabels == nil {
@@ -619,7 +619,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		if typed.Spec.Template.Labels == nil {
 			typed.Spec.Template.Labels = make(map[string]string)
 		}
-		if typed.Spec.Selector.MatchLabels == nil {
+		if typed.Spec.Selector == nil {
 			typed.Spec.Selector = &meta_v1.LabelSelector{}
 		}
 		if typed.Spec.Selector.MatchLabels == nil {
