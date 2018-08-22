@@ -650,6 +650,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.NetworkLabel] = "service"
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Labels[model.NetworkNoDelLabel] = "true"
 
 	// Ingress
 	case *ext_v1beta1.Ingress:
@@ -659,6 +660,7 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.NetworkLabel] = "ingress"
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Labels[model.NetworkNoDelLabel] = "true"
 
 	// Job
 	case *batch.Job:

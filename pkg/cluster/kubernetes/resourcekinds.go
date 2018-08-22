@@ -45,7 +45,8 @@ func (dk *serviceKind) getResources(c *Cluster, namespace string) ([]k8sResource
 
 	var k8sResources []k8sResource
 	for i := range services.Items {
-		if _, ok := services.Items[i].Labels[model.NetworkLabel]; !ok {
+		_,noDelete := services.Items[i].Labels[model.NetworkNoDelLabel]
+		if _, ok := services.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
 			continue
 		}
 		k8sResources = append(k8sResources, makeServiceK8sResource(&services.Items[i]))
@@ -65,7 +66,8 @@ func (dk *ingressKind) getResources(c *Cluster, namespace string) ([]k8sResource
 
 	var k8sResources []k8sResource
 	for i := range ingresses.Items {
-		if _, ok := ingresses.Items[i].Labels[model.NetworkLabel]; !ok {
+		_,noDelete := ingresses.Items[i].Labels[model.NetworkNoDelLabel]
+		if _, ok := ingresses.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
 			continue
 		}
 		k8sResources = append(k8sResources, makeIngressK8sResource(&ingresses.Items[i]))

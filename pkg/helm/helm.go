@@ -206,7 +206,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	}
 
 	chartRequested.Templates = newTemplates
-
+	chartRequested.Dependencies = []*chart.Chart{}
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
 		c.namespace,
@@ -367,7 +367,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	}
 
 	chartRequested.Templates = newTemplates
-
+	chartRequested.Dependencies = []*chart.Chart{}
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,
 		chartRequested,
