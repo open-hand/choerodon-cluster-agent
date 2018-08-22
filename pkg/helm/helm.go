@@ -218,10 +218,12 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		if installReleaseResp != nil {
 			rls, err := c.getHelmRelease(installReleaseResp.GetRelease())
 			if err != nil {
+				c.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: request.ReleaseName})
 				return nil, err
 			}
 			return rls, newError
 		}
+		c.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: request.ReleaseName})
 		return nil, newError
 	}
 	rls, err := c.getHelmRelease(installReleaseResp.GetRelease())
