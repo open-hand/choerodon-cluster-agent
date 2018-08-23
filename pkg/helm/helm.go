@@ -210,7 +210,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
 		c.namespace,
-		helm.ValueOverrides([]byte(request.Values)),
+		helm.ValueOverrides([]byte{}),
 		helm.ReleaseName(request.ReleaseName),
 	)
 	if err != nil {
@@ -373,7 +373,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,
 		chartRequested,
-		helm.UpdateValueOverrides([]byte(request.Values)),
+		helm.UpdateValueOverrides([]byte{}),
 	)
 	if err != nil {
 		newErr := fmt.Errorf("update release %s: %v", request.ReleaseName, err)
