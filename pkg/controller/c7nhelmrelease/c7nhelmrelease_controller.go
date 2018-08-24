@@ -256,7 +256,7 @@ func (c *Controller) syncHandler(key string) error {
 	if err != nil {
 		if !strings.Contains(err.Error(), helm.ErrReleaseNotFound(name).Error()) {
 			if cmd := installHelmReleaseCmd(chr); cmd != nil {
-				glog.Infof("release %s install", rls.Name)
+				glog.Infof("release %s install", chr.Name)
 				c.commandChan <- cmd
 			}
 		} else {
