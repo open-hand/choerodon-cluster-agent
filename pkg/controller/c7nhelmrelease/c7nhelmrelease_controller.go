@@ -26,6 +26,7 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/helm"
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	modelhelm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 const (
@@ -51,7 +52,7 @@ type Controller struct {
 	chrSync   cache.InformerSynced
 
 	workqueue workqueue.RateLimitingInterface
-
+	namespace string
 	recorder record.EventRecorder
 }
 
@@ -60,7 +61,8 @@ func NewController(
 	chrClientset chrclientset.Interface,
 	chrInformer chrinformers.C7NHelmReleaseInformer,
 	helmClient helm.Client,
-	commandChan chan<- *model.Command) *Controller {
+	commandChan chan<- *model.Command,
+	namespace string) *Controller {
 
 	chrscheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
@@ -78,6 +80,7 @@ func NewController(
 		commandChan:   commandChan,
 		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "C7NHelmReleases"),
 		recorder:      recorder,
+		namespace:     namespace,
 	}
 
 	chrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -124,6 +127,41 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
+
+	go func() {
+		refresh := time.NewTicker(20 * time.Second)
+		for {
+			select {
+			case <-refresh.C:
+				chrs, err := c.chrLister.C7NHelmReleases(c.namespace).List(labels.NewSelector())
+				if err != nil {
+					glog.Infof("list release error")
+				}
+				for _,chr := range chrs{
+					rls, err := c.helmClient.GetReleaseContent(&modelhelm.GetReleaseContentRequest{ReleaseName: chr.Name})
+					if err != nil {
+						if !strings.Contains(err.Error(), helm.ErrReleaseNotFound(chr.Name).Error()) {
+							if cmd := installHelmReleaseCmd(chr); cmd != nil {
+								glog.Infof("release %s install in timer", rls.Name)
+								c.commandChan <- cmd
+							}
+						} else {
+							fmt.Errorf("get release content: %v", err)
+						}
+					} else {
+						if chr.Spec.ChartName == rls.ChartName && chr.Spec.ChartVersion == rls.ChartVersion && chr.Spec.Values == rls.Config {
+							glog.V(3).Infof("release %s chart、version、values not change in timer", rls.Name)
+						} else if  string(rls.Status) != "DEPLOYED" || string(rls.Status) != "FAILED"  {
+							glog.Infof("release statue : %s",rls.Status)
+						} else if cmd := updateHelmReleaseCmd(chr); cmd != nil {
+							glog.Infof("release %s upgrade", rls.Name)
+							c.commandChan <- cmd
+						}
+					}
+				}
+			}
+		}
+	}()
 
 	glog.Info("Started c7nhelmrelease workers")
 	<-stopCh
@@ -206,6 +244,7 @@ func (c *Controller) syncHandler(key string) error {
 		if errors.IsNotFound(err) {
 			runtime.HandleError(fmt.Errorf("C7NHelmReleases '%s' in work queue no longer exists", key))
 			if cmd := deleteHelmReleaseCmd(namespace, name); cmd != nil {
+				glog.Infof("release %s delete", chr.Name)
 				c.commandChan <- cmd
 			}
 			return nil
@@ -217,6 +256,7 @@ func (c *Controller) syncHandler(key string) error {
 	if err != nil {
 		if !strings.Contains(err.Error(), helm.ErrReleaseNotFound(name).Error()) {
 			if cmd := installHelmReleaseCmd(chr); cmd != nil {
+				glog.Infof("release %s install", rls.Name)
 				c.commandChan <- cmd
 			}
 		} else {
@@ -224,9 +264,11 @@ func (c *Controller) syncHandler(key string) error {
 		}
 	} else {
 		if chr.Spec.ChartName == rls.ChartName && chr.Spec.ChartVersion == rls.ChartVersion && chr.Spec.Values == rls.Config {
+			glog.Infof("release %s chart、version、values not change", rls.Name)
 			return nil
 		}
 		if cmd := updateHelmReleaseCmd(chr); cmd != nil {
+			glog.Infof("release %s upgrade", rls.Name)
 			c.commandChan <- cmd
 		}
 	}

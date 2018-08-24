@@ -157,7 +157,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			c.responseChan <- newServiceDelRep(name, namespace)
-			runtime.HandleError(fmt.Errorf("service '%s' in work queue no longer exists", key))
+			glog.Warningf("service '%s' in work queue no longer exists", key)
 			return true, nil
 		}
 		return false, err

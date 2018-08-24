@@ -149,7 +149,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if event.InvolvedObject.Kind == "Job" {
 		_,err = c.client.BatchV1().Jobs(namespace).Get(event.InvolvedObject.Name,meta_v1.GetOptions{})
 		if err != nil {
-			glog.Errorf("cant not get Job from event %s",event.InvolvedObject.Name)
+			glog.Info("cant not get Job from event %s",event.InvolvedObject.Name)
 			return true,nil
 		}
 		c.responseChan <- newEventRep(event)
@@ -157,7 +157,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if event.InvolvedObject.Kind == "Pod" {
 		pod,err := c.client.CoreV1().Pods(namespace).Get(event.InvolvedObject.Name,meta_v1.GetOptions{})
 		if err != nil {
-			glog.Errorf("cant not get Pod from event %s",event.InvolvedObject.Name)
+			glog.Infof("cant not get Pod from event %s",event.InvolvedObject.Name)
 			return true,nil
 		}
 		if pod.Labels[model.ReleaseLabel] != "" {

@@ -158,7 +158,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			c.responseChan <- newPodDelRep(name, namespace)
-			runtime.HandleError(fmt.Errorf("pod '%s' in work queue no longer exists", key))
+			glog.Warningf("pod '%s' in work queue no longer exists", key)
 			return true, nil
 		}
 		return false, err

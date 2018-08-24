@@ -193,6 +193,7 @@ func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
 		ctx.c7nInformer.Choerodon().V1alpha1().C7NHelmReleases(),
 		ctx.helmClient,
 		ctx.commandChan,
+		ctx.namespace,
 	).Run(int(ctx.options.ConcurrentC7NHelmReleaseSyncs), ctx.stop)
 	return true, nil
 }

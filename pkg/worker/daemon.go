@@ -288,6 +288,7 @@ func (w *workerManager) LogEvent(ev event.Event) error {
 		Type:    model.GitOpsSyncEvent,
 		Payload: string(evBytes),
 	}
+	glog.Infof("%s git_ops_sync_event:\n%s", resp.Key, resp.Payload)
 	w.responseChan <- resp
 	return nil
 }
