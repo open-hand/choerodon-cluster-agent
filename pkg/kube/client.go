@@ -100,7 +100,6 @@ func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.
 	var objPods = make(map[string][]core_v1.Pod)
 	for _, info := range result {
 		if err := info.Get(); err != nil {
-			glog.Errorf("WARNING: Failed Get for resource %q: %s", info.Name, err)
 			continue
 		}
 		hrr := &model_helm.ReleaseResource{
@@ -337,9 +336,6 @@ func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]
 	if info == nil {
 		return objPods, nil
 	}
-
-	glog.Infof("get relation pod of object: %s/%s/%s", info.Namespace, info.Mapping.GroupVersionKind.Kind, info.Name)
-
 	versioned, err := info.Versioned()
 	switch {
 	case runtime.IsNotRegisteredError(err):

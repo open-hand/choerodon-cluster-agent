@@ -142,7 +142,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 					if err != nil {
 						if !strings.Contains(err.Error(), helm.ErrReleaseNotFound(chr.Name).Error()) {
 							if cmd := installHelmReleaseCmd(chr); cmd != nil {
-								glog.Infof("release %s install in timer", rls.Name)
+								glog.Infof("release %s install in timer", chr.Name)
 								c.commandChan <- cmd
 							}
 						} else {
