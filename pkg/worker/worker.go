@@ -109,9 +109,10 @@ func (w *workerManager) runWorker(i int, stop <-chan struct{}, gitConfig chan <-
 	for {
 		select {
 		case <-stop:
+			glog.Infof("worker down!")
 			return
 		case cmd := <-w.commandChan:
-			glog.V(1).Infof("worker %d get command: %s", i, cmd)
+			glog.Infof("get command: %s/%s",  cmd.Key, cmd.Type)
 			var newCmds []*model.Command = nil
 			var resp *model.Response = nil
 
