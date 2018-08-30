@@ -17,6 +17,7 @@ import (
 
 	"github.com/pkg/errors"
 	"log"
+	"github.com/golang/glog"
 )
 
 // If true, every git invocation will be echoed to stdout
@@ -296,8 +297,6 @@ func execGitCmd(ctx context.Context, dir string, out io.Writer, args ...string) 
 	}
 	c := exec.CommandContext(ctx, "git", args...)
 
-	defer c.Wait()
-
 	if dir != "" {
 		c.Dir = dir
 	}
@@ -315,6 +314,9 @@ func execGitCmd(ctx context.Context, dir string, out io.Writer, args ...string) 
 		if msg != "" {
 			err = errors.New(msg)
 		}
+	}
+	if err  := c.Process.Kill() ; err != nil {
+		glog.Errorf("cant not kill cmd process: %v", err)
 	}
 	if ctx.Err() == context.DeadlineExceeded {
 		return errors.Wrap(ctx.Err(), fmt.Sprintf("running git command: %s %v", "git", args))
