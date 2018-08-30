@@ -296,6 +296,8 @@ func execGitCmd(ctx context.Context, dir string, out io.Writer, args ...string) 
 	}
 	c := exec.CommandContext(ctx, "git", args...)
 
+	defer c.Wait()
+
 	if dir != "" {
 		c.Dir = dir
 	}

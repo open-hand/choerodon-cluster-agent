@@ -311,6 +311,7 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 	}
 	pod, err := c.client.CoreV1().Pods(namespace).Get(podName, meta_v1.GetOptions{})
 	if err != nil {
+		glog.Errorf("can not find pod %s :%v", podName, err)
 		return err
 	}
 	if pod.Status.Phase == core_v1.PodSucceeded || pod.Status.Phase == core_v1.PodFailed {
@@ -321,6 +322,7 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 		Name(podName).
 		Namespace(namespace).SubResource("exec").
 		Param("container", containerName)
+
 	req.VersionedParams(&core_v1.PodExecOptions{
 		Stdin:     true,
 		Stdout:    true,
@@ -329,6 +331,7 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 		Container: containerName,
 		Command:   []string{"/bin/sh", "-c", "TERM=xterm exec $( (type getent > /dev/null 2>&1  && getent passwd root | cut -d: -f7 2>/dev/null) || echo /bin/sh)"},
 	}, legacyscheme.ParameterCodec)
+
 	return execute(http.MethodPost, req.URL(), config, local, local, local, true)
 }
 

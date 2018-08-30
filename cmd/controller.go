@@ -194,6 +194,7 @@ func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
 		ctx.helmClient,
 		ctx.commandChan,
 		ctx.namespace,
+		ctx.responseChan,
 	).Run(int(ctx.options.ConcurrentC7NHelmReleaseSyncs), ctx.stop)
 	return true, nil
 }

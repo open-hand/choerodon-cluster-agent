@@ -26,6 +26,8 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/helm"
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	modelhelm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"k8s.io/apimachinery/pkg/labels"
+	kubernetes2 "github.com/choerodon/choerodon-agent/pkg/model/kubernetes"
 )
 
 const (
@@ -50,6 +52,8 @@ type Controller struct {
 	chrLister chrlisters.C7NHelmReleaseLister
 	chrSync   cache.InformerSynced
 
+	responseChan chan<- *model.Response
+
 	workqueue workqueue.RateLimitingInterface
 	namespace string
 	recorder record.EventRecorder
@@ -61,7 +65,8 @@ func NewController(
 	chrInformer chrinformers.C7NHelmReleaseInformer,
 	helmClient helm.Client,
 	commandChan chan<- *model.Command,
-	namespace string) *Controller {
+	namespace string,
+	responseChan chan<- *model.Response) *Controller {
 
 	chrscheme.AddToScheme(scheme.Scheme)
 	glog.V(4).Info("Creating event broadcaster")
@@ -80,6 +85,7 @@ func NewController(
 		workqueue:     workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "C7NHelmReleases"),
 		recorder:      recorder,
 		namespace:     namespace,
+		responseChan:  responseChan,
 	}
 
 	chrInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -162,6 +168,30 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	//	}
 	//}()
 
+	chrs, err := c.chrLister.C7NHelmReleases(c.namespace).List(labels.NewSelector())
+	if err != nil {
+		glog.Fatal("can not list chrs!")
+	} else {
+		var chrlist []string
+		for _, chr := range chrs {
+			chrlist = append(chrlist, chr.Name)
+		}
+		resourceList := &kubernetes2.ResourceList{
+			Resources:    chrlist,
+			ResourceType: "Release",
+		}
+		content, err := json.Marshal(resourceList)
+		if err != nil {
+			glog.Fatal("marshal pod list error")
+		} else {
+			response := &model.Response{
+				Key:     fmt.Sprintf("env:%s", c.namespace),
+				Type:    model.ResourceSync,
+				Payload: string(content),
+			}
+			c.responseChan <- response
+		}
+	}
 	glog.Info("Started c7nhelmrelease workers")
 	<-stopCh
 	glog.Info("Shutting down c7nhelmrelease workers")
