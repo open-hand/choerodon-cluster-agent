@@ -108,44 +108,44 @@ func (w *workerManager) runWorker(i int, stop <-chan struct{}, gitConfig chan <-
 
 	for {
 		select {
-		case <-stop:
-			glog.Infof("worker down!")
-			return
-		case cmd := <-w.commandChan:
-			glog.Infof("get command: %s/%s",  cmd.Key, cmd.Type)
-			var newCmds []*model.Command = nil
-			var resp *model.Response = nil
+			case <-stop:
+				glog.Infof("worker down!")
+				return
+			case cmd := <-w.commandChan:
+				glog.Infof("get command: %s/%s",  cmd.Key, cmd.Type)
+				var newCmds []*model.Command = nil
+				var resp *model.Response = nil
 
-			if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
-				err := fmt.Errorf("type %s not exist", cmd.Type)
-				glog.V(2).Info(err.Error())
-				resp = NewResponseError(cmd.Key, cmd.Type, err)
-			} else {
-				newCmds, resp = processCmdFunc(w, cmd)
-			}
-
-			if newCmds != nil {
-				go func(newCmds []*model.Command) {
-					for i := 0; i < len(newCmds); i++ {
-						w.commandChan <- newCmds[i]
-					}
-				}(newCmds)
-			}
-			if resp != nil {
-				if resp.Type == model.InitAgent{
-					var config model.GitInitConfig
-					err := json.Unmarshal([]byte(resp.Payload), &config)
-					if err != nil {
-						glog.Errorf("unmarshal git config error", err)
-					}
-					gitConfig <- config
-					break;
+				if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
+					err := fmt.Errorf("type %s not exist", cmd.Type)
+					glog.V(2).Info(err.Error())
+					resp = NewResponseError(cmd.Key, cmd.Type, err)
+				} else {
+					newCmds, resp = processCmdFunc(w, cmd)
 				}
-				go func(resp *model.Response) {
-					w.responseChan <- resp
-				}(resp)
+
+				if newCmds != nil {
+					go func(newCmds []*model.Command) {
+						for i := 0; i < len(newCmds); i++ {
+							w.commandChan <- newCmds[i]
+						}
+					}(newCmds)
+				}
+				if resp != nil {
+					if resp.Type == model.InitAgent{
+						var config model.GitInitConfig
+						err := json.Unmarshal([]byte(resp.Payload), &config)
+						if err != nil {
+							glog.Errorf("unmarshal git config error", err)
+						}
+						gitConfig <- config
+						break;
+					}
+					go func(resp *model.Response) {
+						w.responseChan <- resp
+					}(resp)
+				}
 			}
-		}
 	}
 }
 
