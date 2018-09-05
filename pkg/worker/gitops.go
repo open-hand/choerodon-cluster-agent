@@ -9,7 +9,7 @@ import (
 
 const (
 	// Timeout for git operations we're prepared to abandon
-	gitOpTimeout = 15 * time.Second
+	gitOpTimeout = 15 * time.Minute
 )
 
 func init() {

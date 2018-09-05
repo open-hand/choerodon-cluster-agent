@@ -82,11 +82,9 @@ func (r *Repo) Clone(ctx context.Context, conf Config) (*Checkout, error) {
 		r.mu.RUnlock()
 		return nil, err
 	}
-
+	r.mu.RUnlock()
 	glog.Infof("git repo working fetched !!!")
 	time.Sleep(20*time.Second)
-	r.mu.RUnlock()
-
 	return &Checkout{
 		dir:          repoDir,
 		upstream:     upstream,
