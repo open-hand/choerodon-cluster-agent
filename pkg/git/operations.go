@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	"log"
 	"syscall"
+	"github.com/golang/glog"
 )
 
 // If true, every git invocation will be echoed to stdout
@@ -311,6 +312,9 @@ func execGitCmd(ctx context.Context, dir string, out io.Writer, args ...string) 
 	c.Stderr = errOut
 
 	err := c.Run()
+
+	glog.Infof("process id %d", c.Process.Pid)
+
 	if err != nil {
 		msg := findErrorMessage(errOut)
 		if msg != "" {
@@ -322,8 +326,11 @@ func execGitCmd(ctx context.Context, dir string, out io.Writer, args ...string) 
 	} else if ctx.Err() == context.Canceled {
 		return errors.Wrap(ctx.Err(), fmt.Sprintf("context was unexpectedly cancelled when running git command: %s %v", "git", args))
 	}
-
-	syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
+	err = syscall.Kill(-c.Process.Pid, syscall.SIGKILL)
+	if err != nil {
+		glog.Infof("kill process error %v", err)
+		err = nil
+	}
 	return err
 }
 

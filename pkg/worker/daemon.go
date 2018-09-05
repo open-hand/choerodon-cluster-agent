@@ -115,9 +115,12 @@ func (w *workerManager) doSync() error {
 		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
 		defer cancel()
 		working, err = w.gitRepo.Clone(ctx, w.gitConfig)
+
 		if err != nil {
 			return err
 		}
+		glog.Infof("git repo clone !!!")
+		time.Sleep(20*time.Second)
 		defer working.Clean()
 	}
 
@@ -126,13 +129,15 @@ func (w *workerManager) doSync() error {
 	if err != nil && !isUnknownRevision(err) {
 		return err
 	}
-
+	glog.Infof("git sync revision old tag !!!")
+	time.Sleep(20*time.Second)
 	newTagRev, err := working.DevOpsSyncRevision(
 		ctx)
 	if err != nil {
 		return err
 	}
-
+	glog.Infof("git new tag  !!!")
+	time.Sleep(20*time.Second)
 	// Get a map of all resources defined in the repo
 	allResources, err := w.manifests.LoadManifests(working.Dir(), working.ManifestDir())
 	if err != nil {
@@ -163,6 +168,8 @@ func (w *workerManager) doSync() error {
 
 		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
 		changedFiles,fileList, err := working.ChangedFiles(ctx, oldTagRev)
+		glog.Infof("git change file get !!!")
+		time.Sleep(20*time.Second)
 		if err == nil && len(changedFiles) > 0 {
 
 			for _,file := range fileList {
