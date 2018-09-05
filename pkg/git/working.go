@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"github.com/golang/glog"
 )
 
 // Config holds some values we use when working in the working clone of
@@ -57,6 +58,9 @@ func (r *Repo) Clone(ctx context.Context, conf Config) (*Checkout, error) {
 		return nil, err
 	}
 
+	glog.Infof("git repo working clone !!!")
+	time.Sleep(20*time.Second)
+
 	if err := config(ctx, repoDir, conf.UserName, conf.UserEmail); err != nil {
 		os.RemoveAll(repoDir)
 		return nil, err
@@ -69,6 +73,8 @@ func (r *Repo) Clone(ctx context.Context, conf Config) (*Checkout, error) {
 		os.RemoveAll(repoDir)
 		return nil, err
 	}
+	glog.Infof("git repo working notes !!!")
+	time.Sleep(20*time.Second)
 
 	r.mu.RLock()
 	if err := fetch(ctx, repoDir, r.dir, realNotesRef+":"+realNotesRef); err != nil {
@@ -76,6 +82,9 @@ func (r *Repo) Clone(ctx context.Context, conf Config) (*Checkout, error) {
 		r.mu.RUnlock()
 		return nil, err
 	}
+
+	glog.Infof("git repo working fetched !!!")
+	time.Sleep(20*time.Second)
 	r.mu.RUnlock()
 
 	return &Checkout{
