@@ -412,12 +412,12 @@ func (c *client) LabelRepoObj (namespace, manifest, version string, commit strin
 
 		annotationsMap := metaDataMap["annotations"]
 
-		annotations := make(map[string]string)
+		annotations := make(map[string]interface{})
 
 		if annotationsMap == nil {
 			annotationsMap = annotations
 		} else {
-			annotations = annotationsMap.(map[string]string)
+			annotations = annotationsMap.(map[string]interface{})
 		}
 		annotations[model.CommitLabel] = commit
 		metaDataMap["annotations"] = annotationsMap
