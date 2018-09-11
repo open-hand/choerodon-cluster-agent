@@ -7,4 +7,5 @@ const (
 	NetworkLabel    = "choerodon.io/network"
 	NetworkNoDelLabel = "choerodon.io/no_delete"
 	AgentVersionLabel = "choerodon.io"
+	CommitLabel        = "choerodon.io/commit"
 	)

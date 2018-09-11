@@ -24,15 +24,15 @@ func preInstallHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Comma
 	var newCmds []*model.Command
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooks, err := w.helmClient.PreInstallRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooksJsonB, err := json.Marshal(hooks)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
@@ -52,15 +52,15 @@ func installHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command,
 	var req model_helm.InstallReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	resp, err := w.helmClient.InstallRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	respB, err := json.Marshal(resp)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	return nil, &model.Response{
 		Key:     cmd.Key,
@@ -74,15 +74,15 @@ func preUpdateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Comman
 	var newCmds []*model.Command
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooks, err := w.helmClient.PreUpgradeRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooksJsonB, err := json.Marshal(hooks)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
@@ -102,15 +102,15 @@ func updateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, 
 	var req model_helm.UpgradeReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	resp, err := w.helmClient.UpgradeRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	respB, err := json.Marshal(resp)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	return nil, &model.Response{
 		Key:     cmd.Key,

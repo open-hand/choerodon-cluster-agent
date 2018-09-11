@@ -13,7 +13,7 @@ type Manifests struct {
 	Namespace string
 }
 
-func (c *Manifests) LoadManifests(base, first string, rest ...string) (map[string]resource.Resource, error) {
+func (c *Manifests) LoadManifests(base, first string, rest ...string) (map[string]resource.Resource, []string,  error) {
 	return kube_resource.Load(c.Namespace, base, first, rest...)
 }
 

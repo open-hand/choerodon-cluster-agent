@@ -21,9 +21,10 @@ import (
 // Load takes paths to directories or files, and creates an object set
 // based on the file(s) therein. Resources are named according to the
 // file content, rather than the file name of directory structure.
-func Load(namespace string, base, atLeastOne string, more ...string) (map[string]resource.Resource, error) {
+func Load(namespace string, base, atLeastOne string, more ...string) (map[string]resource.Resource, []string, error) {
 	roots := append([]string{atLeastOne}, more...)
 	objs := map[string]resource.Resource{}
+	files := make([]string,0)
 	for _, root := range roots {
 		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -39,6 +40,7 @@ func Load(namespace string, base, atLeastOne string, more ...string) (map[string
 				if err != nil {
 					return errors.Wrapf(err, "path to scan %q is not under base %q", path, base)
 				}
+				files = append(files, source)
 				docsInFile, err := ParseMultidoc(namespace, fileBytes, source)
 				if err != nil {
 					return err
@@ -54,11 +56,11 @@ func Load(namespace string, base, atLeastOne string, more ...string) (map[string
 			return nil
 		})
 		if err != nil {
-			return objs, err
+			return objs,files, err
 		}
 	}
 
-	return objs, nil
+	return objs,files, nil
 }
 
 // ParseMultidoc takes a dump of config (a multidoc YAML) and

@@ -6,6 +6,7 @@ type InstallReleaseRequest struct {
 	ChartVersion string `json:"chartVersion,omitempty"`
 	Values       string `json:"values,omitempty"`
 	ReleaseName  string `json:"releaseName,omitempty"`
+	Commit       string `json:"commit,omitempty"`
 }
 
 type Release struct {
@@ -19,6 +20,7 @@ type Release struct {
 	Hooks        []*ReleaseHook     `json:"hooks,omitempty"`
 	Resources    []*ReleaseResource `json:"resources,omitempty"`
 	Config       string             `json:"config,omitempty"`
+	Commit       string				`json:"commit,omitempty"`
 }
 
 type ReleaseResource struct {
@@ -44,6 +46,7 @@ type UpgradeReleaseRequest struct {
 	ChartName    string `json:"chartName,omitempty"`
 	ChartVersion string `json:"chartVersion,omitempty"`
 	Values       string `json:"values,omitempty"`
+	Commit       string	`json:"commit,omitempty"`
 }
 
 type RollbackReleaseRequest struct {

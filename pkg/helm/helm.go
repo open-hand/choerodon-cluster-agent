@@ -227,6 +227,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		return nil, newError
 	}
 	rls, err := c.getHelmRelease(installReleaseResp.GetRelease())
+	rls.Commit = request.Commit
 	if err != nil {
 		return nil, err
 	}
@@ -391,6 +392,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	if err != nil {
 		return nil, err
 	}
+	rls.Commit = request.Commit
 	return rls, nil
 }
 

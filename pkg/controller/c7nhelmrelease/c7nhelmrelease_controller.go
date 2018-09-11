@@ -292,6 +292,9 @@ func (c *Controller) syncHandler(key string) error {
 			return fmt.Errorf("get release content: %v", err)
 		}
 	} else {
+		if chr.Namespace != rls.Namespace {
+			glog.Error("release already in other namespace!")
+		}
 		if chr.Spec.ChartName == rls.ChartName && chr.Spec.ChartVersion == rls.ChartVersion && chr.Spec.Values == rls.Config {
 			glog.Infof("release %s chart、version、values not change", rls.Name)
 			return nil
@@ -328,6 +331,7 @@ func installHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Command {
 		ChartVersion: chr.Spec.ChartVersion,
 		Values:       chr.Spec.Values,
 		ReleaseName:  chr.Name,
+		Commit:       chr.Annotations[model.CommitLabel],
 	}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
@@ -348,6 +352,7 @@ func updateHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Command {
 		ChartVersion: chr.Spec.ChartVersion,
 		Values:       chr.Spec.Values,
 		ReleaseName:  chr.Name,
+		Commit:       chr.Annotations[model.CommitLabel],
 	}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {

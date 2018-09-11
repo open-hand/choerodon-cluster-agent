@@ -163,10 +163,10 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		return false, err
 	}
 
-	if secret.Labels[model.ReleaseLabel] != "" {
-		glog.V(2).Info(secret.Labels[model.ReleaseLabel], ":", secret)
+	//if secret.Labels[model.ReleaseLabel] != "" {
+	//	glog.V(2).Info(secret.Labels[model.ReleaseLabel], ":", secret)
 		c.responseChan <- newsecretRep(secret)
-	}
+	//}
 	return true, nil
 }
 
@@ -181,6 +181,9 @@ func newsecretDelRep(name string, namespace string) *model.Response {
 func newsecretRep(secret *v1.Secret) *model.Response {
 	payload, err := json.Marshal(secret)
 	release := secret.Labels[model.ReleaseLabel]
+	if release == "" {
+		release= "secret"
+	}
 	if err != nil {
 		glog.Error(err)
 	}

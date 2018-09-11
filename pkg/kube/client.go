@@ -46,7 +46,7 @@ type Client interface {
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
 	LabelObjects(namespace string, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
-	LabelRepoObj (namespace, manifest, version string) (*bytes.Buffer, error)
+	LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 }
 
 var	AgentVersion string
@@ -377,7 +377,7 @@ func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]
 	return objPods, nil
 }
 
-func (c *client) LabelRepoObj (namespace, manifest, version string) (*bytes.Buffer, error) {
+func (c *client) LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
 	result, err := c.buildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -400,8 +400,38 @@ func (c *client) LabelRepoObj (namespace, manifest, version string) (*bytes.Buff
 		if err != nil {
 			return nil, fmt.Errorf("yaml marshal: %v", err)
 		}
+
+		m := make(map[string]interface{})
+		err = yaml.Unmarshal(objB, &m)
+
+		if err != nil {
+			return nil, fmt.Errorf("yaml unmarshal: %v", err)
+		}
+		metaData := m["metadata"]
+		metaDataMap := metaData.(map[string]interface{})
+
+		annotationsMap := metaDataMap["annotations"]
+
+		annotations := make(map[string]string)
+
+		if annotationsMap == nil {
+			annotationsMap = annotations
+		} else {
+			annotations = annotationsMap.(map[string]string)
+		}
+		annotations[model.CommitLabel] = commit
+		metaDataMap["annotations"] = annotationsMap
+		m["metadata"] = metaDataMap
+		newObj, err := yaml.Marshal(m)
+
+
+
+		if err != nil {
+			return nil, fmt.Errorf("yaml marshal: %v", err)
+		}
+
 		newManifestBuf.WriteString("\n---\n")
-		newManifestBuf.Write(objB)
+		newManifestBuf.Write(newObj)
 	}
 
 	return newManifestBuf, nil
@@ -443,9 +473,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		return nil, err
 	}
 	obj := versioned.DeepCopyObject()
-	if obj.GetObjectKind().GroupVersionKind().Kind ==  "C7NHelmRelease"{
-		return nil,nil
-	}
+
 	switch typed := obj.(type) {
 	// ReplicationController
 		// Deployment
@@ -467,7 +495,8 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	default:
-		return nil, fmt.Errorf("label object not matched: %v", obj)
+		glog.Warningf("label object not matched: %v", obj)
+		return obj, nil
 	}
 
 	return obj, nil

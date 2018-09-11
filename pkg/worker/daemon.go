@@ -100,8 +100,7 @@ func (w *workerManager) AskForSync() {
 	}
 }
 
-func (w *workerManager) doSync() error {
-	started := time.Now().UTC()
+func (w *workerManager) doSync() error {started := time.Now().UTC()
 
 	// We don't care how long this takes overall, only about not
 	// getting bogged down in certain operations, so use an
@@ -135,7 +134,7 @@ func (w *workerManager) doSync() error {
 	}
 
 	// Get a map of all resources defined in the repo
-	allResources, err := w.manifests.LoadManifests(working.Dir(), working.ManifestDir())
+	allResources,files, err := w.manifests.LoadManifests(working.Dir(), working.ManifestDir())
 	if err != nil {
 		return errors.Wrap(err, "loading resources from repo")
 	}
@@ -160,6 +159,16 @@ func (w *workerManager) doSync() error {
 	if initialSync {
 		// no synctag, We are syncing everything from scratch
 		changedResources = allResources
+		for _,file := range files {
+			commit, err := working.FileLastCommit(ctx, file)
+			if err != nil {
+				glog.Errorf("get file commit error : v%", err)
+				continue
+			}
+			filesCommits = append(filesCommits, event.FileCommit{File:file, Commit: commit})
+			fileCommitMap[file] = commit
+		}
+
 	} else {
 
 		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
@@ -176,7 +185,7 @@ func (w *workerManager) doSync() error {
 				fileCommitMap[file] = commit
 			}
 			// We had some changed files, we're syncing a diff
-			changedResources, err = w.manifests.LoadManifests(working.Dir(), changedFiles[0], changedFiles[1:]...)
+			changedResources,_, err = w.manifests.LoadManifests(working.Dir(), changedFiles[0], changedFiles[1:]...)
 		}
 		cancel()
 		if err != nil {
@@ -186,7 +195,7 @@ func (w *workerManager) doSync() error {
 
 	for key,k8sResource := range changedResources{
 
-		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(w.namespace, string(k8sResource.Bytes()), kube.AgentVersion)
+		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(w.namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
 		if err != nil {
 			glog.Errorf("label of object error ",err)
 		} else if k8sResourceBuff != nil {
@@ -238,7 +247,19 @@ func (w *workerManager) doSync() error {
 	for _, r := range changedResources {
 		resourceIDs.Add([]resource.ResourceID{r.ResourceID()})
 	}
+	resourceCommits := make([]event.ResourceCommit, 0)
 
+	resourceIdList := resourceIDs.ToSlice()
+
+	for _,resourceId := range resourceIdList{
+		resourceCommit := event.ResourceCommit{
+			ResourceId: resourceId.String(),
+			File: changedResources[resourceId.String()].Source(),
+			Commit: fileCommitMap[changedResources[resourceId.String()].Source()],
+
+		}
+		resourceCommits = append(resourceCommits, resourceCommit)
+	}
 
 
 	if err := w.LogEvent(event.Event{
@@ -250,6 +271,7 @@ func (w *workerManager) doSync() error {
 			Commit: newTagRev,
 			Errors:  syncErrors,
 			FileCommits: filesCommits,
+			ResourceCommits: resourceCommits,
 		},
 	}); err != nil {
 		glog.Errorf("sync log event: %v", err)
