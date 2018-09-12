@@ -60,6 +60,7 @@ type Client interface {
 	StartRelease(request *model_helm.StartReleaseRequest) (*model_helm.StartReleaseResponse, error)
 	StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error)
 	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
+	GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
 }
 
 type client struct {
@@ -257,6 +258,29 @@ func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, 
 		Manifest:     release.Manifest,
 		Hooks:        rlsHooks,
 		Resources:    resources,
+		Config:       release.Config.Raw,
+	}
+	return rls, nil
+}
+
+func (c *client) getHelmReleaseNoResource(release *release.Release) (*model_helm.Release, error) {
+	rlsHooks := make([]*model_helm.ReleaseHook, len(release.GetHooks()))
+	for i := 0; i < len(rlsHooks); i++ {
+		rlsHook := release.GetHooks()[i]
+		rlsHooks[i] = &model_helm.ReleaseHook{
+			Name: rlsHook.Name,
+			Kind: rlsHook.Kind,
+		}
+	}
+	rls := &model_helm.Release{
+		Name:         release.Name,
+		Revision:     release.Version,
+		Namespace:    release.Namespace,
+		Status:       release.Info.Status.Code.String(),
+		ChartName:    release.Chart.Metadata.Name,
+		ChartVersion: release.Chart.Metadata.Version,
+		Manifest:     release.Manifest,
+		Hooks:        rlsHooks,
 		Config:       release.Config.Raw,
 	}
 	return rls, nil
@@ -543,11 +567,15 @@ func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest)
 	if releaseContentResp == nil {
 		return nil, fmt.Errorf("release %s not exist", request.ReleaseName)
 	}
-	rls, err := c.getHelmRelease(releaseContentResp.Release)
+	rls, err := c.getHelmReleaseNoResource(releaseContentResp.Release)
 	if err != nil {
 		return nil, err
 	}
 	return rls, nil
+}
+
+func (c *client) GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error) {
+	return nil,nil
 }
 
 func InitEnvSettings() {

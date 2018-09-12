@@ -160,7 +160,7 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 
 	helm.InitEnvSettings()
 	commandChan := make(chan *model.Command, 100)
-	responseChan := make(chan *model.Response, 100)
+	responseChan := make(chan *model.Response, 1000)
 	kubeClient, err := kube.NewClient(f)
 	if err != nil {
 		errChan <- err

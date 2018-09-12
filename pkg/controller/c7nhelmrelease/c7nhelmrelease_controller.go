@@ -281,7 +281,7 @@ func (c *Controller) syncHandler(key string) error {
 		return err
 	}
 
-	rls, err := c.helmClient.GetReleaseContent(&modelhelm.GetReleaseContentRequest{ReleaseName: name})
+	rls, err := c.helmClient.GetRelease(&modelhelm.GetReleaseContentRequest{ReleaseName: name})
 	if err != nil {
 		if !strings.Contains(err.Error(), helm.ErrReleaseNotFound(name).Error()) {
 			if cmd := installHelmReleaseCmd(chr); cmd != nil {
@@ -289,14 +289,17 @@ func (c *Controller) syncHandler(key string) error {
 				c.commandChan <- cmd
 			}
 		} else {
+			c.responseChan <- newReleaseSyncFailRep(chr, "helm release query failed ,please check tiller server.")
 			return fmt.Errorf("get release content: %v", err)
 		}
 	} else {
 		if chr.Namespace != rls.Namespace {
+			c.responseChan <- newReleaseSyncFailRep(chr, "release already in other namespace!")
 			glog.Error("release already in other namespace!")
 		}
 		if chr.Spec.ChartName == rls.ChartName && chr.Spec.ChartVersion == rls.ChartVersion && chr.Spec.Values == rls.Config {
 			glog.Infof("release %s chart、version、values not change", rls.Name)
+			c.responseChan <- newReleaseSyncRep(chr)
 			return nil
 		}
 		if cmd := updateHelmReleaseCmd(chr); cmd != nil {
@@ -363,5 +366,20 @@ func updateHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Command {
 		Key:     fmt.Sprintf("env:%s.envId:%d.release:%s", chr.Namespace, EnvId, chr.Name),
 		Type:    model.HelmReleasePreUpgrade,
 		Payload: string(reqBytes),
+	}
+}
+
+func newReleaseSyncRep(chr *c7nv1alpha1.C7NHelmRelease) *model.Response {
+	return &model.Response{
+		Key:     fmt.Sprintf("env:%s.release:%s.commit:%s", chr.Namespace, chr.Name, chr.Annotations[model.CommitLabel]),
+		Type:    model.HelmReleaseSynced,
+	}
+}
+
+func newReleaseSyncFailRep(chr *c7nv1alpha1.C7NHelmRelease, msg string) *model.Response {
+	return &model.Response{
+		Key:     fmt.Sprintf("env:%s.release:%s.commit:%s", chr.Namespace, chr.Name, chr.Annotations[model.CommitLabel]),
+		Type:    model.HelmReleaseStartFailed,
+		Payload: msg,
 	}
 }
