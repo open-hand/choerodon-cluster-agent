@@ -304,7 +304,7 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 	}
 	return nil, &model.Response{
 		Key:     cmd.Key,
-		Type:    model.HelmReleaseGetContent,
+		Type:    model.StatusSync,
 		Payload: string(respB),
 	}
 }
