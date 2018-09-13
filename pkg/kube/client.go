@@ -24,12 +24,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	chrclientset "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned"
 	"k8s.io/kubernetes/pkg/kubectl"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"github.com/choerodon/choerodon-agent/pkg/apis/choerodon/v1alpha1"
 )
 
 type Client interface {
@@ -47,6 +49,10 @@ type Client interface {
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
 	LabelObjects(namespace string, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
 	LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error)
+	GetService(namespace string, serviceName string) (string, error)
+	GetIngress(namespace string, ingressName string) (string, error)
+	GetSecret(namespace string, secretName string) (string, error)
+	GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error)
 }
 
 var	AgentVersion string
@@ -54,6 +60,7 @@ var	AgentVersion string
 type client struct {
 	cmdutil.Factory
 	client *kubernetes.Clientset
+	c7nClient *chrclientset.Clientset
 }
 
 func NewClient(f cmdutil.Factory) (Client, error) {
@@ -61,10 +68,18 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get kubernetes client: %v", err)
 	}
-
+	clientConfig,err := f.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
+	}
+	c7nClient,err := chrclientset.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error building c7n clientset: %v", err)
+	}
 	return &client{
 		Factory: f,
 		client:  kubeClient,
+		c7nClient: c7nClient,
 	}, nil
 }
 
@@ -217,6 +232,65 @@ func (c *client) CreateOrUpdateService(namespace string, serviceStr string) (*co
 	svc.Spec.ClusterIP = oldService.Spec.ClusterIP
 	return c.client.CoreV1().Services(namespace).Update(svc)
 }
+
+func (c *client) GetService(namespace string, serviceName string) (string, error) {
+
+	service, err := c.client.CoreV1().Services(namespace).Get(serviceName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if service.Annotations != nil && service.Annotations[model.CommitLabel] != "" {
+		return service.Annotations[model.CommitLabel], nil
+	}
+	return "",nil
+}
+
+func (c *client) GetIngress(namespace string, ingressName string) (string, error) {
+	ingress, err := c.client.ExtensionsV1beta1().Ingresses(namespace).Get(ingressName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if ingress.Annotations != nil && ingress.Annotations[model.CommitLabel] != "" {
+		return ingress.Annotations[model.CommitLabel], nil
+	}
+	return "",nil
+}
+
+func (c *client) GetSecret(namespace string, secretName string) (string, error) {
+	secret, err := c.client.CoreV1().Secrets(namespace).Get(secretName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if secret.Annotations != nil && secret.Annotations[model.CommitLabel] != "" {
+		return secret.Annotations[model.CommitLabel], nil
+	}
+	return "",nil
+}
+
+func (c *client) GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error) {
+	release, err := c.c7nClient.ChoerodonV1alpha1().C7NHelmReleases(namespace).Get(releaseName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, err
+		}
+		return nil, nil
+	}
+	if release.Annotations != nil && release.Annotations[model.CommitLabel] != "" {
+		return release, nil
+	}
+	return nil,nil
+}
+
+
 
 func (c *client) CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error) {
 	client, err := c.KubernetesClientSet()

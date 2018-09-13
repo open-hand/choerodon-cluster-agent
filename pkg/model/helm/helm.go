@@ -78,3 +78,9 @@ type GetReleaseContentRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`
 	Version     int32  `json:"version,omitempty"`
 }
+
+type SyncRequest struct {
+	ResourceType string `json:"resourceType,omitempty"`
+	ResourceName string `json:"resourceName,omitempty"`
+	Commit 		 string `json:"commit,omitempty"`
+}
