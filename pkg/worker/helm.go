@@ -246,31 +246,31 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 			case "ingress":
 				commit,err  := w.kubeClient.GetIngress(w.namespace, syncRequest.ResourceName)
 				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, ""))
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else  if commit != "" {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit))
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
 				}
 				break
 			case "service":
 				commit,err  := w.kubeClient.GetService(w.namespace, syncRequest.ResourceName)
 				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, ""))
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if commit != "" {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit))
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
 				}
 				break
 			case "certificate":
 				commit,err  := w.kubeClient.GetSecret(w.namespace, syncRequest.ResourceName)
 				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, ""))
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if commit != "" {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit))
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
 				}
 				break
 			case "instance":
 				chr,err  := w.kubeClient.GetC7nHelmRelease(w.namespace, syncRequest.ResourceName)
 				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, ""))
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if chr != nil {
 					if	chr.Annotations[model.CommitLabel] == syncRequest.Commit {
 					    release,err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName})
@@ -278,19 +278,19 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 							glog.Infof("release {} get error ", syncRequest.ResourceName, err)
 							if  strings.Contains(err.Error(), "not exist") {
 								glog.Errorf("release {} not exist ", syncRequest.ResourceName, err)
-								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, ""))
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 							}
 						}
 						if release != nil && release.Status == "DEPLOYED" {
 							if release.ChartVersion != chr.Spec.ChartVersion || release.Config != chr.Spec.Values  {
 								glog.Infof("release deployed but not consistent")
-								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, ""))
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 							} else {
-								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit))
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
 							}
 						}
 					} else {
-						reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit))
+						reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
 					}
 				}
 				break
@@ -309,10 +309,11 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 	}
 }
 
-func newSyncResponse(name string, reType string, commit string,) *model_helm.SyncRequest {
+func newSyncResponse(name string, reType string, commit string,id int32) *model_helm.SyncRequest {
 	return &model_helm.SyncRequest{
 		ResourceName: name,
 		ResourceType: reType,
 		Commit: commit,
+		Id: id,
 	}
 }

@@ -83,4 +83,5 @@ type SyncRequest struct {
 	ResourceType string `json:"resourceType,omitempty"`
 	ResourceName string `json:"resourceName,omitempty"`
 	Commit 		 string `json:"commit,omitempty"`
+	Id           int32  `json:"id,omitempty"`
 }
