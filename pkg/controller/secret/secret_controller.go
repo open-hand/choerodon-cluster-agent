@@ -202,7 +202,7 @@ func newCertIssuedRep(secret *v1.Secret) *model.Response {
 		return nil
 	}
 	return &model.Response{
-		Key:     fmt.Sprintf("env:%s.Cert:%s", secret.Namespace, secret.Name),
+		Key:     fmt.Sprintf("env:%s.Cert:%s.commit:%s", secret.Namespace, secret.Name, secret.Annotations[model.CommitLabel]),
 		Type:    model.Cert_Issued,
 		Payload: string(payload),
 	}
