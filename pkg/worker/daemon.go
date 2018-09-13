@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -23,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin/json"
 	"github.com/choerodon/choerodon-agent/pkg/kube"
 	resource2 "github.com/choerodon/choerodon-agent/pkg/cluster/kubernetes/resource"
+	"sync"
 )
 
 type note struct {
@@ -320,4 +320,31 @@ func isUnknownRevision(err error) bool {
 	return err != nil &&
 		(strings.Contains(err.Error(), "unknown revision or path not in the working tree.") ||
 			strings.Contains(err.Error(), "bad revision"))
+}
+
+func (w *workerManager)syncStatus(stop <-chan struct{}, done *sync.WaitGroup)  {
+	defer done.Done()
+
+	// We want to sync at least every `SyncInterval`. Being told to
+	// sync, or completing a job, may intervene (in which case,
+	// reschedule the next sync).
+	syncTimer := time.NewTimer(10 * time.Second)
+	for{
+		select {
+		case <- stop:
+			glog.Info("sync loop stopping")
+			return
+		case <- syncTimer.C:
+			w.responseChan <- newSyncRep(w.namespace)
+			syncTimer.Reset(w.statusSyncInterval)
+		}
+	}
+
+}
+
+func newSyncRep(ns string) *model.Response {
+	return &model.Response{
+		Key:     fmt.Sprintf("env:%s", ns),
+		Type:    model.StatusSyncEvent,
+	}
 }

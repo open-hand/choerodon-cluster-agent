@@ -60,6 +60,6 @@ const (
 	GitOpsSyncFailed = "git_ops_sync_failed"
 	GitOpsSyncEvent  = "git_ops_sync_event"
 
-
+	StatusSyncEvent = "status_sync_event"
 	StatusSync       = "status_sync"
 )
