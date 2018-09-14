@@ -210,6 +210,6 @@ func newCertFailed(event *v1.Event) *model.Response {
 	return &model.Response{
 		Key:     fmt.Sprintf("env:%s.Cert:%s.commit:%s", event.Namespace, event.InvolvedObject.Name,commit),
 		Type:    model.Cert_Faild,
-		Payload: event.Message[41:],
+		Payload: event.Message[42:],
 	}
 }
