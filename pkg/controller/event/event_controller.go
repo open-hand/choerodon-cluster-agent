@@ -172,7 +172,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	}
 
 	if event.InvolvedObject.Kind == "Certificate" && strings.Contains(event.Reason, "Err"){
-		if len(event.Reason) < 43 {
+		if len(event.Reason) > 43 {
 			glog.Warningf("Certificate err event reason not contain commit")
 			c.responseChan <- newCertFailed(event)
 		}

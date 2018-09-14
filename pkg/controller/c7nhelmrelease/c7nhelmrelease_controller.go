@@ -383,7 +383,7 @@ func newReleaseSyncRep(chr *c7nv1alpha1.C7NHelmRelease) *model.Response {
 func newReleaseSyncFailRep(chr *c7nv1alpha1.C7NHelmRelease, msg string) *model.Response {
 	return &model.Response{
 		Key:     fmt.Sprintf("env:%s.release:%s.commit:%s", chr.Namespace, chr.Name, chr.Annotations[model.CommitLabel]),
-		Type:    model.HelmReleaseStartFailed,
+		Type:    model.HelmReleaseSyncedFailed,
 		Payload: msg,
 	}
 }
