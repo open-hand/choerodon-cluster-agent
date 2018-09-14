@@ -206,10 +206,10 @@ func newInstanceEventRep(event *v1.Event, release string) *model.Response {
 }
 
 func newCertFailed(event *v1.Event) *model.Response {
-	commit := event.Reason[1:41]
+	commit := event.Message[1:41]
 	return &model.Response{
 		Key:     fmt.Sprintf("env:%s.Cert:%s.commit:%s", event.Namespace, event.InvolvedObject.Name,commit),
 		Type:    model.Cert_Faild,
-		Payload: event.Reason[41:],
+		Payload: event.Message[41:],
 	}
 }
