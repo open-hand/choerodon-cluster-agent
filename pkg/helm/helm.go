@@ -21,6 +21,9 @@ import (
 
 	envkube "github.com/choerodon/choerodon-agent/pkg/kube"
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"strconv"
+	"regexp"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -60,6 +63,7 @@ type Client interface {
 	StartRelease(request *model_helm.StartReleaseRequest) (*model_helm.StartReleaseResponse, error)
 	StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error)
 	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
+	GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
 }
 
 type client struct {
@@ -200,7 +204,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
 			newTemplates = append(newTemplates, newTemplate)
 		} else {
-			newTemplate := &chart.Template{Name: "hook"+string(index), Data: newManifestBuf.Bytes()}
+			newTemplate := &chart.Template{Name: "hook"+strconv.Itoa(index), Data: newManifestBuf.Bytes()}
 			newTemplates = append(newTemplates, newTemplate)
 		}
 	}
@@ -210,7 +214,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
 		c.namespace,
-		helm.ValueOverrides([]byte{}),
+		helm.ValueOverrides([]byte(request.Values)),
 		helm.ReleaseName(request.ReleaseName),
 	)
 	if err != nil {
@@ -227,6 +231,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		return nil, newError
 	}
 	rls, err := c.getHelmRelease(installReleaseResp.GetRelease())
+	rls.Commit = request.Commit
 	if err != nil {
 		return nil, err
 	}
@@ -256,6 +261,29 @@ func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, 
 		Manifest:     release.Manifest,
 		Hooks:        rlsHooks,
 		Resources:    resources,
+		Config:       release.Config.Raw,
+	}
+	return rls, nil
+}
+
+func (c *client) getHelmReleaseNoResource(release *release.Release) (*model_helm.Release, error) {
+	rlsHooks := make([]*model_helm.ReleaseHook, len(release.GetHooks()))
+	for i := 0; i < len(rlsHooks); i++ {
+		rlsHook := release.GetHooks()[i]
+		rlsHooks[i] = &model_helm.ReleaseHook{
+			Name: rlsHook.Name,
+			Kind: rlsHook.Kind,
+		}
+	}
+	rls := &model_helm.Release{
+		Name:         release.Name,
+		Revision:     release.Version,
+		Namespace:    release.Namespace,
+		Status:       release.Info.Status.Code.String(),
+		ChartName:    release.Chart.Metadata.Name,
+		ChartVersion: release.Chart.Metadata.Version,
+		Manifest:     release.Manifest,
+		Hooks:        rlsHooks,
 		Config:       release.Config.Raw,
 	}
 	return rls, nil
@@ -363,7 +391,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
 			newTemplates = append(newTemplates, newTemplate)
 		} else {
-			newTemplate := &chart.Template{Name: "hook"+string(index), Data: newManifestBuf.Bytes()}
+			newTemplate := &chart.Template{Name: "hook"+ strconv.Itoa(index), Data: newManifestBuf.Bytes()}
 			newTemplates = append(newTemplates, newTemplate)
 		}
 	}
@@ -373,7 +401,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,
 		chartRequested,
-		helm.UpdateValueOverrides([]byte{}),
+		helm.UpdateValueOverrides([]byte(request.Values)),
 	)
 	if err != nil {
 		newErr := fmt.Errorf("update release %s: %v", request.ReleaseName, err)
@@ -391,6 +419,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	if err != nil {
 		return nil, err
 	}
+	rls.Commit = request.Commit
 	return rls, nil
 }
 
@@ -548,7 +577,48 @@ func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest)
 	return rls, nil
 }
 
+func (c *client) GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error) {
+	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName, helm.ContentReleaseVersion(request.Version))
+	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
+		return nil, err
+	}
+	if releaseContentResp == nil {
+		return nil, fmt.Errorf("release %s not exist", request.ReleaseName)
+	}
+	rls, err := c.getHelmReleaseNoResource(releaseContentResp.Release)
+	if err != nil {
+		return nil, err
+	}
+	return rls, nil
+}
+
 func InitEnvSettings() {
 	// set defaults from environment
 	settings.Init(pflag.CommandLine)
+}
+
+func removeValues(values map[string]interface{})  {
+	for key, value := range values {
+		if valued,ok := value.(string);  ok {
+			if matched,_ := regexp.MatchString(".*{{.*}}.*", valued); matched {
+				delete(values, key)
+			}
+		} else if valued,ok := value.(map[string]interface{});  ok{
+			removeValues(valued)
+		}
+
+	}
+}
+
+func removeStringValues(values string) (error, string) {
+	mapValues := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(values), mapValues); err != nil {
+		return fmt.Errorf("unmarshal values err: %v", err), ""
+	}
+	removeValues(mapValues)
+	bytesValues,err := yaml.Marshal(mapValues)
+	if  err != nil {
+		return fmt.Errorf("marshal map values err: %v", err), ""
+	}
+	return nil, string(bytesValues)
 }

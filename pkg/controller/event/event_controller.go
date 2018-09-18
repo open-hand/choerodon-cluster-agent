@@ -17,6 +17,7 @@ import (
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	"k8s.io/api/core/v1"
 	"encoding/json"
+	"strings"
 )
 
 var (
@@ -170,6 +171,13 @@ func (c *controller) syncHandler(key string) (bool, error) {
 
 	}
 
+	if event.InvolvedObject.Kind == "Certificate" && strings.Contains(event.Reason, "Err"){
+		if len(event.Message) > 43 {
+			glog.Warningf("Certificate err event reason not contain commit")
+			c.responseChan <- newCertFailed(event)
+		}
+	}
+
 	return true, nil
 }
 
@@ -194,5 +202,14 @@ func newInstanceEventRep(event *v1.Event, release string) *model.Response {
 		Key:     fmt.Sprintf("env:%s.release:%s.Event:%s", event.Namespace, release, event.Name),
 		Type:    model.ReleasePodEvent,
 		Payload: string(payload),
+	}
+}
+
+func newCertFailed(event *v1.Event) *model.Response {
+	commit := event.Message[1:41]
+	return &model.Response{
+		Key:     fmt.Sprintf("env:%s.Cert:%s.commit:%s", event.Namespace, event.InvolvedObject.Name,commit),
+		Type:    model.Cert_Faild,
+		Payload: event.Message[42:],
 	}
 }

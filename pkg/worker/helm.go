@@ -5,6 +5,8 @@ import (
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"github.com/golang/glog"
+	"strings"
 )
 
 func init() {
@@ -17,6 +19,8 @@ func init() {
 	registerCmdFunc(model.HelmReleaseStart, startHelmRelease)
 	registerCmdFunc(model.HelmReleaseStop, stopHelmRelease)
 	registerCmdFunc(model.HelmReleaseGetContent, getHelmReleaseContent)
+	registerCmdFunc(model.StatusSync, syncStatus)
+
 }
 
 func preInstallHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
@@ -24,15 +28,15 @@ func preInstallHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Comma
 	var newCmds []*model.Command
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooks, err := w.helmClient.PreInstallRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooksJsonB, err := json.Marshal(hooks)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
@@ -52,15 +56,15 @@ func installHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command,
 	var req model_helm.InstallReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	resp, err := w.helmClient.InstallRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	respB, err := json.Marshal(resp)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseInstallFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	return nil, &model.Response{
 		Key:     cmd.Key,
@@ -74,15 +78,15 @@ func preUpdateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Comman
 	var newCmds []*model.Command
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooks, err := w.helmClient.PreUpgradeRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooksJsonB, err := json.Marshal(hooks)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	resp := &model.Response{
 		Key:     cmd.Key,
@@ -102,15 +106,15 @@ func updateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, 
 	var req model_helm.UpgradeReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	resp, err := w.helmClient.UpgradeRelease(&req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	respB, err := json.Marshal(resp)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.HelmReleaseUpgradeFailed, err)
+		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	return nil, &model.Response{
 		Key:     cmd.Key,
@@ -224,5 +228,92 @@ func getHelmReleaseContent(w *workerManager, cmd *model.Command) ([]*model.Comma
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseGetContent,
 		Payload: string(respB),
+	}
+}
+
+func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+	var reqs []model_helm.SyncRequest
+	var reps = []*model_helm.SyncRequest{}
+	
+	err := json.Unmarshal([]byte(cmd.Payload), &reqs)
+	if err != nil {
+		glog.Errorf("unmarshal status sync failed %v", err)
+		return nil, nil
+	}
+	
+	for _,syncRequest := range reqs {
+		switch syncRequest.ResourceType {
+			case "ingress":
+				commit,err  := w.kubeClient.GetIngress(w.namespace, syncRequest.ResourceName)
+				if err != nil {
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+				} else  if commit != "" {
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+				}
+				break
+			case "service":
+				commit,err  := w.kubeClient.GetService(w.namespace, syncRequest.ResourceName)
+				if err != nil {
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+				} else if commit != "" {
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+				}
+				break
+			case "certificate":
+				commit,err  := w.kubeClient.GetSecret(w.namespace, syncRequest.ResourceName)
+				if err != nil {
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+				} else if commit != "" {
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+				}
+				break
+			case "instance":
+				chr,err  := w.kubeClient.GetC7nHelmRelease(w.namespace, syncRequest.ResourceName)
+				if err != nil {
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+				} else if chr != nil {
+					if	chr.Annotations[model.CommitLabel] == syncRequest.Commit {
+					    release,err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName})
+						if err != nil {
+							glog.Infof("release {} get error ", syncRequest.ResourceName, err)
+							if  strings.Contains(err.Error(), "not exist") {
+								glog.Errorf("release {} not exist ", syncRequest.ResourceName, err)
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+							}
+						}
+						if release != nil && release.Status == "DEPLOYED" {
+							if release.ChartVersion != chr.Spec.ChartVersion || release.Config != chr.Spec.Values  {
+								glog.Infof("release deployed but not consistent")
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+							} else {
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
+							}
+						}
+					} else {
+						reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
+					}
+				}
+				break
+		}
+	}
+
+	respB, err := json.Marshal(reps)
+	if err != nil {
+		glog.Errorf("Marshal response error %v", err)
+		return nil, nil
+	}
+	return nil, &model.Response{
+		Key:     cmd.Key,
+		Type:    model.StatusSync,
+		Payload: string(respB),
+	}
+}
+
+func newSyncResponse(name string, reType string, commit string,id int32) *model_helm.SyncRequest {
+	return &model_helm.SyncRequest{
+		ResourceName: name,
+		ResourceType: reType,
+		Commit: commit,
+		Id: id,
 	}
 }

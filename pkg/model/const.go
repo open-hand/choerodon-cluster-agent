@@ -6,6 +6,8 @@ const (
 	InitAgent					= "init_agent"
 	InitAgentFailed				= "init_agent_failed"
 	// helm
+	HelmReleaseSynced           =  "helm_release_sync"
+	HelmReleaseSyncedFailed     =  "helm_release_sync_failed"
 	HelmReleasePreInstall       = "helm_release_pre_install"
 	HelmInstallRelease          = "helm_install_release"
 	HelmReleaseInstallFailed    = "helm_release_install_failed"
@@ -34,6 +36,10 @@ const (
 	NetworkIngressFailed       = "network_ingress_failed"
 	NetworkIngressDelete       = "network_ingress_delete"
 	NetworkIngressDeleteFailed = "network_ingress_delete_failed"
+	NetworkSync                = "network_sync"
+
+	Cert_Issued = "cert_issued"
+	Cert_Faild  = "cert_failed"
 	// kubernetes resource
 	ResourceUpdate = "resource_update"
 	ResourceDelete = "resource_delete"
@@ -53,4 +59,7 @@ const (
 	GitOpsSync       = "git_ops_sync"
 	GitOpsSyncFailed = "git_ops_sync_failed"
 	GitOpsSyncEvent  = "git_ops_sync_event"
+
+	StatusSyncEvent = "status_sync_event"
+	StatusSync       = "status_sync"
 )

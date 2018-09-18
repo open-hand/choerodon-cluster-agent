@@ -24,12 +24,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
+	chrclientset "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned"
 	"k8s.io/kubernetes/pkg/kubectl"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 
 	"github.com/choerodon/choerodon-agent/pkg/model"
 	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"github.com/choerodon/choerodon-agent/pkg/apis/choerodon/v1alpha1"
 )
 
 type Client interface {
@@ -46,7 +48,11 @@ type Client interface {
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
 	LabelObjects(namespace string, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
-	LabelRepoObj (namespace, manifest, version string) (*bytes.Buffer, error)
+	LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error)
+	GetService(namespace string, serviceName string) (string, error)
+	GetIngress(namespace string, ingressName string) (string, error)
+	GetSecret(namespace string, secretName string) (string, error)
+	GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error)
 }
 
 var	AgentVersion string
@@ -54,6 +60,7 @@ var	AgentVersion string
 type client struct {
 	cmdutil.Factory
 	client *kubernetes.Clientset
+	c7nClient *chrclientset.Clientset
 }
 
 func NewClient(f cmdutil.Factory) (Client, error) {
@@ -61,10 +68,18 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get kubernetes client: %v", err)
 	}
-
+	clientConfig,err := f.ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
+	}
+	c7nClient,err := chrclientset.NewForConfig(clientConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error building c7n clientset: %v", err)
+	}
 	return &client{
 		Factory: f,
 		client:  kubeClient,
+		c7nClient: c7nClient,
 	}, nil
 }
 
@@ -217,6 +232,65 @@ func (c *client) CreateOrUpdateService(namespace string, serviceStr string) (*co
 	svc.Spec.ClusterIP = oldService.Spec.ClusterIP
 	return c.client.CoreV1().Services(namespace).Update(svc)
 }
+
+func (c *client) GetService(namespace string, serviceName string) (string, error) {
+
+	service, err := c.client.CoreV1().Services(namespace).Get(serviceName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if service.Annotations != nil && service.Annotations[model.CommitLabel] != "" {
+		return service.Annotations[model.CommitLabel], nil
+	}
+	return "",nil
+}
+
+func (c *client) GetIngress(namespace string, ingressName string) (string, error) {
+	ingress, err := c.client.ExtensionsV1beta1().Ingresses(namespace).Get(ingressName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if ingress.Annotations != nil && ingress.Annotations[model.CommitLabel] != "" {
+		return ingress.Annotations[model.CommitLabel], nil
+	}
+	return "",nil
+}
+
+func (c *client) GetSecret(namespace string, secretName string) (string, error) {
+	secret, err := c.client.CoreV1().Secrets(namespace).Get(secretName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if secret.Annotations != nil && secret.Annotations[model.CommitLabel] != "" {
+		return secret.Annotations[model.CommitLabel], nil
+	}
+	return "",nil
+}
+
+func (c *client) GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error) {
+	release, err := c.c7nClient.ChoerodonV1alpha1().C7NHelmReleases(namespace).Get(releaseName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, err
+		}
+		return nil, nil
+	}
+	if release.Annotations != nil && release.Annotations[model.CommitLabel] != "" {
+		return release, nil
+	}
+	return nil,nil
+}
+
+
 
 func (c *client) CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error) {
 	client, err := c.KubernetesClientSet()
@@ -377,7 +451,7 @@ func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]
 	return objPods, nil
 }
 
-func (c *client) LabelRepoObj (namespace, manifest, version string) (*bytes.Buffer, error) {
+func (c *client) LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
 	result, err := c.buildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -400,8 +474,38 @@ func (c *client) LabelRepoObj (namespace, manifest, version string) (*bytes.Buff
 		if err != nil {
 			return nil, fmt.Errorf("yaml marshal: %v", err)
 		}
+
+		m := make(map[string]interface{})
+		err = yaml.Unmarshal(objB, &m)
+
+		if err != nil {
+			return nil, fmt.Errorf("yaml unmarshal: %v", err)
+		}
+		metaData := m["metadata"]
+		metaDataMap := metaData.(map[string]interface{})
+
+		annotationsMap := metaDataMap["annotations"]
+
+		annotations := make(map[string]interface{})
+
+		if annotationsMap == nil {
+			annotationsMap = annotations
+		} else {
+			annotations = annotationsMap.(map[string]interface{})
+		}
+		annotations[model.CommitLabel] = commit
+		metaDataMap["annotations"] = annotationsMap
+		m["metadata"] = metaDataMap
+		newObj, err := yaml.Marshal(m)
+
+
+
+		if err != nil {
+			return nil, fmt.Errorf("yaml marshal: %v", err)
+		}
+
 		newManifestBuf.WriteString("\n---\n")
-		newManifestBuf.Write(objB)
+		newManifestBuf.Write(newObj)
 	}
 
 	return newManifestBuf, nil
@@ -443,9 +547,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		return nil, err
 	}
 	obj := versioned.DeepCopyObject()
-	if obj.GetObjectKind().GroupVersionKind().Kind ==  "C7NHelmRelease"{
-		return nil,nil
-	}
+
 	switch typed := obj.(type) {
 	// ReplicationController
 		// Deployment
@@ -467,7 +569,8 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	default:
-		return nil, fmt.Errorf("label object not matched: %v", obj)
+		glog.Warningf("label object not matched: %v", obj)
+		return obj, nil
 	}
 
 	return obj, nil

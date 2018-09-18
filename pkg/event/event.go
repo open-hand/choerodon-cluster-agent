@@ -69,6 +69,13 @@ type FileCommit struct {
 	Commit string `json:"commit"`
 }
 
+type ResourceCommit struct {
+	ResourceId string `json:"resourceId"`
+	File string `json:"file"`
+	Commit string `json:"commit"`
+}
+
+
 
 // SyncEventMetadata is the metadata for when new a commit is synced to the cluster
 type SyncEventMetadata struct {
@@ -76,6 +83,7 @@ type SyncEventMetadata struct {
 	// Per-resource errors
 	Errors []ResourceError `json:"errors,omitempty"`
 	FileCommits []FileCommit `json:"filesCommit,omitempty"`
+	ResourceCommits []ResourceCommit `json:"resourceCommits,omitempty"`
 }
 
 func (sem *SyncEventMetadata) Type() string {

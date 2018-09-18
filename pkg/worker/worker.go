@@ -38,6 +38,7 @@ type workerManager struct {
 	syncInterval time.Duration
 	manifests    cluster.Manifests
 	cluster      cluster.Cluster
+	statusSyncInterval   time.Duration
 }
 
 func NewWorkerManager(
@@ -51,7 +52,8 @@ func NewWorkerManager(
 	gitRepo *git.Repo,
 	syncInterval time.Duration,
 	manifests cluster.Manifests,
-	cluster cluster.Cluster) *workerManager {
+	cluster cluster.Cluster,
+	statusSyncInterval time.Duration) *workerManager {
 
 	return &workerManager{
 		commandChan:  commandChan,
@@ -66,10 +68,13 @@ func NewWorkerManager(
 		syncInterval: syncInterval,
 		manifests:    manifests,
 		cluster:      cluster,
+		statusSyncInterval: statusSyncInterval,
 	}
 }
 
 func (w *workerManager) Start(stop <-chan struct{}, wg *sync.WaitGroup) {
+	wg.Add(1)
+	go w.syncStatus(stop, wg)
 	gitconfigChan :=  make(chan  model.GitInitConfig,1 )
 	for i := 0; i < 5; i++ {
 		wg.Add(1)

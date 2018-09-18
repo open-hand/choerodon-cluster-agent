@@ -82,6 +82,7 @@ type AgentRunOptions struct {
 	gitNotesRef       string
 	syncInterval      time.Duration
 	kubernetesKubectl string
+	statusSyncInterval time.Duration
 }
 
 func NewAgentRunOptions() *AgentRunOptions {
@@ -134,6 +135,7 @@ func (o *AgentRunOptions) AddFlag(fs *pflag.FlagSet) {
 	fs.StringVar(&o.gitDevOpsSyncTag, "git-devops-sync-tag", defaultGitDevOpsSyncTag, "tag to use to mark sync progress for this cluster")
 	fs.StringVar(&o.gitNotesRef, "git-notes-ref", defaultGitNotesRef, "ref to use for keeping commit annotations in git notes")
 	fs.DurationVar(&o.syncInterval, "sync-interval", 5*time.Minute, "apply config in git to cluster at least this often, even if there are no new commits")
+	fs.DurationVar(&o.statusSyncInterval, "status-sync-interval", 3*time.Minute, "status sync interval")
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
 }
 
@@ -160,7 +162,7 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 
 	helm.InitEnvSettings()
 	commandChan := make(chan *model.Command, 100)
-	responseChan := make(chan *model.Response, 100)
+	responseChan := make(chan *model.Response, 1000)
 	kubeClient, err := kube.NewClient(f)
 	if err != nil {
 		errChan <- err
@@ -247,6 +249,7 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 		o.syncInterval,
 		k8sManifests,
 		k8s,
+		o.statusSyncInterval,
 	)
 
 	ctx := CreateControllerContext(
