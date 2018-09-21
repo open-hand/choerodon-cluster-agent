@@ -168,11 +168,14 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 		errChan <- err
 		return
 	}
+	glog.Infof("KubeClient init success.")
+	glog.Infof("Starting connect to tiller...")
 	helmClient := helm.NewClient(kubeClient, o.Namespace)
 	kubeCfg, err := f.ClientConfig()
 	if err != nil {
 		glog.Fatalf("Error building kubeconfig: %s", err.Error())
 	}
+	glog.Infof("Helm Client  init success.")
 	kubeClientSet, err := f.KubernetesClientSet()
 	if err != nil {
 		glog.Fatalf("Error building kubernetes clientset: %s", err.Error())

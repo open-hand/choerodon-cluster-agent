@@ -70,12 +70,6 @@ func NewEventController(eventInformer event_informer.EventInformer, responseChan
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
-
-	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting Event controller")
-
-	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.eventsSynced); !ok {
 		glog.Error("failed to wait for caches to sync")
 	}
@@ -85,8 +79,6 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-
-	glog.Info("Started workers")
 	<-stopCh
 	glog.Info("Shutting down workers")
 }
@@ -150,7 +142,6 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if event.InvolvedObject.Kind == "Job" {
 		_,err = c.client.BatchV1().Jobs(namespace).Get(event.InvolvedObject.Name,meta_v1.GetOptions{})
 		if err != nil {
-			glog.Info("cant not get Job from event %s",event.InvolvedObject.Name)
 			return true,nil
 		}
 		c.responseChan <- newEventRep(event)
@@ -158,7 +149,6 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if event.InvolvedObject.Kind == "Pod" {
 		pod,err := c.client.CoreV1().Pods(namespace).Get(event.InvolvedObject.Name,meta_v1.GetOptions{})
 		if err != nil {
-			glog.Infof("cant not get Pod from event %s",event.InvolvedObject.Name)
 			return true,nil
 		}
 		if pod.Labels[model.ReleaseLabel] != "" {

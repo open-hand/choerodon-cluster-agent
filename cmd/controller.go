@@ -77,7 +77,7 @@ func NewControllerInitializers() map[string]InitFunc {
 	controllers["job"] = startJobController
 	controllers["service"] = startServiceController
 	controllers["secret"] = startSecretController
-	controllers["configmap"] = startConfigMapController
+	//controllers["configmap"] = startConfigMapController
 	controllers["ingress"] = startIngressController
 	controllers["replicaset"] = startReplicaSetController
 	controllers["pod"] = startPodController
@@ -87,8 +87,8 @@ func NewControllerInitializers() map[string]InitFunc {
 }
 
 func StartControllers(ctx *ControllerContext, controllers map[string]InitFunc) error {
+	glog.V(1).Infof("Starting controllers")
 	for controllerName, initFn := range controllers {
-		glog.V(1).Infof("Starting %q", controllerName)
 		started, err := initFn(ctx)
 		if err != nil {
 			glog.Errorf("Error starting %q", controllerName)
@@ -98,7 +98,6 @@ func StartControllers(ctx *ControllerContext, controllers map[string]InitFunc) e
 			glog.Warningf("Skipping %q", controllerName)
 			continue
 		}
-		glog.Infof("Started %q", controllerName)
 	}
 	return nil
 }

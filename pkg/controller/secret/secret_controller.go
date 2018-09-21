@@ -63,12 +63,6 @@ func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
-
-	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting secret controller")
-
-	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.secretsSynced); !ok {
 		glog.Fatal("failed to wait for caches to sync")
 	}
@@ -104,8 +98,6 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
-
-	glog.Info("Started secret workers")
 	<-stopCh
 	glog.Info("Shutting down secret workers")
 }

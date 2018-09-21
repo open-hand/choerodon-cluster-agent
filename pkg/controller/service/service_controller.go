@@ -63,12 +63,6 @@ func NewserviceController(serviceInformer v1_informer.ServiceInformer, responseC
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
-
-	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting service controller")
-
-	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.servicesSynced); !ok {
 		glog.Fatal("failed to wait for caches to sync")
 	}
@@ -105,7 +99,6 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started service workers")
 	<-stopCh
 	glog.Info("Shutting down service workers")
 }

@@ -144,7 +144,6 @@ func (e *EndpointController) Run(workers int, stopCh <-chan struct{}) {
 	defer utilruntime.HandleCrash()
 	defer e.queue.ShutDown()
 
-	glog.Infof("Starting endpoint controller")
 	defer glog.Infof("Shutting down endpoint controller")
 
 	if !controller.WaitForCacheSync("endpoint", stopCh, e.podsSynced, e.servicesSynced, e.endpointsSynced) {

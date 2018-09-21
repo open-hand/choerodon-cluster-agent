@@ -117,17 +117,9 @@ func (c *Controller) enqueueChr(obj interface{}) {
 func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.workqueue.ShutDown()
-
-	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting c7nhelmrelease controller")
-
-	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.chrSync); !ok {
 		glog.Fatal("failed to wait for caches to sync")
 	}
-
-	glog.Info("Starting c7nhelmrelease workers")
 	// Launch two workers to process C7NHelmRelease resources
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
@@ -192,7 +184,6 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 			c.responseChan <- response
 		}
 	}
-	glog.Info("Started c7nhelmrelease workers")
 	<-stopCh
 	glog.Info("Shutting down c7nhelmrelease workers")
 }

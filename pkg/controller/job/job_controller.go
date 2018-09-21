@@ -67,12 +67,6 @@ func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, r
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
-
-	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting job controller")
-
-	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.jobSynced); !ok {
 		glog.Fatal("failed to wait for caches to sync")
 	}
@@ -109,7 +103,6 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started job workers")
 	<-stopCh
 	glog.Info("Shutting down job workers")
 }

@@ -64,12 +64,6 @@ func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *
 func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
-
-	// Start the informer factories to begin populating the informer caches
-	glog.Info("Starting pod controller")
-
-	// Wait for the caches to be synced before starting workers
-	glog.Info("Waiting for informer caches to sync")
 	if ok := cache.WaitForCacheSync(stopCh, c.podsSynced); !ok {
 		glog.Fatal("failed to wait for caches to sync")
 	}
@@ -106,7 +100,6 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 
-	glog.Info("Started pod workers")
 	<-stopCh
 	glog.Info("Shutting down pod workers")
 }

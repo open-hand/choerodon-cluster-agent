@@ -123,8 +123,7 @@ func (w *workerManager) runWorker(stop <-chan struct{}, gitConfig chan <- model.
 
 					if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
 						err := fmt.Errorf("type %s not exist", cmd.Type)
-						glog.V(2).Info(err.Error())
-						resp = NewResponseError(cmd.Key, cmd.Type, err)
+						glog.V(1).Info(err.Error())
 					} else {
 						newCmds, resp = processCmdFunc(w, cmd)
 					}
