@@ -95,6 +95,42 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		}
 	}
 
+
+	go func() {
+		ticker :=  time.NewTicker(2 * time.Second)
+		for {
+			select {
+				case <- ticker.C:
+					pods, err := c.lister.Pods(c.namespace).List(labels.NewSelector())
+					if err != nil {
+						glog.Fatal("can not list resource, no rabc bind, exit !")
+					} else {
+						var podList []string
+						for _, pod := range pods {
+							if pod.Labels[model.ReleaseLabel] != "" {
+								podList = append(podList, pod.GetName())
+							}
+						}
+						resourceList := &kubernetes.ResourceList{
+							Resources:    podList,
+							ResourceType: "Pod",
+						}
+						content, err := json.Marshal(resourceList)
+						if err != nil {
+							glog.Fatal("marshal pod list error")
+						} else {
+							response := &model.Response{
+								Key:     fmt.Sprintf("env:%s", c.namespace),
+								Type:    model.ResourceSync,
+								Payload: string(content),
+							}
+							c.responseChan <- response
+						}
+					}
+			}
+		}
+	}()
+
 	// Launch two workers to process Foo resources
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
