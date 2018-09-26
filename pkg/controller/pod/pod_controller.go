@@ -97,7 +97,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 
 
 	go func() {
-		ticker :=  time.NewTicker(2 * time.Second)
+		ticker :=  time.NewTicker(2 * time.Minute)
 		for {
 			select {
 				case <- ticker.C:
