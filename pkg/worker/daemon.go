@@ -66,7 +66,7 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, done *sync.WaitGroup) {
 		case <-syncTimer.C:
 			w.AskForSync()
 		case <-w.gitRepo.C:
-			ctx, cancel := context.WithTimeout(context.Background(), gitOpTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), w.gitTimeout)
 			newSyncHead, err := w.gitRepo.Revision(ctx, w.gitConfig.DevOpsTag)
 			cancel()
 			if err != nil {
@@ -111,7 +111,7 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 	var working *git.Checkout
 	{
 		var err error
-		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
 		defer cancel()
 		working, err = w.gitRepo.Clone(ctx, w.gitConfig)
 
@@ -171,7 +171,7 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 
 	} else {
 
-		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
 		changedFiles,fileList, err := working.ChangedFiles(ctx, oldTagRev)
 		if err == nil && len(changedFiles) > 0 {
 
@@ -232,7 +232,7 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 		if fileCommitMap[syncErrors[i].Path] != "" {
 			syncErrors[i].Commit = fileCommitMap[syncErrors[i].Path]
 		}else {
-			ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+			ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
 			commit,err := working.FileLastCommit(ctx, syncErrors[i].Path)
 			if err != nil {
 				glog.Errorf("get file commit error : v%", err)
@@ -284,7 +284,7 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 
 	// Move the tag and push it so we know how far we've gotten.
 	{
-		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
 		err := working.MoveSyncTagAndPush(ctx, newTagRev, "Sync pointer")
 		cancel()
 		if err != nil {
@@ -294,7 +294,7 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 	// repo refresh
 	{
 		glog.Infof("tag: %s, old: %s, new: %s", w.gitConfig.SyncTag, oldTagRev, newTagRev)
-		ctx, cancel := context.WithTimeout(ctx, gitOpTimeout)
+		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
 		err := w.gitRepo.Refresh(ctx)
 		cancel()
 		return err

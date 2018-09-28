@@ -2,22 +2,16 @@ package worker
 
 import (
 	"context"
-	"time"
-
 	"github.com/choerodon/choerodon-agent/pkg/model"
 )
 
-const (
-	// Timeout for git operations we're prepared to abandon
-	gitOpTimeout = 15 * time.Second
-)
 
 func init() {
 	registerCmdFunc(model.GitOpsSync, gitOpsDoSync)
 }
 
 func gitOpsDoSync(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
-	ctx, cancel := context.WithTimeout(context.Background(), gitOpTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), w.gitTimeout)
 	err := w.gitRepo.Refresh(ctx)
 	cancel()
 	if err != nil {

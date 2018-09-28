@@ -77,6 +77,7 @@ type AgentRunOptions struct {
 	gitUser           string
 	gitEmail          string
 	gitPollInterval   time.Duration
+	gitTimeOut        time.Duration
 	gitSyncTag        string
 	gitDevOpsSyncTag  string
 	gitNotesRef       string
@@ -136,6 +137,7 @@ func (o *AgentRunOptions) AddFlag(fs *pflag.FlagSet) {
 	fs.StringVar(&o.gitNotesRef, "git-notes-ref", defaultGitNotesRef, "ref to use for keeping commit annotations in git notes")
 	fs.DurationVar(&o.syncInterval, "sync-interval", 5*time.Minute, "apply config in git to cluster at least this often, even if there are no new commits")
 	fs.DurationVar(&o.statusSyncInterval, "status-sync-interval", 3*time.Minute, "status sync interval")
+	fs.DurationVar(&o.gitTimeOut, "git-timeout", 1*time.Minute, "git time out")
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
 }
 
@@ -253,6 +255,7 @@ func (o *AgentRunOptions) Run(f cmdutil.Factory) {
 		k8sManifests,
 		k8s,
 		o.statusSyncInterval,
+		o.gitTimeOut,
 	)
 
 	ctx := CreateControllerContext(

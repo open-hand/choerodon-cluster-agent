@@ -39,6 +39,7 @@ type workerManager struct {
 	manifests    cluster.Manifests
 	cluster      cluster.Cluster
 	statusSyncInterval   time.Duration
+	gitTimeout           time.Duration
 }
 
 func NewWorkerManager(
@@ -53,7 +54,8 @@ func NewWorkerManager(
 	syncInterval time.Duration,
 	manifests cluster.Manifests,
 	cluster cluster.Cluster,
-	statusSyncInterval time.Duration) *workerManager {
+	statusSyncInterval time.Duration,
+	gitTimeout time.Duration) *workerManager {
 
 	return &workerManager{
 		commandChan:  commandChan,
@@ -69,6 +71,7 @@ func NewWorkerManager(
 		manifests:    manifests,
 		cluster:      cluster,
 		statusSyncInterval: statusSyncInterval,
+		gitTimeout:  gitTimeout,
 	}
 }
 

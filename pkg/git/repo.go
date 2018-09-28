@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultInterval = 5 * time.Minute
-	opTimeout       = 20 * time.Second
+	opTimeout       = 1 * time.Minute
 
 	DefaultCloneTimeout = 2 * time.Minute
 	CheckPushTag        = "choerodon-write-check"
