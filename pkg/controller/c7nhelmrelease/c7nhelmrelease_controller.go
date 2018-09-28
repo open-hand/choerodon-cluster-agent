@@ -260,9 +260,7 @@ func (c *Controller) syncHandler(key string) error {
 
 	chr, err := c.chrLister.C7NHelmReleases(namespace).Get(name)
 
-	if chr.Annotations == nil || chr.Annotations[model.CommitLabel] == "" {
-		glog.Errorf("c7nhelmrelease no commit annotations")
-	}
+
 	if err != nil {
 		// The C7NHelmRelease resource may no longer exist, in which case we stop processing.
 		if errors.IsNotFound(err) {
@@ -274,6 +272,10 @@ func (c *Controller) syncHandler(key string) error {
 			return nil
 		}
 		return err
+	}
+
+	if chr.Annotations == nil || chr.Annotations[model.CommitLabel] == "" {
+		 return fmt.Errorf("c7nhelmrelease no commit annotations")
 	}
 
 	rls, err := c.helmClient.GetRelease(&modelhelm.GetReleaseContentRequest{ReleaseName: name})
