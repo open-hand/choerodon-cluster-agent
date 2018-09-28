@@ -297,11 +297,16 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 		}
 	}
 
+	if len(reps) == 0 {
+		return nil, nil
+	}
+
 	respB, err := json.Marshal(reps)
 	if err != nil {
 		glog.Errorf("Marshal response error %v", err)
 		return nil, nil
 	}
+	glog.Infof("sync response %s", string(respB))
 	return nil, &model.Response{
 		Key:     cmd.Key,
 		Type:    model.StatusSync,
