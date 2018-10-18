@@ -175,6 +175,8 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
 
+	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
+
 	hooks, manifestDoc, err := c.renderManifests(
 		chartRequested,
 		request.ReleaseName,
@@ -362,6 +364,8 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
 
+	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
+
 	hooks, manifestDoc, err := c.renderManifests(
 		chartRequested,
 		request.ReleaseName,
@@ -398,6 +402,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 
 	chartRequested.Templates = newTemplates
 	chartRequested.Dependencies = []*chart.Chart{}
+
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,
 		chartRequested,
