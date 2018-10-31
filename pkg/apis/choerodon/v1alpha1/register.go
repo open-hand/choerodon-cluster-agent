@@ -5,7 +5,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/choerodon/choerodon-agent/pkg/apis/choerodon"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon"
 )
 
 // SchemeGroupVersion is group version used to register these objects

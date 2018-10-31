@@ -7,7 +7,7 @@ package event
 import (
 	"time"
 
-	"github.com/choerodon/choerodon-agent/pkg/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
 )
 
 // These are all the types of events.

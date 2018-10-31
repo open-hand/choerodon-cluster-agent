@@ -10,10 +10,10 @@ endif
 BINARY_VERSION ?= $(GIT_TAG)
 
 ifneq ($(BINARY_VERSION),)
-	LDFLAGS += -X github.com/choerodon/choerodon-agent/pkg/version.GitVersion=${BINARY_VERSION}
+	LDFLAGS += -X github.com/choerodon/choerodon-cluster-agent/pkg/version.GitVersion=${BINARY_VERSION}
 endif
-LDFLAGS += -X github.com/choerodon/choerodon-agent/pkg/version.GitCommit=${GIT_COMMIT}
-LDFLAGS += -X github.com/choerodon/choerodon-agent/pkg/version.GitTreeState=${GIT_DIRTY}
+LDFLAGS += -X github.com/choerodon/choerodon-cluster-agent/pkg/version.GitCommit=${GIT_COMMIT}
+LDFLAGS += -X github.com/choerodon/choerodon-cluster-agent/pkg/version.GitTreeState=${GIT_DIRTY}
 
 
 info:

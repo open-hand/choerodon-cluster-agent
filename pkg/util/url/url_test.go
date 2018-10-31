@@ -12,7 +12,7 @@ func TestParseURL(t *testing.T) {
 		input string
 		want  string
 	}{
-		{"ws://localhost:8060/agent/?key=env:choerodon-agent-test", "ws://localhost:8060/agent/log?key=env:choerodon-agent-test"},
+		{"ws://localhost:8060/agent/?key=env:choerodon-cluster-agent-test", "ws://localhost:8060/agent/log?key=env:choerodon-cluster-agent-test"},
 		{"ws://localhost:8060/agent/", "ws://localhost:8060/agent/log"},
 	}
 	for _, test := range tests {

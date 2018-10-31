@@ -1,6 +1,6 @@
 DOCKER_REGISTRY   ?=
 IMAGE_PREFIX      ?=
-SHORT_NAME        ?= choerodon-agent
+SHORT_NAME        ?= choerodon-cluster-agent
 
 # go option
 GO        ?= go
@@ -13,7 +13,7 @@ all: build
 
 .PHONY: build
 build:
-	GOBIN=$(BINDIR) $(GO) install -tags '$(TAGS)' -ldflags '$(LDFLAGS)' github.com/choerodon/choerodon-agent/...
+	GOBIN=$(BINDIR) $(GO) install -tags '$(TAGS)' -ldflags '$(LDFLAGS)' github.com/choerodon/choerodon-cluster-agent/...
 
 .PHONY: clean
 clean:

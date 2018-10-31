@@ -24,14 +24,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	chrclientset "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned"
+	chrclientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
 	"k8s.io/kubernetes/pkg/kubectl"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 
-	"github.com/choerodon/choerodon-agent/pkg/model"
-	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
-	"github.com/choerodon/choerodon-agent/pkg/apis/choerodon/v1alpha1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 )
 
 type Client interface {
@@ -53,6 +53,8 @@ type Client interface {
 	GetIngress(namespace string, ingressName string) (string, error)
 	GetSecret(namespace string, secretName string) (string, error)
 	GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error)
+	GetKubeClient() (*kubernetes.Clientset)
+	GetC7NClient() (*chrclientset.Clientset)
 }
 
 var	AgentVersion string
@@ -103,6 +105,14 @@ func (c *client) DeleteJob(namespace string, name string) error {
 
 func (c *client) GetClientSet() (internalclientset.Interface, error) {
 	return c.ClientSet()
+}
+
+func (c *client) GetKubeClient() (*kubernetes.Clientset) {
+	return c.client
+}
+
+func (c *client) GetC7NClient() (*chrclientset.Clientset) {
+	return c.c7nClient
 }
 
 func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.ReleaseResource, error) {

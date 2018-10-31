@@ -3,8 +3,8 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/choerodon/choerodon-agent/pkg/apis/choerodon/v1alpha1"
-	"github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned/scheme"
+	v1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned/scheme"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	rest "k8s.io/client-go/rest"
 )

@@ -1,159 +1,156 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"strings"
 	"sync"
 
 	"github.com/golang/glog"
 
 	"time"
 
-	"github.com/choerodon/choerodon-agent/pkg/appclient"
-	"github.com/choerodon/choerodon-agent/pkg/cluster"
-	"github.com/choerodon/choerodon-agent/pkg/git"
-	"github.com/choerodon/choerodon-agent/pkg/helm"
-	"github.com/choerodon/choerodon-agent/pkg/kube"
-	"github.com/choerodon/choerodon-agent/pkg/model"
-	"encoding/json"
-	"os"
-	"io/ioutil"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/ws"
 )
 
 var (
 	processCmdFuncs = make(map[string]processCmdFunc)
 )
 
-type processCmdFunc func(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response)
+type processCmdFunc func(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet)
 
 type workerManager struct {
-	commandChan  chan *model.Command
-	responseChan chan<- *model.Response
-	helmClient   helm.Client
-	kubeClient   kube.Client
-	appClient    appclient.AppClient
-	namespace    string
-	gitConfig    git.Config
-	gitRepo      *git.Repo
-	syncSoon     chan struct{}
-	syncInterval time.Duration
-	manifests    cluster.Manifests
-	cluster      cluster.Cluster
-	statusSyncInterval   time.Duration
-	gitTimeout           time.Duration
+	chans              *manager.CRChan
+	clusterId            int
+	helmClient         helm.Client
+	kubeClient         kube.Client
+	appClient          ws.WebSocketClient
+	agentInitOps       *model.AgentInitOptions
+	gitConfig          git.Config
+	gitRepos           map[string]*git.Repo
+	syncSoon           map[string]chan struct{}
+	syncInterval       time.Duration
+	manifests          cluster.Manifests
+	cluster            cluster.Cluster
+	statusSyncInterval time.Duration
+	gitTimeout         time.Duration
+	agentInitOpsChan   chan model.AgentInitOptions
+}
+
+type opsRepos struct {
 }
 
 func NewWorkerManager(
-	commandChan chan *model.Command,
-	responseChan chan<- *model.Response,
+	chans *manager.CRChan,
 	kubeClient kube.Client,
 	helmClient helm.Client,
-	appClient appclient.AppClient,
-	namespace string,
-	gitConfig git.Config,
-	gitRepo *git.Repo,
+	appClient ws.WebSocketClient,
+	agentInitOps *model.AgentInitOptions,
 	syncInterval time.Duration,
-	manifests cluster.Manifests,
-	cluster cluster.Cluster,
 	statusSyncInterval time.Duration,
 	gitTimeout time.Duration) *workerManager {
 
 	return &workerManager{
-		commandChan:  commandChan,
-		responseChan: responseChan,
-		helmClient:   helmClient,
-		kubeClient:   kubeClient,
-		appClient:    appClient,
-		namespace:    namespace,
-		gitConfig:    gitConfig,
-		gitRepo:      gitRepo,
-		syncSoon:     make(chan struct{}, 1),
-		syncInterval: syncInterval,
-		manifests:    manifests,
-		cluster:      cluster,
+		chans:              chans,
+		helmClient:         helmClient,
+		kubeClient:         kubeClient,
+		appClient:          appClient,
+		agentInitOps:       agentInitOps,
+		agentInitOpsChan:   make(chan model.AgentInitOptions, 1),
+		syncInterval:       syncInterval,
 		statusSyncInterval: statusSyncInterval,
-		gitTimeout:  gitTimeout,
+		gitTimeout:         gitTimeout,
+		gitRepos:           map[string]*git.Repo{},
 	}
 }
 
 func (w *workerManager) Start(stop <-chan struct{}, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go w.syncStatus(stop, wg)
-	gitconfigChan :=  make(chan  model.GitInitConfig,1 )
 
-		wg.Add(1)
-		go w.runWorker( stop, gitconfigChan, wg)
+	//gitconfigChan := make(chan model.GitInitConfig, 1)
 
-	if w.gitConfig.GitUrl == "" {
-		for {
-			gitConfig := <- gitconfigChan
-			gitRemote := git.Remote{URL: gitConfig.GitUrl}
-			glog.Infof("receive init git url %s and git ssh key :\n%s",gitConfig.GitUrl,gitConfig.SshKey)
-			if err := writeSSHkey(gitConfig.SshKey); err != nil {
-				glog.Errorf("write git ssh key error",err	)
-			}else {
-				glog.Info("Init Git Config Success")
-				w.gitRepo = git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
-
-				{
-					wg.Add(1)
-					go func() {
-						err := w.gitRepo.Start(stop, wg)
-						if err != nil {
-							glog.Errorf("git repo start failed", err)
-						}
-					}()
-				}
-				break
-			}
-		}
-	}
 	wg.Add(1)
-	go w.syncLoop(stop, wg)
+	go w.runWorker(stop, wg)
+
+	//if w.gitConfig.GitUrl == "" {
+	//	for {
+	//		gitConfig := <-gitconfigChan
+	//		gitRemote := git.Remote{URL: gitConfig.GitUrl}
+	//		glog.Infof("receive manager git url %s and git ssh key :\n%s", gitConfig.GitUrl, gitConfig.SshKey)
+	//		if err := writeSSHkey(gitConfig.SshKey); err != nil {
+	//			glog.Errorf("write git ssh key error", err)
+	//		} else {
+	//			glog.Info("Init Git Config Success")
+	//			w.gitRepo = git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
+	//
+	//			{
+	//				wg.Add(1)
+	//				go func() {
+	//					err := w.gitRepo.Start(stop, wg)
+	//					if err != nil {
+	//						glog.Errorf("git repo start failed", err)
+	//					}
+	//				}()
+	//			}
+	//			break
+	//		}
+	//	}
+	//}
+
+	w.startRepos(stop, wg)
+
 }
 
-func (w *workerManager) runWorker(stop <-chan struct{}, gitConfig chan <- model.GitInitConfig , done *sync.WaitGroup) {
+func (w *workerManager) runWorker(stop <-chan struct{}, done *sync.WaitGroup) {
 	defer done.Done()
 	for {
 		select {
-			case <-stop:
-				glog.Infof("worker down!")
-				return
-			case cmd := <-w.commandChan:
-				go func(cmd *model.Command) {
-					glog.Infof("get command: %s/%s",  cmd.Key, cmd.Type)
-					var newCmds []*model.Command = nil
-					var resp *model.Response = nil
+		case <-stop:
+			glog.Infof("worker down!")
+			return
+		case cmd := <-w.chans.CommandChan:
+			go func(cmd *model.Packet) {
+				glog.Infof("get command: %s/%s", cmd.Key, cmd.Type)
+				var newCmds []*model.Packet = nil
+				var resp *model.Packet = nil
 
-					if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
-						err := fmt.Errorf("type %s not exist", cmd.Type)
-						glog.V(1).Info(err.Error())
-					} else {
-						newCmds, resp = processCmdFunc(w, cmd)
-					}
+				if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
+					err := fmt.Errorf("type %s not exist", cmd.Type)
+					glog.V(1).Info(err.Error())
+				} else {
+					newCmds, resp = processCmdFunc(w, cmd)
+				}
 
-					if newCmds != nil {
-						go func(newCmds []*model.Command) {
-							for i := 0; i < len(newCmds); i++ {
-								w.commandChan <- newCmds[i]
-							}
-						}(newCmds)
-					}
-					if resp != nil {
-						if resp.Type == model.InitAgent{
-							var config model.GitInitConfig
-							err := json.Unmarshal([]byte(resp.Payload), &config)
-							if err != nil {
-								glog.Errorf("unmarshal git config error", err)
-							}
-							gitConfig <- config
-							return
+				if newCmds != nil {
+					go func(newCmds []*model.Packet) {
+						for i := 0; i < len(newCmds); i++ {
+							w.chans.CommandChan <- newCmds[i]
 						}
-						go func(resp *model.Response) {
-							w.responseChan <- resp
-						}(resp)
+					}(newCmds)
+				}
+				if resp != nil {
+					if resp.Type == model.InitAgentSucceed {
+						var envParas model.AgentInitOptions
+						err := json.Unmarshal([]byte(resp.Payload), &envParas)
+						if err != nil {
+							glog.Errorf("unmarshal git config error", err)
+						}
+						w.agentInitOpsChan <- envParas
+						return
 					}
-				}(cmd)
-			}
+					go func(resp *model.Packet) {
+						w.chans.ResponseChan <- resp
+					}(resp)
+				}
+			}(cmd)
+		}
 	}
 }
 
@@ -161,34 +158,33 @@ func registerCmdFunc(funcType string, f processCmdFunc) {
 	processCmdFuncs[funcType] = f
 }
 
+func (w *workerManager) startRepos(stop <-chan struct{}, wg *sync.WaitGroup) {
+	repos := <-w.agentInitOpsChan
+	for _, envPara := range repos.Envs {
+		strings.Replace(envPara.GitUrl, repos.GitHost, envPara.Namespace, 1)
+		gitRemote := git.Remote{URL: envPara.GitUrl}
+		repo := git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
+		wg.Add(1)
+		go func() {
+			err := repo.Start(stop, wg)
+			if err != nil {
+				glog.Errorf("git repo start failed", err)
+			}
+		}()
+		w.gitRepos[envPara.Namespace] = repo
+		repoStopChan := make(chan<- struct{}, 1)
+		wg.Add(1)
+		go w.syncLoop(stop, envPara.Namespace, repoStopChan, wg)
+	}
 
-func writeSSHkey(key string) error {
-	path := "/etc/choerodon/ssh"
-	err :=  os.MkdirAll(path,0777)
-	if err != nil {
-		return err
-	}
-	filename := path+"/identity"
-	var f *os.File
-	if checkFileIsExist(filename) { //如果文件存在
-		os.Remove(filename)
-	}
-	f, err = os.OpenFile(filename, os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-	f.Close()
-	 err = ioutil.WriteFile(filename,[]byte(key),0600) //写入文件(字符串)
-	if  err != nil {
-		return err;
-	}
-	return nil
 }
 
-func checkFileIsExist(filename string) bool {
-	var exist = true
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		exist = false
+func (w *workerManager) initAgent() {
+	// 往文件中写入各个git库deploy key
+	w.syncSoon = map[string]chan struct{}{}
+	for _, envPara := range w.agentInitOps.Envs {
+		repoSyncSoon := make(chan struct{}, 1)
+		w.syncSoon[envPara.Namespace] = repoSyncSoon
 	}
-	return exist
+
 }

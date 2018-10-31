@@ -9,9 +9,9 @@ import (
 
 	"time"
 
-	"github.com/choerodon/choerodon-agent/pkg/git"
-	"github.com/choerodon/choerodon-agent/pkg/model"
-	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 )
 
 type helmClientTest struct {
@@ -100,7 +100,7 @@ func TestPreInstallHelmRelease(t *testing.T) {
 	helmClient.On("PreInstallRelease", req).Return(releaseHooks, nil)
 
 	reqB, _ := json.Marshal(req)
-	cmd := &model.Command{
+	cmd := &model.Packet{
 		Type:    model.HelmReleasePreInstall,
 		Payload: string(reqB),
 	}

@@ -3,7 +3,7 @@
 package versioned
 
 import (
-	choerodonv1alpha1 "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned/typed/choerodon/v1alpha1"
+	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned/typed/choerodon/v1alpha1"
 	glog "github.com/golang/glog"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"

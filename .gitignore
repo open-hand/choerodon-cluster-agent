@@ -15,4 +15,4 @@
 .idea/
 mock/
 bin/
-/choerodon-agent
+/-cluster-agent

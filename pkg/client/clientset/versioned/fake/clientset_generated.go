@@ -3,9 +3,9 @@
 package fake
 
 import (
-	clientset "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned"
-	choerodonv1alpha1 "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned/typed/choerodon/v1alpha1"
-	fakechoerodonv1alpha1 "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned/typed/choerodon/v1alpha1/fake"
+	clientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
+	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned/typed/choerodon/v1alpha1"
+	fakechoerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned/typed/choerodon/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

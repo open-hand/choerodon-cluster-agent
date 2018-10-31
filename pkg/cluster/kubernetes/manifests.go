@@ -5,8 +5,8 @@
 package kubernetes
 
 import (
-	kube_resource "github.com/choerodon/choerodon-agent/pkg/cluster/kubernetes/resource"
-	"github.com/choerodon/choerodon-agent/pkg/resource"
+	kube_resource "github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
 )
 
 type Manifests struct {

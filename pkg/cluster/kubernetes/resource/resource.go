@@ -7,8 +7,8 @@ package resource
 import (
 	yaml "gopkg.in/yaml.v2"
 
-	c7n_error "github.com/choerodon/choerodon-agent/pkg/errors"
-	"github.com/choerodon/choerodon-agent/pkg/resource"
+	c7n_error "github.com/choerodon/choerodon-cluster-agent/pkg/errors"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
 )
 
 // -- unmarshaling code for specific object and field types

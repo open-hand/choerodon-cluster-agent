@@ -5,8 +5,8 @@
 package choerodon
 
 import (
-	v1alpha1 "github.com/choerodon/choerodon-agent/pkg/client/informers/externalversions/choerodon/v1alpha1"
-	internalinterfaces "github.com/choerodon/choerodon-agent/pkg/client/informers/externalversions/internalinterfaces"
+	v1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/client/informers/externalversions/choerodon/v1alpha1"
+	internalinterfaces "github.com/choerodon/choerodon-cluster-agent/pkg/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to each of this group's versions.

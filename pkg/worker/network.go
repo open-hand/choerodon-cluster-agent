@@ -3,7 +3,7 @@ package worker
 import (
 	"encoding/json"
 
-	"github.com/choerodon/choerodon-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 )
 
 func init() {
@@ -13,8 +13,8 @@ func init() {
 	registerCmdFunc(model.NetworkIngressDelete, deleteNetworkIngress)
 }
 
-func configureNetworkService(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
-	svc, err := w.kubeClient.CreateOrUpdateService(w.namespace, cmd.Payload)
+func configureNetworkService(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	svc, err := w.kubeClient.CreateOrUpdateService(cmd.Namespace(), cmd.Payload)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.NetworkServiceFailed, err)
 	}
@@ -22,7 +22,7 @@ func configureNetworkService(w *workerManager, cmd *model.Command) ([]*model.Com
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.NetworkServiceFailed, err)
 	}
-	resp := &model.Response{
+	resp := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.NetworkService,
 		Payload: string(svcB),
@@ -30,8 +30,8 @@ func configureNetworkService(w *workerManager, cmd *model.Command) ([]*model.Com
 	return nil, resp
 }
 
-func configureNetworkIngress(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
-	ing, err := w.kubeClient.CreateOrUpdateIngress(w.namespace, cmd.Payload)
+func configureNetworkIngress(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	ing, err := w.kubeClient.CreateOrUpdateIngress(cmd.Namespace(), cmd.Payload)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.NetworkIngressFailed, err)
 	}
@@ -39,7 +39,7 @@ func configureNetworkIngress(w *workerManager, cmd *model.Command) ([]*model.Com
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.NetworkIngressFailed, err)
 	}
-	resp := &model.Response{
+	resp := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.NetworkIngress,
 		Payload: string(ingB),
@@ -47,12 +47,12 @@ func configureNetworkIngress(w *workerManager, cmd *model.Command) ([]*model.Com
 	return nil, resp
 }
 
-func deleteNetworkService(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
-	err := w.kubeClient.DeleteService(w.namespace, cmd.Payload)
+func deleteNetworkService(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	err := w.kubeClient.DeleteService(cmd.Namespace(), cmd.Payload)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.NetworkServiceDeleteFailed, err)
 	}
-	resp := &model.Response{
+	resp := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.NetworkServiceDelete,
 		Payload: cmd.Payload,
@@ -60,12 +60,12 @@ func deleteNetworkService(w *workerManager, cmd *model.Command) ([]*model.Comman
 	return nil, resp
 }
 
-func deleteNetworkIngress(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
-	err := w.kubeClient.DeleteIngress(w.namespace, cmd.Payload)
+func deleteNetworkIngress(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	err := w.kubeClient.DeleteIngress(cmd.Namespace(), cmd.Payload)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.NetworkIngressDeleteFailed, err)
 	}
-	resp := &model.Response{
+	resp := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.NetworkIngressDelete,
 		Payload: cmd.Payload,

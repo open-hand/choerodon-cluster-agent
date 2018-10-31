@@ -2,8 +2,9 @@ package model
 
 const (
 
-	//init
+	//manager
 	InitAgent					= "init_agent"
+	InitAgentSucceed					= "init_agent_succeed"
 	InitAgentFailed				= "init_agent_failed"
 	// helm
 	HelmReleaseSynced           =  "helm_release_sync"

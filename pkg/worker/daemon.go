@@ -13,15 +13,15 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 
-	"github.com/choerodon/choerodon-agent/pkg/cluster"
-	"github.com/choerodon/choerodon-agent/pkg/event"
-	"github.com/choerodon/choerodon-agent/pkg/git"
-	"github.com/choerodon/choerodon-agent/pkg/model"
-	"github.com/choerodon/choerodon-agent/pkg/resource"
-	c7n_sync "github.com/choerodon/choerodon-agent/pkg/sync"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
+	resource2 "github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/event"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
+	c7n_sync "github.com/choerodon/choerodon-cluster-agent/pkg/sync"
 	"github.com/gin-gonic/gin/json"
-	"github.com/choerodon/choerodon-agent/pkg/kube"
-	resource2 "github.com/choerodon/choerodon-agent/pkg/cluster/kubernetes/resource"
 	"sync"
 )
 
@@ -43,7 +43,9 @@ type Spec struct {
 	Spec  interface{} `json:"spec"`
 }
 
-func (w *workerManager) syncLoop(stop <-chan struct{}, done *sync.WaitGroup) {
+
+
+func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRepo  chan<- struct{}, done *sync.WaitGroup) {
 	defer done.Done()
 
 	// We want to sync at least every `SyncInterval`. Being told to
@@ -57,35 +59,35 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, done *sync.WaitGroup) {
 	syncHead := ""
 
 	// Ask for a sync
-	w.AskForSync()
+	w.AskForSync(namespace)
 	for {
 		select {
 		case <-stop:
 			glog.Info("sync loop stopping")
 			return
 		case <-syncTimer.C:
-			w.AskForSync()
-		case <-w.gitRepo.C:
+			w.AskForSync(namespace)
+		case <-w.gitRepos[namespace].C:
 			ctx, cancel := context.WithTimeout(context.Background(), w.gitTimeout)
-			newSyncHead, err := w.gitRepo.Revision(ctx, w.gitConfig.DevOpsTag)
+			newSyncHead, err := w.gitRepos[namespace].Revision(ctx, w.gitConfig.DevOpsTag)
 			cancel()
 			if err != nil {
-				glog.Infof("%s get DevOps sync head error error: %v", w.gitRepo.Origin().URL, err)
+				glog.Infof("%s get DevOps sync head error error: %v", w.gitRepos[namespace].Origin().URL, err)
 				continue
 			}
-			glog.Infof("get refreshed event for git repository %s, branch %s, HEAD %s, previous HEAD %s", w.gitRepo.Origin().URL, w.gitConfig.Branch, newSyncHead, syncHead)
+			glog.Infof("get refreshed event for git repository %s, branch %s, HEAD %s, previous HEAD %s", w.gitRepos[namespace].Origin().URL, w.gitConfig.Branch, newSyncHead, syncHead)
 			if newSyncHead != syncHead {
 				syncHead = newSyncHead
-				w.AskForSync()
+				w.AskForSync(namespace)
 			}
-		case <-w.syncSoon:
+		case <-w.syncSoon[namespace]:
 			if !syncTimer.Stop() {
 				select {
 				case <-syncTimer.C:
 				default:
 				}
 			}
-			if err := w.doSync(); err != nil {
+			if err := w.doSync(namespace); err != nil {
 				glog.Errorf("do sync: %v", err)
 			}
 			syncTimer.Reset(w.syncInterval)
@@ -93,14 +95,14 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, done *sync.WaitGroup) {
 	}
 }
 
-func (w *workerManager) AskForSync() {
+func (w *workerManager) AskForSync(namespace string) {
 	select {
-	case w.syncSoon <- struct{}{}:
+	case w.syncSoon[namespace] <- struct{}{}:
 	default:
 	}
 }
 
-func (w *workerManager) doSync() error {started := time.Now().UTC()
+func (w *workerManager) doSync(namespace string) error {started := time.Now().UTC()
 
 	// We don't care how long this takes overall, only about not
 	// getting bogged down in certain operations, so use an
@@ -113,7 +115,7 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 		var err error
 		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
 		defer cancel()
-		working, err = w.gitRepo.Clone(ctx, w.gitConfig)
+		working, err = w.gitRepos[namespace].Clone(ctx, w.gitConfig)
 
 		if err != nil {
 			return err
@@ -195,7 +197,7 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 
 	for key,k8sResource := range changedResources{
 
-		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(w.namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
+		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
 		if err != nil {
 			glog.Errorf("label of object error ",err)
 		} else if k8sResourceBuff != nil {
@@ -273,7 +275,7 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 			FileCommits: filesCommits,
 			ResourceCommits: resourceCommits,
 		},
-	}); err != nil {
+	}, namespace); err != nil {
 		glog.Errorf("sync log event: %v", err)
 	}
 
@@ -295,24 +297,24 @@ func (w *workerManager) doSync() error {started := time.Now().UTC()
 	{
 		glog.Infof("tag: %s, old: %s, new: %s", w.gitConfig.SyncTag, oldTagRev, newTagRev)
 		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
-		err := w.gitRepo.Refresh(ctx)
+		err := w.gitRepos[namespace].Refresh(ctx)
 		cancel()
 		return err
 	}
 }
 
-func (w *workerManager) LogEvent(ev event.Event) error {
+func (w *workerManager) LogEvent(ev event.Event, namespace string) error {
 	evBytes, err := json.Marshal(ev)
 	if err != nil {
 		return err
 	}
-	resp := &model.Response{
-		Key:     fmt.Sprintf("env:%s", w.namespace),
+	resp := &model.Packet{
+		Key:     fmt.Sprintf("env:%s", namespace),
 		Type:    model.GitOpsSyncEvent,
 		Payload: string(evBytes),
 	}
 	glog.Infof("%s git_ops_sync_event:\n%s", resp.Key, resp.Payload)
-	w.responseChan <- resp
+	w.chans.ResponseChan <- resp
 	return nil
 }
 
@@ -335,15 +337,17 @@ func (w *workerManager)syncStatus(stop <-chan struct{}, done *sync.WaitGroup)  {
 			glog.Info("sync loop stopping")
 			return
 		case <- syncTimer.C:
-			w.responseChan <- newSyncRep(w.namespace)
+			for _, envPara := range w.agentInitOps.Envs {
+				w.chans.ResponseChan <- newSyncRep(envPara.Namespace)
+			}
 			syncTimer.Reset(w.statusSyncInterval)
 		}
 	}
 
 }
 
-func newSyncRep(ns string) *model.Response {
-	return &model.Response{
+func newSyncRep(ns string) *model.Packet {
+	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s", ns),
 		Type:    model.StatusSyncEvent,
 	}

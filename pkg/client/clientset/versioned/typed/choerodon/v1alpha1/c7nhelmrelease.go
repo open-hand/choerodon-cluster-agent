@@ -3,8 +3,8 @@
 package v1alpha1
 
 import (
-	v1alpha1 "github.com/choerodon/choerodon-agent/pkg/apis/choerodon/v1alpha1"
-	scheme "github.com/choerodon/choerodon-agent/pkg/client/clientset/versioned/scheme"
+	v1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
+	scheme "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"

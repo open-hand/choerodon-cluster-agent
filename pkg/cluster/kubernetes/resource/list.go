@@ -4,7 +4,7 @@
 
 package resource
 
-import "github.com/choerodon/choerodon-agent/pkg/resource"
+import "github.com/choerodon/choerodon-cluster-agent/pkg/resource"
 
 type List struct {
 	BaseObject

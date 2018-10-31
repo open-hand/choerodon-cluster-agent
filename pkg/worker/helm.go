@@ -3,8 +3,8 @@ package worker
 import (
 	"encoding/json"
 
-	"github.com/choerodon/choerodon-agent/pkg/model"
-	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 	"github.com/golang/glog"
 	"strings"
 )
@@ -23,9 +23,9 @@ func init() {
 
 }
 
-func preInstallHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func preInstallHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.InstallReleaseRequest
-	var newCmds []*model.Command
+	var newCmds []*model.Packet
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
@@ -38,12 +38,12 @@ func preInstallHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Comma
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
-	resp := &model.Response{
+	resp := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleasePreInstall,
 		Payload: string(hooksJsonB),
 	}
-	newCmd := &model.Command{
+	newCmd := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmInstallRelease,
 		Payload: cmd.Payload,
@@ -52,7 +52,7 @@ func preInstallHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Comma
 	return newCmds, resp
 }
 
-func installHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func installHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.InstallReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -66,16 +66,16 @@ func installHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command,
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
-	return nil, &model.Response{
+	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmInstallRelease,
 		Payload: string(respB),
 	}
 }
 
-func preUpdateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func preUpdateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.UpgradeReleaseRequest
-	var newCmds []*model.Command
+	var newCmds []*model.Packet
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
@@ -88,12 +88,12 @@ func preUpdateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Comman
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
-	resp := &model.Response{
+	resp := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleasePreUpgrade,
 		Payload: string(hooksJsonB),
 	}
-	newCmd := &model.Command{
+	newCmd := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseUpgrade,
 		Payload: cmd.Payload,
@@ -102,7 +102,7 @@ func preUpdateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Comman
 	return newCmds, resp
 }
 
-func updateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func updateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.UpgradeReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -116,14 +116,14 @@ func updateHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, 
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
-	return nil, &model.Response{
+	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseUpgrade,
 		Payload: string(respB),
 	}
 }
 
-func rollbackHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func rollbackHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.RollbackReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -137,14 +137,14 @@ func rollbackHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err)
 	}
-	return nil, &model.Response{
+	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseRollback,
 		Payload: string(respB),
 	}
 }
 
-func deleteHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func deleteHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.DeleteReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -158,14 +158,14 @@ func deleteHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, 
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err)
 	}
-	return nil, &model.Response{
+	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseDelete,
 		Payload: string(respB),
 	}
 }
 
-func stopHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func stopHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.StopReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -179,14 +179,14 @@ func stopHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *m
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err)
 	}
-	return nil, &model.Response{
+	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseStop,
 		Payload: string(respB),
 	}
 }
 
-func startHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func startHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.StartReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -200,14 +200,14 @@ func startHelmRelease(w *workerManager, cmd *model.Command) ([]*model.Command, *
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err)
 	}
-	return nil, &model.Response{
+	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseStart,
 		Payload: string(respB),
 	}
 }
 
-func getHelmReleaseContent(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func getHelmReleaseContent(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.GetReleaseContentRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -224,14 +224,14 @@ func getHelmReleaseContent(w *workerManager, cmd *model.Command) ([]*model.Comma
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
 	}
-	return nil, &model.Response{
+	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseGetContent,
 		Payload: string(respB),
 	}
 }
 
-func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.Response) {
+func syncStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var reqs []model_helm.SyncRequest
 	var reps = []*model_helm.SyncRequest{}
 	
@@ -244,7 +244,7 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 	for _,syncRequest := range reqs {
 		switch syncRequest.ResourceType {
 			case "ingress":
-				commit,err  := w.kubeClient.GetIngress(w.namespace, syncRequest.ResourceName)
+				commit,err  := w.kubeClient.GetIngress(syncRequest.Namespace, syncRequest.ResourceName)
 				if err != nil {
 					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else  if commit != "" {
@@ -252,7 +252,7 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 				}
 				break
 			case "service":
-				commit,err  := w.kubeClient.GetService(w.namespace, syncRequest.ResourceName)
+				commit,err  := w.kubeClient.GetService(syncRequest.Namespace, syncRequest.ResourceName)
 				if err != nil {
 					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if commit != "" {
@@ -260,7 +260,7 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 				}
 				break
 			case "certificate":
-				commit,err  := w.kubeClient.GetSecret(w.namespace, syncRequest.ResourceName)
+				commit,err  := w.kubeClient.GetSecret(syncRequest.Namespace, syncRequest.ResourceName)
 				if err != nil {
 					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if commit != "" {
@@ -268,7 +268,7 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 				}
 				break
 			case "instance":
-				chr,err  := w.kubeClient.GetC7nHelmRelease(w.namespace, syncRequest.ResourceName)
+				chr,err  := w.kubeClient.GetC7nHelmRelease(syncRequest.Namespace, syncRequest.ResourceName)
 				if err != nil {
 					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if chr != nil {
@@ -307,7 +307,7 @@ func syncStatus(w *workerManager, cmd *model.Command) ([]*model.Command, *model.
 		return nil, nil
 	}
 	glog.Infof("sync response %s", string(respB))
-	return nil, &model.Response{
+	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.StatusSync,
 		Payload: string(respB),

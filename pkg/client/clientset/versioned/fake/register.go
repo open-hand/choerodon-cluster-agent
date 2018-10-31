@@ -3,7 +3,7 @@
 package fake
 
 import (
-	choerodonv1alpha1 "github.com/choerodon/choerodon-agent/pkg/apis/choerodon/v1alpha1"
+	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

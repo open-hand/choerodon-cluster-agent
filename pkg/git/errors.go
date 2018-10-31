@@ -5,7 +5,7 @@
 package git
 
 import (
-	c7n_error "github.com/choerodon/choerodon-agent/pkg/errors"
+	c7n_error "github.com/choerodon/choerodon-cluster-agent/pkg/errors"
 )
 
 func PushError(url string, actual error) error {

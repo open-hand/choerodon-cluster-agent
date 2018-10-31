@@ -3,3 +3,16 @@ StrictHostKeyChecking no
 UserKnownHostsFile /dev/null
 IdentityFile /etc/choerodon/ssh/identity
 LogLevel error
+
+Host repo1
+  HostName code.choerodon.com.cn
+  User agent
+  StrictHostKeyChecking no
+  IdentityFile /etc/choerodon/ssh/identity
+  LogLevel error
+Host repo2
+  HostName code.choerodon.com.cn
+  User agent
+  StrictHostKeyChecking no
+  IdentityFile /repo2
+  LogLevel error

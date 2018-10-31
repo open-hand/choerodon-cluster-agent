@@ -5,8 +5,8 @@ import (
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	c7nv1alpha1 "github.com/choerodon/choerodon-agent/pkg/apis/choerodon/v1alpha1"
-	"github.com/choerodon/choerodon-agent/pkg/model"
+	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 )
 
 var (

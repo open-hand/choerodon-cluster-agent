@@ -28,7 +28,7 @@ make
 Run
 
 ```bash
-./bin/choerodon-agent \
+./bin/choerodon-cluster-agent \
     --v=1 \
     --tiller-connection-timeout=2 \
     --connect=[Server address] \

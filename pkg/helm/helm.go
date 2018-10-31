@@ -19,8 +19,8 @@ import (
 	tillerenv "k8s.io/helm/pkg/tiller/environment"
 	"k8s.io/helm/pkg/timeconv"
 
-	envkube "github.com/choerodon/choerodon-agent/pkg/kube"
-	model_helm "github.com/choerodon/choerodon-agent/pkg/model/helm"
+	envkube "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 	"strconv"
 	"regexp"
 	"gopkg.in/yaml.v2"

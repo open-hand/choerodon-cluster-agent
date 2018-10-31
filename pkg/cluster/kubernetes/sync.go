@@ -17,7 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/client-go/rest"
 
-	"github.com/choerodon/choerodon-agent/pkg/cluster"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 )
 
 type changeSet struct {

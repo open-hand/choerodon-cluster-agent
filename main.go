@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/pflag"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 
-	"github.com/choerodon/choerodon-agent/cmd"
+	"github.com/choerodon/choerodon-cluster-agent/cmd"
 )
 
 func init() {

@@ -1,5 +1,5 @@
 FROM golang:1.9.4-alpine3.7 as builder
-WORKDIR /go/src/github.com/choerodon/choerodon-agent
+WORKDIR /go/src/github.com/choerodon/choerodon-cluster-agent
 COPY . .
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build .
 
@@ -15,6 +15,6 @@ RUN apk update && apk add curl bash tree tzdata \
 
 
 COPY ./docker/ssh_config /etc/ssh/ssh_config
-COPY --from=builder /go/src/github.com/choerodon/choerodon-agent/choerodon-agent .
+COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent .
 
-CMD ["/choerodon-agent"]
+CMD ["/choerodon-cluster-agent"]

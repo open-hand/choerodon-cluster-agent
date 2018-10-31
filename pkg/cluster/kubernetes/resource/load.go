@@ -14,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/choerodon/choerodon-agent/pkg/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
 	"strings"
 )
 
