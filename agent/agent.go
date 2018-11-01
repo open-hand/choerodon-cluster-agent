@@ -198,8 +198,22 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	envParas1 := model.EnvParas{
 		Namespace: "ns-test",
 		EnvId:   1,
-		GitRsaKey: "fjsefnunndur232@#$",
-		GitUrl:  "fesfse@git.com",
+		GitRsaKey: "-----BEGIN RSA PRIVATE KEY-----\n" +
+			"MIICXgIBAAKBgQCGxBb0u+oLewbMum8cy79v5b2xRmOLLeGuq3PmU4wkjxfqQUvi\n" +
+			"odxvu0Dorg2lgxE9RUohDW2ZUD+XQDBgge9cVG2QZKZWqFRYH3EZN93rgb06cDqO\n" +
+			"GLbDQ4/wR+AxkrgSM2MhMuAFovJbnqIlhO18T9ahST5irXWFZWlPdOMkGQIDAQAB\n" +
+			"AoGAfoDth5gpz9MRg/ZxvNcpgdFn6lPHt2s/USZSal/8yoikC1p18Gy+LwfYm1Jf\n" +
+			"LwHEmf5D4pjnS6Y/uywe/UibNWs38Kdq6fTPSkDjQym4g1in/2MWeruO6IlSpy2p\n" +
+			"v34F9L/uy9io3wnEG8QwEtVR18CwaLx5547tl6acIdFIvjECQQDqdalqycvVfmk9\n" +
+			"NPncH4o+OFV/DjgYEStJb3EBur2lXB4h98ww+M91mPPazpQRPF0EGAK4sBU+UuMH\n" +
+			"Ayi4TjTNAkEAkyWytEk9C6puM96RTKf1X2LSPrQGVG6p9QdOf3buRmWiMMGAWHwU\n" +
+			"bi2CcjHPNVgftsXiHrU6L0AJI9IytyDMfQJBAIf4eqsCoqKKsA+eBHVjGTIiS3rm\n" +
+			"zSMv+dGZvojJOqiGdrcuVQ3ljbLeZDV17ircvfjcz985xugg+6aab2gLetUCQQCL\n" +
+			"2H8fYp+Wz7IOr88tqE7GCbhBCX0ej1INYpVTBOftlbfwWGavMbWFBNF90CLa0tbJ\n" +
+			"MQX3I0uaDmThW2sBqjVNAkEAguq2K2RbYNVxw7w0qmSKXoIN0NM15LcxyT+Lf64I\n" +
+			"gpgjrQrNIclKCopAwj5yZhRRsYCx2bOTaracAB2tJSMwUA==\n" +
+			"-----END RSA PRIVATE KEY-----\n",
+		GitUrl:  "git@code.choerodon.com.cn:13600/cluster-agent-1.git",
 	}
 	envParas2 := model.EnvParas{
 		Namespace: "ns-test-2",

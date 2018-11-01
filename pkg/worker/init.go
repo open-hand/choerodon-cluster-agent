@@ -70,7 +70,7 @@ func config(host, namespace string) string {
 	result = result + fmt.Sprintf("  StrictHostKeyChecking no\n")
 	result = result + fmt.Sprintf("  UserKnownHostsFile /dev/null\n")
 	result = result + fmt.Sprintf("  IdentityFile /%s\n", namespace)
-	result = result + fmt.Sprintf("  LogLevel error error\n")
+	result = result + fmt.Sprintf("  LogLevel error\n")
 	return result
 }
 
