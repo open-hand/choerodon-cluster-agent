@@ -161,8 +161,7 @@ func registerCmdFunc(funcType string, f processCmdFunc) {
 func (w *workerManager) startRepos(stop <-chan struct{}, wg *sync.WaitGroup) {
 	repos := <-w.agentInitOpsChan
 	for _, envPara := range repos.Envs {
-		strings.Replace(envPara.GitUrl, repos.GitHost, envPara.Namespace, 1)
-		gitRemote := git.Remote{URL: envPara.GitUrl}
+		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, repos.GitHost, envPara.Namespace, 1)}
 		repo := git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
 		wg.Add(1)
 		go func() {

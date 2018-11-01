@@ -32,7 +32,6 @@ spec:
         - --token={{ .Values.config.token }}
         - --namespace={{ .Release.Namespace }}
         - --agent-version={{ .Chart.Version }}
-        - --envId={{ .Values.config.envId }}
       {{- range $key, $value := .Values.config.extraArgs }}
         - --{{ $key }}={{ $value }}
       {{- end }}
