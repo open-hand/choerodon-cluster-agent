@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
@@ -127,17 +128,17 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	go appClient.Loop(shutdown, shutdownWg)
 
 	//gitRemote := git.Remote{URL: o.gitURL}
-	//gitConfig := git.Config{
-	//	Branch:    o.gitBranch,
-	//	Path:      o.gitPath,
-	//	UserName:  o.gitUser,
-	//	GitUrl:    o.gitURL,
-	//	UserEmail: o.gitEmail,
-	//	SyncTag:   o.gitSyncTag,
-	//	DevOpsTag: o.gitDevOpsSyncTag,
-	//	NotesRef:  o.gitNotesRef,
-	//	GitPollInterval: o.gitPollInterval,
-	//}
+	gitConfig := git.Config{
+		Branch:    o.gitBranch,
+		Path:      o.gitPath,
+		UserName:  o.gitUser,
+		GitUrl:    o.gitURL,
+		UserEmail: o.gitEmail,
+		SyncTag:   o.gitSyncTag,
+		DevOpsTag: o.gitDevOpsSyncTag,
+		NotesRef:  o.gitNotesRef,
+		GitPollInterval: o.gitPollInterval,
+	}
 	//gitRepo := git.NewRepo(gitRemote, git.PollInterval(o.gitPollInterval))
 	//{
 	//	shutdownWg.Add(1)
@@ -178,6 +179,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.syncInterval,
 		o.statusSyncInterval,
 		o.gitTimeOut,
+		gitConfig,
 	)
 	namespaces := manager.NewNamespaces()
 

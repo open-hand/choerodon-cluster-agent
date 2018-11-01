@@ -43,8 +43,7 @@ type workerManager struct {
 	agentInitOpsChan   chan model.AgentInitOptions
 }
 
-type opsRepos struct {
-}
+
 
 func NewWorkerManager(
 	chans *manager.CRChan,
@@ -54,7 +53,8 @@ func NewWorkerManager(
 	agentInitOps *model.AgentInitOptions,
 	syncInterval time.Duration,
 	statusSyncInterval time.Duration,
-	gitTimeout time.Duration) *workerManager {
+	gitTimeout time.Duration,
+	gitConfig git.Config,) *workerManager {
 
 	return &workerManager{
 		chans:              chans,
@@ -67,6 +67,7 @@ func NewWorkerManager(
 		statusSyncInterval: statusSyncInterval,
 		gitTimeout:         gitTimeout,
 		gitRepos:           map[string]*git.Repo{},
+		gitConfig:          gitConfig,
 	}
 }
 
