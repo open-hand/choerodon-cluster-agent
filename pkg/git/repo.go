@@ -198,7 +198,7 @@ func (r *Repo) CommitsBetween(ctx context.Context, ref1, ref2, path string) ([]C
 
 // Start begins synchronising the repo by cloning it, then fetching
 // the required tags and so on.
-func (r *Repo) Start(shutdown <-chan struct{}, done *sync.WaitGroup) error {
+func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, done *sync.WaitGroup) error {
 	defer done.Done()
 
 	for {
@@ -259,7 +259,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, done *sync.WaitGroup) error {
 			r.setStatus(RepoCloned, err)
 
 		case RepoReady:
-			if err := r.refreshLoop(shutdown); err != nil {
+			if err := r.refreshLoop(shutdown, repoShutdown); err != nil {
 				glog.Errorf("repo ready: %v", err)
 				r.setStatus(RepoNew, err)
 				continue // with new status, skipping timer
@@ -269,6 +269,11 @@ func (r *Repo) Start(shutdown <-chan struct{}, done *sync.WaitGroup) error {
 		tryAgain := time.NewTimer(10 * time.Second)
 		select {
 		case <-shutdown:
+			if !tryAgain.Stop() {
+				<-tryAgain.C
+			}
+			return nil
+		case <-repoShutdown:
 			if !tryAgain.Stop() {
 				<-tryAgain.C
 			}
@@ -294,11 +299,16 @@ func (r *Repo) Refresh(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repo) refreshLoop(shutdown <-chan struct{}) error {
+func (r *Repo) refreshLoop(shutdown <-chan struct{}, repoShutdown <-chan struct{}) error {
 	gitPoll := time.NewTimer(r.interval)
 	for {
 		select {
 		case <-shutdown:
+			if !gitPoll.Stop() {
+				<-gitPoll.C
+			}
+			return nil
+		case <-repoShutdown:
 			if !gitPoll.Stop() {
 				<-gitPoll.C
 			}

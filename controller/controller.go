@@ -39,7 +39,7 @@ type ControllerContext struct {
 	helmClient    helm.Client
 	stop          <-chan struct{}
 	chans         *manager.CRChan
-	namespaces    *manager.Namespaces
+	Namespaces    *manager.Namespaces
 }
 
 func CreateControllerContext(
@@ -49,7 +49,7 @@ func CreateControllerContext(
 	helmClient helm.Client,
 	stop <-chan struct{},
 	chans *manager.CRChan,
-	namespaces *manager.Namespaces) *ControllerContext {
+	Namespaces *manager.Namespaces) *ControllerContext {
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClientset, time.Second*30)
 	c7nInformer := c7ninformers.NewSharedInformerFactory(c7nClientset, time.Second*30)
 
@@ -61,7 +61,7 @@ func CreateControllerContext(
 		kubeClient:    kubeClient,
 		helmClient:    helmClient,
 		stop:          stop,
-		namespaces:    namespaces,
+		Namespaces:    Namespaces,
 		chans:         chans,
 	}
 	return ctx
@@ -113,7 +113,7 @@ func startDeploymentController(ctx *ControllerContext) (bool, error) {
 	go deployment.NewDeploymentController(
 		ctx.kubeInformer.Extensions().V1beta1().Deployments(),
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -122,7 +122,7 @@ func startIngressController(ctx *ControllerContext) (bool, error) {
 	go ingress.NewIngressController(
 		ctx.kubeInformer.Extensions().V1beta1().Ingresses(),
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -131,7 +131,7 @@ func startReplicaSetController(ctx *ControllerContext) (bool, error) {
 	go replicaset.NewReplicaSetController(
 		ctx.kubeInformer.Extensions().V1beta1().ReplicaSets(),
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -141,7 +141,7 @@ func startJobController(ctx *ControllerContext) (bool, error) {
 		ctx.kubeInformer.Batch().V1().Jobs(),
 		ctx.kubeClient,
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -150,7 +150,7 @@ func startServiceController(ctx *ControllerContext) (bool, error) {
 	go service.NewserviceController(
 		ctx.kubeInformer.Core().V1().Services(),
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -159,7 +159,7 @@ func startSecretController(ctx *ControllerContext) (bool, error) {
 	go secret.NewSecretController(
 		ctx.kubeInformer.Core().V1().Secrets(),
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -168,7 +168,7 @@ func startConfigMapController(ctx *ControllerContext) (bool, error) {
 	go configMap.NewconfigMapController(
 		ctx.kubeInformer.Core().V1().ConfigMaps(),
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -177,7 +177,7 @@ func startPodController(ctx *ControllerContext) (bool, error) {
 	go pod.NewpodController(
 		ctx.kubeInformer.Core().V1().Pods(),
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -189,7 +189,7 @@ func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
 		ctx.c7nInformer.Choerodon().V1alpha1().C7NHelmReleases(),
 		ctx.helmClient,
 		ctx.chans.CommandChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 		ctx.chans.ResponseChan,
 	).Run(workers, ctx.stop)
 	return true, nil
@@ -199,7 +199,7 @@ func startEventController(ctx *ControllerContext) (bool, error) {
 	go event.NewEventController(
 		ctx.kubeInformer.Core().V1().Events(),
 		ctx.chans.ResponseChan,
-		ctx.namespaces,
+		ctx.Namespaces,
 		ctx.kubeClientset,
 	).Run(workers, ctx.stop)
 	return true, nil

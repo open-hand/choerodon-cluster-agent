@@ -170,17 +170,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	//	k8sManifests = &kubernetes.Manifests{Namespace: o.Namespace}
 	//}
 
-	workerManager := worker.NewWorkerManager(
-		chans,
-		kubeClient,
-		helmClient,
-		appClient,
-		&model.AgentInitOptions{},
-		o.syncInterval,
-		o.statusSyncInterval,
-		o.gitTimeOut,
-		gitConfig,
-	)
+
 	namespaces := manager.NewNamespaces()
 
 	ctx := controller.CreateControllerContext(
@@ -193,8 +183,22 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		namespaces,
 	)
 	ctx.StartControllers()
+	workerManager := worker.NewWorkerManager(
+		chans,
+		kubeClient,
+		helmClient,
+		appClient,
+		&model.AgentInitOptions{},
+		o.syncInterval,
+		o.statusSyncInterval,
+		o.gitTimeOut,
+		gitConfig,
+		ctx,
+		shutdownWg,
+		shutdown,
+	)
 
-	go workerManager.Start(shutdown, shutdownWg)
+	go workerManager.Start()
 	shutdownWg.Add(1)
 
 	envParas1 := model.EnvParas{

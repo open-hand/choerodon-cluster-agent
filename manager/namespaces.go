@@ -32,6 +32,15 @@ func (nsSet *Namespaces) Contain (ns string)  bool {
 	return ok
 }
 
+func (nsSet *Namespaces) Set(nsList []string)  {
+	nsSet.Lock()
+	defer nsSet.Unlock()
+	nsSet.m = map[string]bool{}
+	for _,ns := range nsList {
+		nsSet.m[ns] = true
+	}
+}
+
 func (nsSet *Namespaces) AddAll(nsList []string)  {
 	nsSet.Lock()
 	defer nsSet.Unlock()
