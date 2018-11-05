@@ -187,3 +187,7 @@ func newDeploymentRep(deployment *extensions.Deployment) *model.Packet {
 		Payload: string(payload),
 	}
 }
+
+func (c *controller) ReSync()  {
+
+}

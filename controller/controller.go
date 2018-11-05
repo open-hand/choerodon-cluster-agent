@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"k8s.io/client-go/tools/cache"
 	"time"
 
 	"github.com/golang/glog"
@@ -26,9 +27,10 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 )
 
-type InitFunc func(ctx *ControllerContext) (bool, error)
+type InitFunc func(ctx *ControllerContext) (bool,cache.SharedIndexInformer, error)
 
 const workers int  = 1
+
 
 type ControllerContext struct {
 	kubeInformer  kubeinformers.SharedInformerFactory
@@ -40,6 +42,7 @@ type ControllerContext struct {
 	stop          <-chan struct{}
 	chans         *manager.CRChan
 	Namespaces    *manager.Namespaces
+	informers []cache.SharedIndexInformer
 }
 
 func CreateControllerContext(
@@ -63,6 +66,7 @@ func CreateControllerContext(
 		stop:          stop,
 		Namespaces:    Namespaces,
 		chans:         chans,
+		informers: []cache.SharedIndexInformer{},
 	}
 	return ctx
 }
@@ -84,7 +88,12 @@ func (ctx *ControllerContext) StartControllers() error {
 	//controllers["c7nhelmrelease"] = startC7NHelmReleaseController
 	glog.V(1).Infof("Starting controllers")
 	for controllerName, initFn := range controllers {
-		started, err := initFn(ctx)
+		started,informer, err := initFn(ctx)
+
+		if informer != nil {
+			ctx.informers = append(ctx.informers, informer)
+
+		}
 		if err != nil {
 			glog.Errorf("Error starting %q", controllerName)
 			return err
@@ -99,90 +108,101 @@ func (ctx *ControllerContext) StartControllers() error {
 	return nil
 }
 
-func startEndpointController(ctx *ControllerContext) (bool, error) {
+func (ctx *ControllerContext) ReSync()  {
+    for _,informer := range ctx.informers {
+    	err := informer.GetStore().Resync()
+    	glog.Errorf("re sync resource error: %v", err)
+	}
+
+}
+
+func startEndpointController(ctx *ControllerContext) (bool,cache.SharedIndexInformer, error) {
 	go endpoint.NewEndpointController(
 		ctx.kubeInformer.Core().V1().Pods(),
 		ctx.kubeInformer.Core().V1().Services(),
 		ctx.kubeInformer.Core().V1().Endpoints(),
 		ctx.kubeClientset,
 	).Run(workers, ctx.stop)
-	return true, nil
+	return true,nil, nil
 }
 
-func startDeploymentController(ctx *ControllerContext) (bool, error) {
+func startDeploymentController(ctx *ControllerContext) (bool, cache.SharedIndexInformer, error) {
+
 	go deployment.NewDeploymentController(
 		ctx.kubeInformer.Extensions().V1beta1().Deployments(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)
-	return true, nil
+	 informer := ctx.kubeInformer.Extensions().V1beta1().Deployments().Informer()
+	return true,informer, nil
 }
 
-func startIngressController(ctx *ControllerContext) (bool, error) {
+func startIngressController(ctx *ControllerContext) (bool, cache.SharedIndexInformer, error) {
 	go ingress.NewIngressController(
 		ctx.kubeInformer.Extensions().V1beta1().Ingresses(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)
-	return true, nil
+
+	return true,ctx.kubeInformer.Extensions().V1beta1().Ingresses().Informer(), nil
 }
 
-func startReplicaSetController(ctx *ControllerContext) (bool, error) {
+func startReplicaSetController(ctx *ControllerContext) (bool, cache.SharedIndexInformer, error) {
 	go replicaset.NewReplicaSetController(
 		ctx.kubeInformer.Extensions().V1beta1().ReplicaSets(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)
-	return true, nil
+	return true, ctx.kubeInformer.Extensions().V1beta1().ReplicaSets().Informer(),  nil
 }
 
-func startJobController(ctx *ControllerContext) (bool, error) {
+func startJobController(ctx *ControllerContext) (bool, cache.SharedIndexInformer,  error) {
 	go job.NewJobController(
 		ctx.kubeInformer.Batch().V1().Jobs(),
 		ctx.kubeClient,
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)
-	return true, nil
+	return true, nil, nil
 }
 
-func startServiceController(ctx *ControllerContext) (bool, error) {
+func startServiceController(ctx *ControllerContext) (bool, cache.SharedIndexInformer, error) {
 	go service.NewserviceController(
 		ctx.kubeInformer.Core().V1().Services(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
-	).Run(workers, ctx.stop)
-	return true, nil
+	).Run(workers,  ctx.stop)
+	return true, ctx.kubeInformer.Core().V1().Services().Informer(),  nil
 }
 
-func startSecretController(ctx *ControllerContext) (bool, error) {
+func startSecretController(ctx *ControllerContext) (bool, cache.SharedIndexInformer, error) {
 	go secret.NewSecretController(
 		ctx.kubeInformer.Core().V1().Secrets(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
-	).Run(workers, ctx.stop)
-	return true, nil
+	).Run(workers,  ctx.stop)
+	return true, ctx.kubeInformer.Core().V1().Secrets().Informer(), nil
 }
 
-func startConfigMapController(ctx *ControllerContext) (bool, error) {
+func startConfigMapController(ctx *ControllerContext) (bool, cache.SharedIndexInformer, error) {
 	go configMap.NewconfigMapController(
 		ctx.kubeInformer.Core().V1().ConfigMaps(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)
-	return true, nil
+	return true,ctx.kubeInformer.Core().V1().ConfigMaps().Informer(), nil
 }
 
-func startPodController(ctx *ControllerContext) (bool, error) {
+func startPodController(ctx *ControllerContext) (bool, cache.SharedIndexInformer, error) {
 	go pod.NewpodController(
 		ctx.kubeInformer.Core().V1().Pods(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)
-	return true, nil
+	return true,ctx.kubeInformer.Core().V1().Pods().Informer(), nil
 }
 
-func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
+func startC7NHelmReleaseController(ctx *ControllerContext) (bool, cache.SharedIndexInformer, error) {
 	go c7nhelmrelease.NewController(
 		ctx.kubeClientset,
 		ctx.c7nClientset,
@@ -192,15 +212,15 @@ func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
 		ctx.Namespaces,
 		ctx.chans.ResponseChan,
 	).Run(workers, ctx.stop)
-	return true, nil
+	return true, ctx.c7nInformer.Choerodon().V1alpha1().C7NHelmReleases().Informer(),  nil
 }
 
-func startEventController(ctx *ControllerContext) (bool, error) {
+func startEventController(ctx *ControllerContext) (bool,cache.SharedIndexInformer, error) {
 	go event.NewEventController(
 		ctx.kubeInformer.Core().V1().Events(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 		ctx.kubeClientset,
 	).Run(workers, ctx.stop)
-	return true, nil
+	return true,nil, nil
 }

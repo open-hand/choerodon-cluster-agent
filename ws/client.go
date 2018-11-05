@@ -24,6 +24,7 @@ const (
 	initialBackOff = 1 * time.Second
 	maxBackOff     = 60 * time.Second
 )
+var connectFlag bool
 
 type WebSocketClient interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
@@ -83,6 +84,7 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 		go func() {
 			errCh <- c.connect()
 		}()
+		connectFlag = true
 		select {
 		case err := <-errCh:
 			if err != nil {
@@ -98,12 +100,19 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 }
 
 func (c *appClient) connect() error {
-	glog.V(1).Info("start connect to devops service")
+	glog.V(1).Info("Start connect to DevOps service")
 	var err error
 	c.conn, err = dial(c.url.String(), c.token)
 	if err != nil {
 		return err
 	}
+	glog.V(1).Info("Connect to DevOps service success")
+
+	// 建立连接，同步资源对象
+	if connectFlag {
+		c.crChannel.CommandChan <- newReConnectCommand()
+	}
+
 	defer func() {
 		glog.V(1).Info("exit connect")
 		c.conn.Close()
@@ -304,4 +313,11 @@ func (c *appClient) pipeConnection(id string, pipe common.Pipe) (bool, error) {
 	}
 	pipe.Close()
 	return true, nil
+}
+
+func newReConnectCommand()  *model.Packet{
+	return &model.Packet{
+		Key: "inter:inter",
+		Type: model.ReConnect,
+	}
 }
