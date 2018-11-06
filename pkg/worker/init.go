@@ -1,11 +1,12 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	"encoding/json"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 func init() {
@@ -64,9 +65,18 @@ func writeSSHkey(fileName, key string) error {
 }
 
 func config(host, namespace string) string {
+
 	var result string
 	result = result + fmt.Sprintf("Host %s\n", namespace)
-	result = result + fmt.Sprintf("  HostName %s\n", host)
+	if strings.Contains(host, ":") {
+		hostnamePort := strings.Split(host,":")
+		hostname := hostnamePort[0]
+		port := hostnamePort[1]
+		result = result + fmt.Sprintf("  HostName %s\n", hostname)
+		port = result + fmt.Sprintf("  Port %s\n", port)
+	} else {
+		result = result + fmt.Sprintf("  HostName %s\n", host)
+	}
 	result = result + fmt.Sprintf("  StrictHostKeyChecking no\n")
 	result = result + fmt.Sprintf("  UserKnownHostsFile /dev/null\n")
 	result = result + fmt.Sprintf("  IdentityFile /%s\n", namespace)
