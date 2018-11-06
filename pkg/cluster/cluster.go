@@ -8,6 +8,6 @@ package cluster
 // the remote.Platform interface; but now we do more in the daemon so they
 // are distinct interfaces.
 type Cluster interface {
-	Export() ([]byte, error)
-	Sync(SyncDef) error
+	Export(namespace string) ([]byte, error)
+	Sync(namespace string, syncDef SyncDef) error
 }

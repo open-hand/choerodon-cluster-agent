@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
@@ -17,6 +19,8 @@ import (
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
 	"os"
+	"os/exec"
+
 	//"os/exec"
 	"os/signal"
 	"sync"
@@ -183,11 +187,34 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		namespaces,
 	)
 	ctx.StartControllers()
+
+	var k8sManifests cluster.Manifests
+	var k8s cluster.Cluster
+	{
+		kubectl := o.kubernetesKubectl
+		if kubectl == "" {
+			kubectl, err = exec.LookPath("kubectl")
+		} else {
+			_, err = os.Stat(kubectl)
+		}
+		if err != nil {
+			glog.Fatal(err)
+		}
+		glog.Infof("kubectl %s", kubectl)
+		cfg,_ := f.ClientConfig()
+		kubectlApplier := kubernetes.NewKubectl(kubectl, cfg)
+		kubectlApplier.ApplySingleObj(o.Namespace, model.CRD_YAML)
+
+		k8s = kubernetes.NewCluster( kubeClient.GetKubeClient(), kubeClient.GetC7NClient(), kubectlApplier)
+		k8sManifests = &kubernetes.Manifests{}
+	}
 	workerManager := worker.NewWorkerManager(
 		chans,
 		kubeClient,
 		helmClient,
 		appClient,
+		k8sManifests,
+		k8s,
 		&model.AgentInitOptions{},
 		o.syncInterval,
 		o.statusSyncInterval,

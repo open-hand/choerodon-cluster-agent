@@ -10,13 +10,12 @@ import (
 )
 
 type Manifests struct {
-	Namespace string
 }
 
-func (c *Manifests) LoadManifests(base, first string, rest ...string) (map[string]resource.Resource, []string,  error) {
-	return kube_resource.Load(c.Namespace, base, first, rest...)
+func (c *Manifests) LoadManifests(namespace string, base, first string, rest ...string) (map[string]resource.Resource, []string, error) {
+	return kube_resource.Load(namespace, base, first, rest...)
 }
 
-func (c *Manifests) ParseManifests(allDefs []byte) (map[string]resource.Resource, error) {
-	return kube_resource.ParseMultidoc(c.Namespace, allDefs, "exported")
+func (c *Manifests) ParseManifests(namespace string, allDefs []byte) (map[string]resource.Resource, error) {
+	return kube_resource.ParseMultidoc(namespace, allDefs, "exported")
 }

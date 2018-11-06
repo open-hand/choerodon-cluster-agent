@@ -135,8 +135,8 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 		return err
 	}
 
-	// Get a map of all resources defined in the repo
-	allResources,files, err := w.manifests.LoadManifests(working.Dir(), working.ManifestDir())
+	// Get a map of all resources defined in  therepo
+	allResources,files, err := w.manifests.LoadManifests(namespace, working.Dir(), working.ManifestDir())
 	if err != nil {
 		return errors.Wrap(err, "loading resources from repo")
 	}
@@ -187,7 +187,7 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 				fileCommitMap[file] = commit
 			}
 			// We had some changed files, we're syncing a diff
-			changedResources,_, err = w.manifests.LoadManifests(working.Dir(), changedFiles[0], changedFiles[1:]...)
+			changedResources,_, err = w.manifests.LoadManifests(namespace, working.Dir(), changedFiles[0], changedFiles[1:]...)
 		}
 		cancel()
 		if err != nil {
@@ -211,7 +211,7 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 		}
 	}
 
-	if err := c7n_sync.Sync(w.manifests, allResources, changedResources, w.cluster); err != nil {
+	if err := c7n_sync.Sync(namespace, w.manifests, allResources, changedResources, w.cluster); err != nil {
 		glog.Errorf("sync: %v", err)
 		switch syncerr := err.(type) {
 		case cluster.SyncError:

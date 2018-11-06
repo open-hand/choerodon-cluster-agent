@@ -85,7 +85,7 @@ func (ctx *ControllerContext) StartControllers() error {
 	controllers["replicaset"] = startReplicaSetController
 	controllers["pod"] = startPodController
 	controllers["event"] = startEventController
-	//controllers["c7nhelmrelease"] = startC7NHelmReleaseController
+	controllers["c7nhelmrelease"] = startC7NHelmReleaseController
 	glog.V(1).Infof("Starting controllers")
 	for controllerName, initFn := range controllers {
 		started,informer, err := initFn(ctx)

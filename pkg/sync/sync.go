@@ -12,14 +12,14 @@ import (
 )
 
 // Sync synchronises the cluster to the files in a directory
-func Sync(m cluster.Manifests, repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, clus cluster.Cluster) error {
+func Sync(namespace string, m cluster.Manifests, repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, clus cluster.Cluster) error {
 	// Get a map of resources defined in the cluster
-	clusterBytes, err := clus.Export()
+	clusterBytes, err := clus.Export(namespace)
 
 	if err != nil {
 		return errors.Wrap(err, "exporting resource defs from cluster")
 	}
-	clusterResources, err := m.ParseManifests(clusterBytes)
+	clusterResources, err := m.ParseManifests(namespace, clusterBytes)
 	if err != nil {
 		return errors.Wrap(err, "parsing exported resources")
 	}
@@ -38,7 +38,7 @@ func Sync(m cluster.Manifests, repoResources map[string]resource.Resource, chang
 	for _, res := range changedResources {
 		prepareSyncApply(res, &sync)
 	}
-	return clus.Sync(sync)
+	return clus.Sync(namespace, sync)
 }
 
 func prepareSyncDelete(repoResources map[string]resource.Resource, id string, res resource.Resource, sync *cluster.SyncDef) {

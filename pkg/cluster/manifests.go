@@ -26,7 +26,7 @@ type Manifests interface {
 	// is used to relativise the paths, which are supplied as absolute
 	// paths to directories or files; at least one path must be
 	// supplied.
-	LoadManifests(baseDir, first string, rest ...string) (map[string]resource.Resource, []string,  error)
+	LoadManifests(namespace string, baseDir, first string, rest ...string) (map[string]resource.Resource, []string, error)
 	// Parse the manifests given in an exported blob
-	ParseManifests([]byte) (map[string]resource.Resource, error)
+	ParseManifests(namespace string, bytes []byte) (map[string]resource.Resource, error)
 }

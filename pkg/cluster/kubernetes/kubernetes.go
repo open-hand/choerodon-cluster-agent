@@ -30,7 +30,6 @@ type extendedClient struct {
 // Cluster is a handle to a Kubernetes API server.
 // (Typically, this code is deployed into the same cluster.)
 type Cluster struct {
-	namespace string
 	client    extendedClient
 	applier   Applier
 	mu        sync.Mutex
@@ -38,13 +37,11 @@ type Cluster struct {
 
 // NewCluster returns a usable cluster.
 func NewCluster(
-	namespace string,
 	clientset k8sclient.Interface,
 	chrClientset chrclientset.Interface,
 	applier Applier) *Cluster {
 
 	c := &Cluster{
-		namespace: namespace,
 		client: extendedClient{
 			clientset.CoreV1(),
 			clientset.ExtensionsV1beta1(),
@@ -57,11 +54,11 @@ func NewCluster(
 }
 
 // Export exports cluster resources
-func (c *Cluster) Export() ([]byte, error) {
+func (c *Cluster) Export(namespace string) ([]byte, error) {
 	var config bytes.Buffer
 
 	for _, resourceKind := range resourceKinds {
-		resources, err := resourceKind.getResources(c, c.namespace)
+		resources, err := resourceKind.getResources(c, namespace)
 		if err != nil {
 			if se, ok := err.(*apierrors.StatusError); ok && se.ErrStatus.Reason == meta_v1.StatusReasonNotFound {
 				// Kind not supported by API server, skip
@@ -72,7 +69,7 @@ func (c *Cluster) Export() ([]byte, error) {
 		}
 
 		for _, r := range resources {
-			if !isAgent(r, c.namespace) {
+			if !isAgent(r, namespace) {
 				if err := appendYAML(&config, r.apiVersion, r.kind, r.k8sObject); err != nil {
 					return nil, err
 				}
@@ -84,7 +81,7 @@ func (c *Cluster) Export() ([]byte, error) {
 
 // Sync performs the given actions on resources. Operations are
 // asynchronous, but serialised.
-func (c *Cluster) Sync(spec cluster.SyncDef) error {
+func (c *Cluster) Sync(namespace string, spec cluster.SyncDef) error {
 	cs := makeChangeSet()
 	var errs cluster.SyncError
 	for _, action := range spec.Actions {
@@ -112,7 +109,7 @@ func (c *Cluster) Sync(spec cluster.SyncDef) error {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if applyErrs := c.applier.apply(c.namespace, cs); len(applyErrs) > 0 {
+	if applyErrs := c.applier.apply(namespace, cs); len(applyErrs) > 0 {
 		errs = append(errs, applyErrs...)
 	}
 

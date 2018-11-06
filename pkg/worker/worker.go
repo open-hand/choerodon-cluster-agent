@@ -52,12 +52,14 @@ func NewWorkerManager(
 	kubeClient kube.Client,
 	helmClient helm.Client,
 	appClient ws.WebSocketClient,
+	manifests cluster.Manifests,
+	cluster cluster.Cluster,
 	agentInitOps *model.AgentInitOptions,
 	syncInterval time.Duration,
 	statusSyncInterval time.Duration,
 	gitTimeout time.Duration,
 	gitConfig git.Config,
-	controllerContext  *controller.ControllerContext,
+	controllerContext *controller.ControllerContext,
 	wg *sync.WaitGroup,
 	stop <-chan struct{}) *workerManager {
 	return &workerManager{
@@ -76,6 +78,8 @@ func NewWorkerManager(
 		wg:                 wg,
 		stop:               stop,
 		controllerContext:  controllerContext,
+		manifests:          manifests,
+		cluster:            cluster,
 	}
 }
 
@@ -112,7 +116,6 @@ func (w *workerManager) Start() {
 	//		}
 	//	}
 	//}
-
 
 }
 
@@ -157,10 +160,7 @@ func registerCmdFunc(funcType string, f processCmdFunc) {
 	processCmdFuncs[funcType] = f
 }
 
-func setRepos (w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-
-
-
+func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 
 	var newAgentInitOps model.AgentInitOptions
 	err := json.Unmarshal([]byte(cmd.Payload), &newAgentInitOps)
@@ -177,11 +177,8 @@ func setRepos (w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pac
 	}
 	toAddEnv.GitHost = newAgentInitOps.GitHost
 
-
-
-
 	// 往文件中写入各个git库deploy key
-	for _,envPara := range newAgentInitOps.Envs {
+	for _, envPara := range newAgentInitOps.Envs {
 		err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
 		if err != nil {
 			return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
@@ -215,9 +212,6 @@ func setRepos (w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pac
 
 }
 
-
-
-
 func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 	for _, envPara := range agentInitOps.Envs {
 		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, agentInitOps.GitHost, envPara.Namespace, 1)}
@@ -230,6 +224,7 @@ func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 				glog.Errorf("git repo start failed", err)
 			}
 		}()
+		w.syncSoon[envPara.Namespace] = make(chan struct{}, 1)
 		w.gitRepos[envPara.Namespace] = repo
 		w.repoStopChans[envPara.Namespace] = repoStopChan
 		w.wg.Add(1)
@@ -237,13 +232,10 @@ func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 	}
 }
 
-
-
-
-func (w *workerManager) removeEnvs(newOpt model.AgentInitOptions)  {
+func (w *workerManager) removeEnvs(newOpt model.AgentInitOptions) {
 	for _, oldEnvPara := range w.agentInitOps.Envs {
 		var exist bool
-		for _,newEnvPara := range newOpt.Envs  {
+		for _, newEnvPara := range newOpt.Envs {
 			if newEnvPara.Namespace == oldEnvPara.Namespace {
 				exist = true
 			}
@@ -254,5 +246,3 @@ func (w *workerManager) removeEnvs(newOpt model.AgentInitOptions)  {
 		}
 	}
 }
-
-
