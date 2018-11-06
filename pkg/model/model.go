@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 )
 
 type Packet struct {
@@ -20,9 +21,13 @@ func (c *Packet) String() string {
 
 func (c *Packet) Namespace() string {
 	key := c.Key
-	//todo
-	//从key中取出命名空间
-	return key
+	keyValues := strings.Split(key, ".")
+	for _,keyValue := range keyValues {
+		if strings.Contains(keyValue, "env") {
+			return strings.Split(keyValue, ":")[1]
+		}
+	}
+	return ""
 }
 
 

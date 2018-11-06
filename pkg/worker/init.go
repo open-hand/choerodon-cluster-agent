@@ -73,7 +73,7 @@ func config(host, namespace string) string {
 		hostname := hostnamePort[0]
 		port := hostnamePort[1]
 		result = result + fmt.Sprintf("  HostName %s\n", hostname)
-		port = result + fmt.Sprintf("  Port %s\n", port)
+		result = result + fmt.Sprintf("  Port %s\n", port)
 	} else {
 		result = result + fmt.Sprintf("  HostName %s\n", host)
 	}
