@@ -57,7 +57,7 @@ type Client interface {
 	GetC7NClient() (*chrclientset.Clientset)
 }
 
-var	AgentVersion string
+var	AgentVersion string = "0.11.0"
 
 type client struct {
 	cmdutil.Factory

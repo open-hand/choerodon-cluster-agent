@@ -329,6 +329,7 @@ func installHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Packet {
 		Values:       chr.Spec.Values,
 		ReleaseName:  chr.Name,
 		Commit:       chr.Annotations[model.CommitLabel],
+		Namespace:    chr.Namespace,
 	}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
@@ -350,6 +351,7 @@ func updateHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Packet {
 		Values:       chr.Spec.Values,
 		ReleaseName:  chr.Name,
 		Commit:       chr.Annotations[model.CommitLabel],
+		Namespace:    chr.Namespace,
 	}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {

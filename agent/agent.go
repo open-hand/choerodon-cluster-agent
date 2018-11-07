@@ -121,7 +121,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	glog.Infof("KubeClient manager success.")
 
 	glog.Infof("Starting connect to tiller...")
-	helmClient := helm.NewClient(kubeClient, o.Namespace)
+	helmClient := helm.NewClient(kubeClient)
 	glog.Infof("Tiller connect success")
 
 	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, chans)
@@ -275,7 +275,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
 	fs.StringVar(&o.Listen, "listen", o.Listen, "address:port to listen on")
-	fs.StringVar(&kube.AgentVersion, "agent-version", "", "address:port to listen on")
+	//fs.StringVar(&kube.AgentVersion, "agent-version", "", "address:port to listen on")
 	// upstream
 	fs.StringVar(&o.UpstreamURL, "connect", "", "Connect to an upstream service")
 	fs.StringVar(&o.Token, "token", "", "Authentication token for upstream service")

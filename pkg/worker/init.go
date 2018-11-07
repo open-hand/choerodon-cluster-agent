@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"io/ioutil"
@@ -14,35 +13,6 @@ func init() {
 }
 
 
-func initAgent(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	var agentInitOps model.AgentInitOptions
-	err := json.Unmarshal([]byte(cmd.Payload), &agentInitOps)
-	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
-	}
-
-	var sshConfig string
-
-	// 往文件中写入各个git库deploy key
-	for _,envPara := range agentInitOps.Envs {
-	    err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
-	    if err != nil {
-	    	return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
-		}
-		sshConfig = sshConfig + config(agentInitOps.GitHost, envPara.Namespace)
-	}
-
-	err = writeSshConfig(sshConfig)
-	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
-	}
-
-	return nil, &model.Packet{
-		Key:     "test:test",
-		Type:    model.InitAgentSucceed,
-		Payload: cmd.Payload,
-	}
-}
 
 func writeSSHkey(fileName, key string) error {
 

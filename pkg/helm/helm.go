@@ -21,9 +21,9 @@ import (
 
 	envkube "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
-	"strconv"
-	"regexp"
 	"gopkg.in/yaml.v2"
+	"regexp"
+	"strconv"
 )
 
 const (
@@ -69,7 +69,6 @@ type Client interface {
 type client struct {
 	helmClient *helm.Client
 	kubeClient envkube.Client
-	namespace  string
 }
 
 func init() {
@@ -77,8 +76,7 @@ func init() {
 }
 
 func NewClient(
-	kubeClient envkube.Client,
-	namespace string) Client {
+	kubeClient envkube.Client) Client {
 	if _, err := os.Stat(settings.Home.Archive()); os.IsNotExist(err) {
 		os.MkdirAll(settings.Home.Archive(), 0755)
 
@@ -95,7 +93,6 @@ func NewClient(
 	return &client{
 		helmClient: helmClient,
 		kubeClient: kubeClient,
-		namespace:  namespace,
 	}
 }
 
@@ -138,6 +135,7 @@ func (c *client) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([
 	}
 
 	rlsHooks, _, err := c.renderManifests(
+		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
 		request.Values,
@@ -178,6 +176,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
 
 	hooks, manifestDoc, err := c.renderManifests(
+		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
 		request.Values,
@@ -198,16 +197,18 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	}
 
 	for index,manifestToInsert := range manifestDocs  {
-		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
+		newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
 		if index == 0 {
 			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
 			newTemplates = append(newTemplates, newTemplate)
+			glog.Info(string(newTemplate.Data))
 		} else {
 			newTemplate := &chart.Template{Name: "hook"+strconv.Itoa(index), Data: newManifestBuf.Bytes()}
 			newTemplates = append(newTemplates, newTemplate)
+			glog.Info(string(newTemplate.Data))
 		}
 	}
 
@@ -215,7 +216,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	chartRequested.Dependencies = []*chart.Chart{}
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
-		c.namespace,
+		request.Namespace,
 		helm.ValueOverrides([]byte(request.Values)),
 		helm.ReleaseName(request.ReleaseName),
 	)
@@ -241,7 +242,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 }
 
 func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, error) {
-	resources, err := c.kubeClient.GetResources(c.namespace, release.Manifest)
+	resources, err := c.kubeClient.GetResources(release.Namespace, release.Manifest)
 	if err != nil {
 		return nil, fmt.Errorf("get resource: %v", err)
 	}
@@ -316,6 +317,7 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 
 	revision := int(releaseContentResp.Release.Version + 1)
 	rlsHooks, _, err := c.renderManifests(
+		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
 		request.Values,
@@ -367,6 +369,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
 
 	hooks, manifestDoc, err := c.renderManifests(
+		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
 		request.Values,
@@ -387,7 +390,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	}
 
 	for index,manifestToInsert := range manifestDocs  {
-		newManifestBuf, err := c.kubeClient.LabelObjects(c.namespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
+		newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
@@ -467,7 +470,7 @@ func (c *client) StopRelease(request *model_helm.StopReleaseRequest) (*model_hel
 		return nil, fmt.Errorf("release %s not exist", request.ReleaseName)
 	}
 
-	err = c.kubeClient.StopResources(c.namespace, releaseContentResp.Release.Manifest)
+	err = c.kubeClient.StopResources(request.Namespace, releaseContentResp.Release.Manifest)
 	if err != nil {
 		return nil, fmt.Errorf("get resource: %v", err)
 	}
@@ -486,7 +489,7 @@ func (c *client) StartRelease(request *model_helm.StartReleaseRequest) (*model_h
 		return nil, fmt.Errorf("release %s not exist", request.ReleaseName)
 	}
 
-	err = c.kubeClient.StartResources(c.namespace, releaseContentResp.Release.Manifest)
+	err = c.kubeClient.StartResources(request.Namespace, releaseContentResp.Release.Manifest)
 	if err != nil {
 		return nil, fmt.Errorf("get resource: %v", err)
 	}
@@ -497,6 +500,7 @@ func (c *client) StartRelease(request *model_helm.StartReleaseRequest) (*model_h
 }
 
 func (c *client) renderManifests(
+	namespace string,
 	chartRequested *chart.Chart,
 	releaseName string,
 	values string,
@@ -507,7 +511,7 @@ func (c *client) renderManifests(
 	options := chartutil.ReleaseOptions{
 		Name:      releaseName,
 		Time:      ts,
-		Namespace: c.namespace,
+		Namespace: namespace,
 		Revision:  revision,
 		IsInstall: true,
 	}

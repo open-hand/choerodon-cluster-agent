@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"k8s.io/api/core/v1"
 	"strings"
 	"sync"
 
 	"github.com/golang/glog"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"time"
 
@@ -199,6 +201,7 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 	nsList := []string{}
 	for _, envPara := range newAgentInitOps.Envs {
 		nsList = append(nsList, envPara.Namespace)
+		w.createNamespace(envPara.Namespace)
 	}
 	namespaces.Set(nsList)
 	w.addEnv(toAddEnv)
@@ -245,4 +248,12 @@ func (w *workerManager) removeEnvs(newOpt model.AgentInitOptions) {
 			close(w.repoStopChans[oldEnvPara.Namespace])
 		}
 	}
+}
+
+func (w *workerManager) createNamespace(namespace string) {
+	w.kubeClient.GetKubeClient().CoreV1().Namespaces().Create(&v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:  namespace,
+		},
+	})
 }
