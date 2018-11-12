@@ -695,7 +695,6 @@ func getEnvInfo (values string) (error, string, int) {
 	valued,ok := config.(map[interface{}]interface{})
 	if !ok {
 		return fmt.Errorf("config error"), "", 0
-
 	}
 	connect,_ := valued["connect"].(string)
 	envId,_ := valued["envId"].(int)

@@ -6,8 +6,12 @@ import (
 	"github.com/golang/glog"
 )
 
+var choerodonId string
+
 func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	upgradeInfo,_ := w.helmClient.ListAgent(cmd.Payload)
+	upgradeInfo.Token = w.token
+	upgradeInfo.PlatformCode = w.platformCode
 	glog.Infof("result %v", upgradeInfo)
 	rsp, err := json.Marshal(upgradeInfo)
 	if err != nil {

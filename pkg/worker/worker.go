@@ -47,6 +47,8 @@ type workerManager struct {
 	controllerContext  *controller.ControllerContext
 	wg                 *sync.WaitGroup
 	stop               <-chan struct{}
+	token              string
+	platformCode       string
 }
 
 func NewWorkerManager(
@@ -63,7 +65,9 @@ func NewWorkerManager(
 	gitConfig git.Config,
 	controllerContext *controller.ControllerContext,
 	wg *sync.WaitGroup,
-	stop <-chan struct{}) *workerManager {
+	stop <-chan struct{},
+	token string,
+	platformCode string) *workerManager {
 	return &workerManager{
 		chans:              chans,
 		helmClient:         helmClient,
@@ -82,6 +86,8 @@ func NewWorkerManager(
 		controllerContext:  controllerContext,
 		manifests:          manifests,
 		cluster:            cluster,
+		token:              token,
+		platformCode:       platformCode,
 	}
 }
 
@@ -162,7 +168,6 @@ func registerCmdFunc(funcType string, f processCmdFunc) {
 	processCmdFuncs[funcType] = f
 }
 
-
 func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var newAgentInitOps model.AgentInitOptions
 	err := json.Unmarshal([]byte(cmd.Payload), &newAgentInitOps)
@@ -183,7 +188,7 @@ func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet
 
 	// 往文件中写入各个git库deploy key
 	var sshConfig string
-	for _, envPara := range w.agentInitOps.Envs{
+	for _, envPara := range w.agentInitOps.Envs {
 
 		//写入deploy key
 		err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
@@ -207,35 +212,32 @@ func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet
 		Payload: cmd.Payload,
 	}
 
-
 }
 
 func deleteEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var env model.EnvParas
 	err := json.Unmarshal([]byte(cmd.Payload), &env)
 
-
-	if err != nil  {
+	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.EnvDelete, err)
 	}
 
-	if ! w.controllerContext.Namespaces.Contain(env.Namespace) {
+	if !w.controllerContext.Namespaces.Contain(env.Namespace) {
 		return nil, NewResponseError(cmd.Key, model.EnvDelete, err)
 	}
 
 	w.controllerContext.Namespaces.Remove(env.Namespace)
 
-
 	newEnvs := []model.EnvParas{}
 
-	for index, envPara := range w.agentInitOps.Envs{
+	for index, envPara := range w.agentInitOps.Envs {
 
 		if envPara.Namespace == env.Namespace {
-			newEnvs = append(w.agentInitOps.Envs[0:index],w.agentInitOps.Envs[index+1:]...)
+			newEnvs = append(w.agentInitOps.Envs[0:index], w.agentInitOps.Envs[index+1:]...)
 		}
 
 	}
-	w.agentInitOps.Envs= newEnvs
+	w.agentInitOps.Envs = newEnvs
 
 	w.helmClient.DeleteNamespaceReleases(env.Namespace)
 	w.kubeClient.DeleteNamespace(env.Namespace)
@@ -246,9 +248,7 @@ func deleteEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pac
 		Payload: cmd.Payload,
 	}
 
-
 }
-
 
 func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 
@@ -313,7 +313,6 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 
 }
 
-
 func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 	for _, envPara := range agentInitOps.Envs {
 		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, agentInitOps.GitHost, envPara.Namespace, 1)}
@@ -334,7 +333,6 @@ func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 	}
 }
 
-
 //移除旧的
 func (w *workerManager) removeEnvs(newOpt model.AgentInitOptions) {
 	for _, oldEnvPara := range w.agentInitOps.Envs {
@@ -354,13 +352,12 @@ func (w *workerManager) removeEnvs(newOpt model.AgentInitOptions) {
 func (w *workerManager) createNamespace(namespace string) {
 	w.kubeClient.GetKubeClient().CoreV1().Namespaces().Create(&v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:  namespace,
+			Name: namespace,
 		},
 	})
 }
 
-
 func reSync(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	w.controllerContext.ReSync()
-	return nil,nil
+	return nil, nil
 }

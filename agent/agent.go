@@ -13,7 +13,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/worker"
 	"github.com/choerodon/choerodon-cluster-agent/ws"
-	"github.com/gin-gonic/gin/json"
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
@@ -40,7 +39,7 @@ type AgentOptions struct {
 	Token        string
 	PrintVersion bool
 	// kubernetes controller
-	Namespace                     string
+	PlatformCode string
 	ConcurrentEndpointSyncs       int32
 	ConcurrentServiceSyncs        int32
 	ConcurrentRSSyncs             int32
@@ -203,7 +202,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		glog.Infof("kubectl %s", kubectl)
 		cfg,_ := f.ClientConfig()
 		kubectlApplier := kubernetes.NewKubectl(kubectl, cfg)
-		kubectlApplier.ApplySingleObj(o.Namespace, model.CRD_YAML)
+		kubectlApplier.ApplySingleObj("", model.CRD_YAML)
 
 		k8s = kubernetes.NewCluster( kubeClient.GetKubeClient(), kubeClient.GetC7NClient(), kubectlApplier)
 		k8sManifests = &kubernetes.Manifests{}
@@ -223,47 +222,14 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		ctx,
 		shutdownWg,
 		shutdown,
+		o.Token,
+		o.PlatformCode,
 	)
 
 	go workerManager.Start()
 	shutdownWg.Add(1)
 
-	envParas1 := model.EnvParas{
-		Namespace: "ns-test",
-		EnvId:   1,
-		GitRsaKey: "-----BEGIN RSA PRIVATE KEY-----\n" +
-			"MIICXgIBAAKBgQCGxBb0u+oLewbMum8cy79v5b2xRmOLLeGuq3PmU4wkjxfqQUvi\n" +
-			"odxvu0Dorg2lgxE9RUohDW2ZUD+XQDBgge9cVG2QZKZWqFRYH3EZN93rgb06cDqO\n" +
-			"GLbDQ4/wR+AxkrgSM2MhMuAFovJbnqIlhO18T9ahST5irXWFZWlPdOMkGQIDAQAB\n" +
-			"AoGAfoDth5gpz9MRg/ZxvNcpgdFn6lPHt2s/USZSal/8yoikC1p18Gy+LwfYm1Jf\n" +
-			"LwHEmf5D4pjnS6Y/uywe/UibNWs38Kdq6fTPSkDjQym4g1in/2MWeruO6IlSpy2p\n" +
-			"v34F9L/uy9io3wnEG8QwEtVR18CwaLx5547tl6acIdFIvjECQQDqdalqycvVfmk9\n" +
-			"NPncH4o+OFV/DjgYEStJb3EBur2lXB4h98ww+M91mPPazpQRPF0EGAK4sBU+UuMH\n" +
-			"Ayi4TjTNAkEAkyWytEk9C6puM96RTKf1X2LSPrQGVG6p9QdOf3buRmWiMMGAWHwU\n" +
-			"bi2CcjHPNVgftsXiHrU6L0AJI9IytyDMfQJBAIf4eqsCoqKKsA+eBHVjGTIiS3rm\n" +
-			"zSMv+dGZvojJOqiGdrcuVQ3ljbLeZDV17ircvfjcz985xugg+6aab2gLetUCQQCL\n" +
-			"2H8fYp+Wz7IOr88tqE7GCbhBCX0ej1INYpVTBOftlbfwWGavMbWFBNF90CLa0tbJ\n" +
-			"MQX3I0uaDmThW2sBqjVNAkEAguq2K2RbYNVxw7w0qmSKXoIN0NM15LcxyT+Lf64I\n" +
-			"gpgjrQrNIclKCopAwj5yZhRRsYCx2bOTaracAB2tJSMwUA==\n" +
-			"-----END RSA PRIVATE KEY-----\n",
-		GitUrl:  "git@code.choerodon.com.cn:13600/cluster-agent-1.git",
-	}
-	envParas2 := model.EnvParas{
-		Namespace: "ns-test-2",
-		EnvId:   1,
-		GitRsaKey: "ff@#$",
-		GitUrl:  "2@git.com",
-	}
-	envParas := []model.EnvParas{}
-	envParas = append(envParas, envParas1)
-	envParas = append(envParas, envParas2)
-	test := model.AgentInitOptions{
-		Envs: envParas,
-		GitHost: "code.c7n.com.cn",
-	}
 
-	results,_  := json.Marshal(test)
-	fmt.Println(string(results))
 
 	go func() {
 		errChan <- http.ListenAndServe(o.Listen, nil)
@@ -282,7 +248,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.Int32Var(&o.ClusterId, "clusterId", 0, "the env cluster id in devops")
 
 	// kubernetes controller
-	fs.StringVar(&o.Namespace, "namespace", "", "Kubernetes namespace")
+	fs.StringVar(&o.PlatformCode, "choerodon-id", "", "choerodon platform id label")
 	fs.Int32Var(&o.ConcurrentEndpointSyncs, "concurrent-endpoint-syncs", o.ConcurrentEndpointSyncs, "The number of endpoint syncing operations that will be done concurrently. Larger number = faster endpoint updating, but more CPU (and network) load")
 	fs.Int32Var(&o.ConcurrentServiceSyncs, "concurrent-service-syncs", o.ConcurrentServiceSyncs, "The number of services that are allowed to sync concurrently. Larger number = more responsive service management, but more CPU (and network) load")
 	fs.Int32Var(&o.ConcurrentRSSyncs, "concurrent-replicaset-syncs", o.ConcurrentRSSyncs, "The number of replica sets that are allowed to sync concurrently. Larger number = more responsive replica management, but more CPU (and network) load")
