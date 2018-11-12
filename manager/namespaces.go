@@ -49,10 +49,12 @@ func (nsSet *Namespaces) AddAll(nsList []string)  {
 	}
 }
 
-func (nsSet *Namespaces) getAll(nsList []string)  {
-	nsSet.Lock()
-	defer nsSet.Unlock()
-	for _,ns := range nsList {
-		nsSet.m[ns] = true
+func (nsSet *Namespaces) GetAll() []string {
+	nsSet.RLock()
+	defer nsSet.RUnlock()
+	nsList := []string{}
+	for key := range nsSet.m {
+		nsList = append(nsList, key)
 	}
+	return nsList
 }

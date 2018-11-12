@@ -24,7 +24,7 @@ const (
 	initialBackOff = 1 * time.Second
 	maxBackOff     = 60 * time.Second
 )
-var connectFlag bool
+var connectFlag = false
 
 type WebSocketClient interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
@@ -84,11 +84,11 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 		go func() {
 			errCh <- c.connect()
 		}()
-		connectFlag = true
 		select {
 		case err := <-errCh:
 			if err != nil {
 				glog.Error(err)
+				connectFlag = true
 			}
 			time.Sleep(backOff)
 		case <-stop:
@@ -111,6 +111,8 @@ func (c *appClient) connect() error {
 	// 建立连接，同步资源对象
 	if connectFlag {
 		c.crChannel.CommandChan <- newReConnectCommand()
+	} else {
+		c.crChannel.CommandChan <- newUpgradeInfoCommand(c.url.String())
 	}
 
 	defer func() {
@@ -318,6 +320,13 @@ func (c *appClient) pipeConnection(id string, pipe common.Pipe) (bool, error) {
 func newReConnectCommand()  *model.Packet{
 	return &model.Packet{
 		Key: "inter:inter",
-		Type: model.ReConnect,
+		Type: model.ReSyncAgent,
+	}
+}
+func newUpgradeInfoCommand(connectUrl string)  *model.Packet{
+	return &model.Packet{
+		Key: "inter:inter",
+		Type: model.UpgradeCluster,
+		Payload: connectUrl,
 	}
 }

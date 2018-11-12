@@ -51,13 +51,16 @@ type Client interface {
 	LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
 	GetIngress(namespace string, ingressName string) (string, error)
+	GetNamespace(namespace string) error
+	DeleteNamespace(namespace string) error
 	GetSecret(namespace string, secretName string) (string, error)
 	GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error)
 	GetKubeClient() (*kubernetes.Clientset)
 	GetC7NClient() (*chrclientset.Clientset)
+	IsReleaseJobRun(namespace, releaseName string) bool
 }
 
-var	AgentVersion string = "0.11.0"
+var	AgentVersion string
 
 type client struct {
 	cmdutil.Factory
@@ -300,6 +303,50 @@ func (c *client) GetC7nHelmRelease(namespace string, releaseName string) (*v1alp
 	return nil,nil
 }
 
+func (c *client) IsReleaseJobRun(namespace, releaseName string) bool  {
+	labelMap := make(map[string]string)
+	labelMap[model.ReleaseLabel] = releaseName
+	options :=  &meta_v1.LabelSelector{
+		MatchLabels:labelMap,}
+
+    selector := meta_v1.ListOptions{
+		LabelSelector:options.String(),
+	}
+
+	jobList,err := c.client.BatchV1().Jobs(namespace).List(selector)
+
+	if err != nil {
+		glog.Infof("resource sync list job error: %v", err)
+		return true
+	}
+	if len(jobList.Items) > 0 {
+		return true
+	}
+	return false
+}
+
+func (c *client) GetNamespace(namespace string) error {
+	_,err := c.client.CoreV1().Namespaces().Get(namespace,meta_v1.GetOptions{})
+	if err != nil {
+		if  errors.IsNotFound(err) {
+			return err
+		} else {
+		   return fmt.Errorf("get Namespace error : %v", err)
+		}
+	}
+	return nil
+}
+
+
+func (c *client) DeleteNamespace(namespace string) error {
+	err := c.client.CoreV1().Namespaces().Delete(namespace,&meta_v1.DeleteOptions{})
+	if err != nil {
+		if  errors.IsNotFound(err) {
+			return fmt.Errorf("delete namespace error : %v", err)
+		}
+	}
+	return nil
+}
 
 
 func (c *client) CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error) {

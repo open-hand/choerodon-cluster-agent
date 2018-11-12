@@ -270,7 +270,9 @@ func syncStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pa
 			case "instance":
 				chr,err  := w.kubeClient.GetC7nHelmRelease(syncRequest.Namespace, syncRequest.ResourceName)
 				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+					if !w.kubeClient.IsReleaseJobRun(syncRequest.Namespace,syncRequest.ResourceName) {
+						reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+					}
 				} else if chr != nil {
 					if	chr.Annotations[model.CommitLabel] == syncRequest.Commit {
 					    release,err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName})

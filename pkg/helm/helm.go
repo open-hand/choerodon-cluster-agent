@@ -3,6 +3,7 @@ package helm
 import (
 	"bytes"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -64,6 +65,8 @@ type Client interface {
 	StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error)
 	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
 	GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
+    ListAgent(devConnectUrl string) (*model.UpgradeInfo, error)
+	DeleteNamespaceReleases(namespaces string) error
 }
 
 type client struct {
@@ -499,6 +502,42 @@ func (c *client) StartRelease(request *model_helm.StartReleaseRequest) (*model_h
 	return resp, nil
 }
 
+func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, error) {
+	listReleasesRsp, err := c.helmClient.ListReleases(helm.ReleaseListStatuses([]release.Status_Code{}))
+	upgradeInfo :=  &model.UpgradeInfo{
+		Envs: []model.OldEnv{},
+	}
+	if err != nil {
+		return nil, err
+	}
+	glog.Info("total %i, next %s, count %i", listReleasesRsp.Total,listReleasesRsp.Next )
+	for _,rls := range listReleasesRsp.Releases{
+		if rls.Chart.Metadata.Name == "choerodon-agent" {
+			if c.kubeClient.GetNamespace(rls.Namespace) == nil {
+
+				err,connectUrl,envId := getEnvInfo(rls.Config.Raw)
+				if	err != nil {
+					glog.Infof("rls: %s upgrade error ", rls.Name)
+					continue
+				}
+				if connectUrl != devConnectUrl {
+					continue
+				}
+				oldEnv := model.OldEnv{
+					EnvId: envId,
+					Namespace: rls.Namespace,
+
+				}
+				upgradeInfo.Envs = append(upgradeInfo.Envs, oldEnv)
+			}
+
+		}
+
+	}
+
+	return upgradeInfo, nil
+}
+
 func (c *client) renderManifests(
 	namespace string,
 	chartRequested *chart.Chart,
@@ -586,6 +625,20 @@ func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest)
 	return rls, nil
 }
 
+func (c *client) DeleteNamespaceReleases(namespaces string) error {
+
+	rlss,err :=  c.helmClient.ListReleases(helm.ReleaseListNamespace(namespaces))
+	if err != nil {
+		glog.Errorf("delete ns release failed %v",err )
+		return err
+	}
+	for _,rls := range rlss.Releases {
+		c.helmClient.DeleteRelease(rls.Name,helm.DeletePurge(true))
+	}
+	return nil
+
+}
+
 func (c *client) GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName, helm.ContentReleaseVersion(request.Version))
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
@@ -630,4 +683,21 @@ func removeStringValues(values string) (error, string) {
 		return fmt.Errorf("marshal map values err: %v", err), ""
 	}
 	return nil, string(bytesValues)
+}
+
+func getEnvInfo (values string) (error, string, int) {
+	mapValues := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(values), mapValues); err != nil {
+		return fmt.Errorf("unmarshal values err: %v", err), "", 0
+	}
+	config := mapValues["config"]
+	fmt.Println("%v",config)
+	valued,ok := config.(map[interface{}]interface{})
+	if !ok {
+		return fmt.Errorf("config error"), "", 0
+
+	}
+	connect,_ := valued["connect"].(string)
+	envId,_ := valued["envId"].(int)
+	return nil, connect, envId
 }

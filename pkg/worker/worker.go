@@ -162,6 +162,94 @@ func registerCmdFunc(funcType string, f processCmdFunc) {
 	processCmdFuncs[funcType] = f
 }
 
+
+func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var newAgentInitOps model.AgentInitOptions
+	err := json.Unmarshal([]byte(cmd.Payload), &newAgentInitOps)
+
+	if err != nil || len(newAgentInitOps.Envs) < 1 {
+		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
+	}
+
+	if w.kubeClient.GetNamespace(newAgentInitOps.Envs[0].Namespace) != nil {
+		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
+	}
+
+	w.agentInitOps.Envs = append(w.agentInitOps.Envs, newAgentInitOps.Envs[0])
+
+	w.controllerContext.Namespaces.Add(newAgentInitOps.Envs[0].Namespace)
+	w.createNamespace(newAgentInitOps.Envs[0].Namespace)
+	w.controllerContext.ReSync()
+
+	// 往文件中写入各个git库deploy key
+	var sshConfig string
+	for _, envPara := range w.agentInitOps.Envs{
+
+		//写入deploy key
+		err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
+		if err != nil {
+			return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
+		}
+		sshConfig = sshConfig + config(newAgentInitOps.GitHost, envPara.Namespace)
+
+	}
+	// 写入ssh config
+	err = writeSshConfig(sshConfig)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
+	}
+
+	w.addEnv(&newAgentInitOps)
+
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.EnvCreateSucceed,
+		Payload: cmd.Payload,
+	}
+
+
+}
+
+func deleteEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var env model.EnvParas
+	err := json.Unmarshal([]byte(cmd.Payload), &env)
+
+
+	if err != nil  {
+		return nil, NewResponseError(cmd.Key, model.EnvDelete, err)
+	}
+
+	if ! w.controllerContext.Namespaces.Contain(env.Namespace) {
+		return nil, NewResponseError(cmd.Key, model.EnvDelete, err)
+	}
+
+	w.controllerContext.Namespaces.Remove(env.Namespace)
+
+
+	newEnvs := []model.EnvParas{}
+
+	for index, envPara := range w.agentInitOps.Envs{
+
+		if envPara.Namespace == env.Namespace {
+			newEnvs = append(w.agentInitOps.Envs[0:index],w.agentInitOps.Envs[index+1:]...)
+		}
+
+	}
+	w.agentInitOps.Envs= newEnvs
+
+	w.helmClient.DeleteNamespaceReleases(env.Namespace)
+	w.kubeClient.DeleteNamespace(env.Namespace)
+
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.EnvDeleteSucceed,
+		Payload: cmd.Payload,
+	}
+
+
+}
+
+
 func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 
 	var newAgentInitOps model.AgentInitOptions
@@ -181,6 +269,8 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 
 	// 往文件中写入各个git库deploy key
 	for _, envPara := range newAgentInitOps.Envs {
+
+		//写入deploy key
 		err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
 		if err != nil {
 			return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
@@ -193,6 +283,7 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 
 	}
 
+	// 写入ssh config
 	err = writeSshConfig(sshConfig)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
@@ -204,16 +295,24 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 		w.createNamespace(envPara.Namespace)
 	}
 	namespaces.Set(nsList)
+
+	//第一次是启动，后面不再依靠
+	w.controllerContext.ReSync()
+
+	//启动repo、
 	w.addEnv(toAddEnv)
+
+	// 删除要删除的Env
 	w.removeEnvs(newAgentInitOps)
 	w.agentInitOps = &newAgentInitOps
 	return nil, &model.Packet{
-		Key:     "test:test",
+		Key:     cmd.Key,
 		Type:    model.InitAgentSucceed,
 		Payload: cmd.Payload,
 	}
 
 }
+
 
 func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 	for _, envPara := range agentInitOps.Envs {
@@ -235,6 +334,8 @@ func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 	}
 }
 
+
+//移除旧的
 func (w *workerManager) removeEnvs(newOpt model.AgentInitOptions) {
 	for _, oldEnvPara := range w.agentInitOps.Envs {
 		var exist bool
@@ -256,4 +357,10 @@ func (w *workerManager) createNamespace(namespace string) {
 			Name:  namespace,
 		},
 	})
+}
+
+
+func reSync(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	w.controllerContext.ReSync()
+	return nil,nil
 }

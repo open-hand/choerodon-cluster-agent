@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
+	"k8s.io/apimachinery/pkg/labels"
 	"strings"
 	"time"
 	"github.com/golang/glog"
@@ -65,32 +67,36 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		glog.Fatal("failed to wait for caches to sync")
 	}
 
-	//pods, err := c.lister.Pods(c.namespace).List(labels.NewSelector())
-	//if err != nil {
-	//	glog.Fatal("can not list resource, no rabc bind, exit !")
-	//} else {
-	//	var podList []string
-	//	for _, pod := range pods {
-	//		if pod.Labels[model.ReleaseLabel] != "" {
-	//			podList = append(podList, pod.GetName())
-	//		}
-	//	}
-	//	resourceList := &kubernetes.ResourceList{
-	//		Resources:    podList,
-	//		ResourceType: "Pod",
-	//	}
-	//	content, err := json.Marshal(resourceList)
-	//	if err != nil {
-	//		glog.Fatal("marshal pod list error")
-	//	} else {
-	//		response := &model.Packet{
-	//			Key:     fmt.Sprintf("env:%s", c.namespace),
-	//			Type:    model.ResourceSync,
-	//			Payload: string(content),
-	//		}
-	//		c.responseChan <- response
-	//	}
-	//}
+	namespaces := c.namespaces.GetAll()
+	for  _,ns := range namespaces {
+		pods, err := c.lister.Pods(ns).List(labels.NewSelector())
+		if err != nil {
+			glog.Fatal("can not list resource, no rabc bind, exit !")
+		} else {
+			var podList []string
+			for _, pod := range pods {
+				if pod.Labels[model.ReleaseLabel] != "" {
+					podList = append(podList, pod.GetName())
+				}
+			}
+			resourceList := &kubernetes.ResourceList{
+				Resources:    podList,
+				ResourceType: "Pod",
+			}
+			content, err := json.Marshal(resourceList)
+			if err != nil {
+				glog.Fatal("marshal pod list error")
+			} else {
+				response := &model.Packet{
+					Key:     fmt.Sprintf("env:%s", ns),
+					Type:    model.ResourceSync,
+					Payload: string(content),
+				}
+				c.responseChan <- response
+			}
+		}
+	}
+
 
 
 	//go func() {

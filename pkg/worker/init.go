@@ -10,14 +10,20 @@ import (
 
 func init() {
 	registerCmdFunc(model.InitAgent, setRepos)
+	registerCmdFunc(model.ReSyncAgent, reSync)
+	registerCmdFunc(model.UpgradeCluster, upgrade)
+	registerCmdFunc(model.EnvDelete, deleteEnv)
+	registerCmdFunc(model.CreateEnv,addEnv)
+
+
 }
 
 
 
 func writeSSHkey(fileName, key string) error {
 
-	filename := "/" + fileName
-	//filename := "/Users/crcokitwood/" + fileName
+	//filename := "/" + fileName
+	filename := "/Users/crcokitwood/" + fileName
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)
@@ -49,16 +55,16 @@ func config(host, namespace string) string {
 	}
 	result = result + fmt.Sprintf("  StrictHostKeyChecking no\n")
 	result = result + fmt.Sprintf("  UserKnownHostsFile /dev/null\n")
-	result = result + fmt.Sprintf("  IdentityFile /%s\n", namespace)
-	//result = result + fmt.Sprintf("  IdentityFile /Users/crcokitwood/%s\n", namespace)
+	//result = result + fmt.Sprintf("  IdentityFile /%s\n", namespace)
+	result = result + fmt.Sprintf("  IdentityFile /Users/crcokitwood/%s\n", namespace)
 	result = result + fmt.Sprintf("  LogLevel error\n")
 	return result
 }
 
 func writeSshConfig(content string) error {
 
-	filename := "/etc/ssh/ssh_config"
-	//filename:= "/Users/crcokitwood/ssh_config"
+	//filename := "/etc/ssh/ssh_config"
+	filename:= "/Users/crcokitwood/ssh_config"
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)

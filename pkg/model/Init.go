@@ -47,3 +47,17 @@ type EnvParas struct {
 	GitRsaKey string `json:"gitRsaKey,omitempty"`
 	GitUrl    string `json:"gitUrl,omitempty"`
 }
+
+
+
+type UpgradeInfo struct {
+	Envs []OldEnv `json:"envs,omitempty"`
+	Token string `json:"token,omitempty"`
+	PlatformCode string `json:"platformCode,omitempty"`
+}
+
+type OldEnv struct {
+	Namespace string `json:"namespace,omitempty"`
+	EnvId     int    `json:"envId,omitempty"`
+}
+
