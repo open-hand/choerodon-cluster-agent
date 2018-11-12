@@ -202,7 +202,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		glog.Infof("kubectl %s", kubectl)
 		cfg,_ := f.ClientConfig()
 		kubectlApplier := kubernetes.NewKubectl(kubectl, cfg)
-		kubectlApplier.ApplySingleObj("", model.CRD_YAML)
+		kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML)
 
 		k8s = kubernetes.NewCluster( kubeClient.GetKubeClient(), kubeClient.GetC7NClient(), kubectlApplier)
 		k8sManifests = &kubernetes.Manifests{}
