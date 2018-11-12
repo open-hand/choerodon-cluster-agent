@@ -178,11 +178,17 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 
 	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
 
+	err,removed := removeStringValues(request.Values)
+
+	if err != nil {
+		return nil, err
+	}
+
 	hooks, manifestDoc, err := c.renderManifests(
 		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
-		request.Values,
+		removed,
 		1)
 	if err != nil {
 		glog.V(1).Infof("sort error...")
@@ -371,11 +377,18 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 
 	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
 
+
+	err,removed := removeStringValues(request.Values)
+
+	if err != nil {
+		return nil, err
+	}
+
 	hooks, manifestDoc, err := c.renderManifests(
 		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
-		request.Values,
+		removed,
 		1)
 	if err != nil {
 		glog.V(1).Infof("sort error...")
@@ -510,7 +523,6 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	glog.Info("total %i, next %s, count %i", listReleasesRsp.Total,listReleasesRsp.Next )
 	for _,rls := range listReleasesRsp.Releases{
 		if rls.Chart.Metadata.Name == "choerodon-agent" {
 			if c.kubeClient.GetNamespace(rls.Namespace) == nil {
@@ -520,7 +532,7 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, error) {
 					glog.Infof("rls: %s upgrade error ", rls.Name)
 					continue
 				}
-				if ! strings.Contains("ws://devops-service-front.staging.saas.hand-china.com/agent/?fesiojfose=fesiofjose", connectUrl)  {
+				if ! strings.Contains(devConnectUrl, connectUrl)  {
 					continue
 				}
 				oldEnv := model.OldEnv{
@@ -663,7 +675,7 @@ func removeValues(values map[string]interface{})  {
 	for key, value := range values {
 		if valued,ok := value.(string);  ok {
 			if matched,_ := regexp.MatchString(".*{{.*}}.*", valued); matched {
-				delete(values, key)
+				values[key] = "test"
 			}
 		} else if valued,ok := value.(map[string]interface{});  ok{
 			removeValues(valued)
@@ -691,7 +703,6 @@ func getEnvInfo (values string) (error, string, int) {
 		return fmt.Errorf("unmarshal values err: %v", err), "", 0
 	}
 	config := mapValues["config"]
-	fmt.Println("%v",config)
 	valued,ok := config.(map[interface{}]interface{})
 	if !ok {
 		return fmt.Errorf("config error"), "", 0

@@ -12,11 +12,11 @@ func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packe
 	upgradeInfo,_ := w.helmClient.ListAgent(cmd.Payload)
 	upgradeInfo.Token = w.token
 	upgradeInfo.PlatformCode = w.platformCode
-	glog.Infof("result %v", upgradeInfo)
 	rsp, err := json.Marshal(upgradeInfo)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.UpgradeClusterFailed, err)
 	}
+	glog.Infof("cluster agent upgrade: %s", string(rsp))
 	resp := &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.Upgrade,

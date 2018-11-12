@@ -19,7 +19,7 @@ import (
 
 var (
 	keyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
-	flag = false
+	startTime time.Time
 )
 
 type controller struct {
@@ -54,28 +54,33 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
+
 	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced); !ok {
 		glog.Fatal("failed to wait for caches to sync")
 	}
 
-	//namespaces,err := c.lister.List(labels.Everything())
-	//nsList := []string{}
-	//for _,ns := range namespaces {
-	//	nsList = append(nsList, ns.GetName())
-	//}
-	//if err != nil {
-	//	glog.Errorf("namespace controller list namespace error: %v", err)
-	//} else {
-	//	c.responseChan <- newNamesapcesRep(nsList)
-	//
-	//}
-	flag = true
 
 
+	startTime = time.Now()
 	// Launch two workers to process Foo resources
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
+
+	time.Sleep(time.Second * 6)
+
+	namespaces,err := c.lister.List(labels.Everything())
+	nsList := []string{}
+	for _,ns := range namespaces {
+		nsList = append(nsList, ns.GetName())
+	}
+	if err != nil {
+		glog.Errorf("namespace controller list namespace error: %v", err)
+	} else {
+		c.responseChan <- newNamesapcesRep(nsList)
+
+	}
+
 
 
 	<-stopCh
@@ -125,6 +130,9 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	//	return true, nil
 	//}
 
+	if startTime.Add(time.Second * 5).After(time.Now()) {
+		return true,nil
+	}
 
 
 	namespaces,err := c.lister.List(labels.Everything())
