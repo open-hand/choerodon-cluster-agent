@@ -54,7 +54,7 @@ func init() {
 	controllers["job"] = startJobController
 	controllers["service"] = startServiceController
 	controllers["secret"] = startSecretController
-	controllers["configmap"] = startConfigMapController
+	//controllers["configmap"] = startConfigMapController
 	controllers["ingress"] = startIngressController
 	controllers["replicaset"] = startReplicaSetController
 	controllers["pod"] = startPodController
