@@ -520,7 +520,7 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, error) {
 					glog.Infof("rls: %s upgrade error ", rls.Name)
 					continue
 				}
-				if connectUrl != devConnectUrl {
+				if ! strings.Contains(devConnectUrl, connectUrl)  {
 					continue
 				}
 				oldEnv := model.OldEnv{
