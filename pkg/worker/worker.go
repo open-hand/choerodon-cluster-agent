@@ -176,7 +176,8 @@ func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet
 		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
 	}
 
-	if w.kubeClient.GetNamespace(newAgentInitOps.Envs[0].Namespace) != nil {
+
+	if err =  w.kubeClient.GetNamespace(newAgentInitOps.Envs[0].Namespace); err != nil {
 		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
 	}
 

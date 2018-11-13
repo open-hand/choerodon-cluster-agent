@@ -329,12 +329,12 @@ func (c *client) GetNamespace(namespace string) error {
 	_,err := c.client.CoreV1().Namespaces().Get(namespace,meta_v1.GetOptions{})
 	if err != nil {
 		if  errors.IsNotFound(err) {
-			return err
+			return nil
 		} else {
 		   return fmt.Errorf("get Namespace error : %v", err)
 		}
 	}
-	return nil
+	return fmt.Errorf("get namesapce error")
 }
 
 
