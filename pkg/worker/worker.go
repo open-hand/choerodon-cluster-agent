@@ -317,7 +317,7 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 	for _, envPara := range agentInitOps.Envs {
 		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, agentInitOps.GitHost, envPara.Namespace, 1)}
-		repo := git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
+		repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(w.gitConfig.GitPollInterval))
 		w.wg.Add(1)
 		repoStopChan := make(chan struct{}, 1)
 		go func() {

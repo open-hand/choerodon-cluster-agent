@@ -103,7 +103,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
-	glog.Info("Shutting down job workers")
+	glog.V(1).Info("Shutting down job workers")
 }
 func (c *controller) enqueueJob(obj interface{}) {
 	var key string

@@ -77,7 +77,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 	<-stopCh
-	glog.Info("Shutting down workers")
+	glog.V(1).Info("Shutting down workers")
 }
 func (c *controller) enqueueEvent(obj interface{}) {
 	var key string

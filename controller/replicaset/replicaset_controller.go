@@ -99,7 +99,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
-	glog.Info("Shutting down replicaset workers")
+	glog.V(1).Info("Shutting down replicaset workers")
 }
 func (c *controller) enqueueReplicaSet(obj interface{}) {
 	var key string

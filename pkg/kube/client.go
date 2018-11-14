@@ -309,15 +309,20 @@ func (c *client) IsReleaseJobRun(namespace, releaseName string) bool  {
 	options :=  &meta_v1.LabelSelector{
 		MatchLabels:labelMap,}
 
+	slector,err := meta_v1.LabelSelectorAsSelector(options)
+	if err != nil {
+		glog.Infof("resource sync list job error: %v", err)
+		return false
+	}
     selector := meta_v1.ListOptions{
-		LabelSelector:options.String(),
+		LabelSelector:slector.String(),
 	}
 
 	jobList,err := c.client.BatchV1().Jobs(namespace).List(selector)
 
 	if err != nil {
 		glog.Infof("resource sync list job error: %v", err)
-		return true
+		return false
 	}
 	if len(jobList.Items) > 0 {
 		return true

@@ -71,7 +71,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
-	glog.Info("Shutting down configmap workers")
+	glog.V(1).Info("Shutting down configmap workers")
 }
 func (c *controller) enqueueconfigMap(obj interface{}) {
 	var key string

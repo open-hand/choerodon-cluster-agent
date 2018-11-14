@@ -12,6 +12,13 @@ func init() {
 
 func gitOpsDoSync(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	ctx, cancel := context.WithTimeout(context.Background(), w.gitTimeout)
+	if  !w.controllerContext.Namespaces.Contain(cmd.Namespace())  {
+		return nil,&model.Packet{
+			Key:  cmd.Key,
+			Type: model.GitOpsSyncFailed,
+			Payload: "cluster env not init",
+		}
+	}
 	err := w.gitRepos[cmd.Namespace()].Refresh(ctx)
 	cancel()
 	if err != nil {

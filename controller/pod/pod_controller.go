@@ -140,7 +140,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
-	glog.Info("Shutting down pod workers")
+	glog.V(1).Info("Shutting down pod workers")
 }
 func (c *controller) enqueuepod(obj interface{}) {
 	var key string

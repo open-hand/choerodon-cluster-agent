@@ -234,17 +234,18 @@ func getHelmReleaseContent(w *workerManager, cmd *model.Packet) ([]*model.Packet
 func syncStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var reqs []model_helm.SyncRequest
 	var reps = []*model_helm.SyncRequest{}
-	
+
 	err := json.Unmarshal([]byte(cmd.Payload), &reqs)
 	if err != nil {
 		glog.Errorf("unmarshal status sync failed %v", err)
 		return nil, nil
 	}
-	
+
 	for _,syncRequest := range reqs {
+		namespace := cmd.Namespace()
 		switch syncRequest.ResourceType {
 			case "ingress":
-				commit,err  := w.kubeClient.GetIngress(syncRequest.Namespace, syncRequest.ResourceName)
+				commit,err  := w.kubeClient.GetIngress(namespace, syncRequest.ResourceName)
 				if err != nil {
 					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else  if commit != "" {
@@ -252,7 +253,7 @@ func syncStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pa
 				}
 				break
 			case "service":
-				commit,err  := w.kubeClient.GetService(syncRequest.Namespace, syncRequest.ResourceName)
+				commit,err  := w.kubeClient.GetService(namespace, syncRequest.ResourceName)
 				if err != nil {
 					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if commit != "" {
@@ -260,7 +261,7 @@ func syncStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pa
 				}
 				break
 			case "certificate":
-				commit,err  := w.kubeClient.GetSecret(syncRequest.Namespace, syncRequest.ResourceName)
+				commit,err  := w.kubeClient.GetSecret(namespace, syncRequest.ResourceName)
 				if err != nil {
 					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if commit != "" {
@@ -268,19 +269,20 @@ func syncStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pa
 				}
 				break
 			case "instance":
-				chr,err  := w.kubeClient.GetC7nHelmRelease(syncRequest.Namespace, syncRequest.ResourceName)
+				chr,err  := w.kubeClient.GetC7nHelmRelease(namespace, syncRequest.ResourceName)
 				if err != nil {
-					if !w.kubeClient.IsReleaseJobRun(syncRequest.Namespace,syncRequest.ResourceName) {
-						reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
-					}
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 				} else if chr != nil {
 					if	chr.Annotations[model.CommitLabel] == syncRequest.Commit {
 					    release,err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName})
 						if err != nil {
-							glog.Infof("release {} get error ", syncRequest.ResourceName, err)
+							glog.Infof("release %s get error ", syncRequest.ResourceName, err)
 							if  strings.Contains(err.Error(), "not exist") {
-								glog.Errorf("release {} not exist ", syncRequest.ResourceName, err)
-								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+								if w.kubeClient.IsReleaseJobRun(namespace,syncRequest.ResourceName) {
+									glog.Errorf("release %s not exist and not job run ", syncRequest.ResourceName, err)
+								} else {
+									reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+								}
 							}
 						}
 						if release != nil && release.Status == "DEPLOYED" {

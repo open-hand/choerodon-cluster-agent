@@ -72,10 +72,10 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRep
 			newSyncHead, err := w.gitRepos[namespace].Revision(ctx, w.gitConfig.DevOpsTag)
 			cancel()
 			if err != nil {
-				glog.Infof("%s get DevOps sync head error error: %v", w.gitRepos[namespace].Origin().URL, err)
+				glog.Infof("env: %s %s get DevOps sync head error error: %v", namespace, w.gitRepos[namespace].Origin().URL, err)
 				continue
 			}
-			glog.Infof("get refreshed event for git repository %s, branch %s, HEAD %s, previous HEAD %s", w.gitRepos[namespace].Origin().URL, w.gitConfig.Branch, newSyncHead, syncHead)
+			glog.Infof("env: %s get refreshed event for git repository %s, branch %s, HEAD %s, previous HEAD %s", namespace, w.gitRepos[namespace].Origin().URL, w.gitConfig.Branch, newSyncHead, syncHead)
 			if newSyncHead != syncHead {
 				syncHead = newSyncHead
 				w.AskForSync(namespace)
@@ -88,7 +88,7 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRep
 				}
 			}
 			if err := w.doSync(namespace); err != nil {
-				glog.Errorf("do sync: %v", err)
+				glog.Errorf("%s do sync: %v", namespace, err)
 			}
 			syncTimer.Reset(w.syncInterval)
 		}
@@ -295,7 +295,7 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 	}
 	// repo refresh
 	{
-		glog.Infof("tag: %s, old: %s, new: %s", w.gitConfig.SyncTag, oldTagRev, newTagRev)
+		glog.Infof("%s tag: %s, old: %s, new: %s",namespace, w.gitConfig.SyncTag, oldTagRev, newTagRev)
 		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
 		err := w.gitRepos[namespace].Refresh(ctx)
 		cancel()

@@ -100,7 +100,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
-	glog.Info("Shutting down ingress workers")
+	glog.V(1).Info("Shutting down ingress workers")
 }
 func (c *controller) enqueueIngress(obj interface{}) {
 	var key string

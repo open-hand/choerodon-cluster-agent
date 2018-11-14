@@ -178,17 +178,11 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 
 	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
 
-	err,removed := removeStringValues(request.Values)
-
-	if err != nil {
-		return nil, err
-	}
-
 	hooks, manifestDoc, err := c.renderManifests(
 		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
-		removed,
+		request.Values,
 		1)
 	if err != nil {
 		glog.V(1).Infof("sort error...")
@@ -213,11 +207,9 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		if index == 0 {
 			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
 			newTemplates = append(newTemplates, newTemplate)
-			glog.Info(string(newTemplate.Data))
 		} else {
 			newTemplate := &chart.Template{Name: "hook"+strconv.Itoa(index), Data: newManifestBuf.Bytes()}
 			newTemplates = append(newTemplates, newTemplate)
-			glog.Info(string(newTemplate.Data))
 		}
 	}
 
@@ -378,17 +370,12 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
 
 
-	err,removed := removeStringValues(request.Values)
-
-	if err != nil {
-		return nil, err
-	}
 
 	hooks, manifestDoc, err := c.renderManifests(
 		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
-		removed,
+		request.Values,
 		1)
 	if err != nil {
 		glog.V(1).Infof("sort error...")

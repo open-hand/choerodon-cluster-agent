@@ -99,7 +99,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	<-stopCh
-	glog.Info("Shutting down service workers")
+	glog.V(1).Info("Shutting down service workers")
 }
 func (c *controller) enqueueservice(obj interface{}) {
 	var key string

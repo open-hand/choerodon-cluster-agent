@@ -53,6 +53,8 @@ type Repo struct {
 	origin   Remote
 	interval time.Duration
 
+	Env    string
+
 	// State
 	mu     sync.RWMutex
 	status GitRepoStatus
@@ -74,7 +76,7 @@ func (p PollInterval) apply(r *Repo) {
 }
 
 // NewRepo constructs a repo mirror which will sync itself.
-func NewRepo(origin Remote, opts ...Option) *Repo {
+func NewRepo(origin Remote, env string, opts ...Option) *Repo {
 	status := RepoNew
 	if origin.URL == "" {
 		status = RepoNoConfig
@@ -84,6 +86,7 @@ func NewRepo(origin Remote, opts ...Option) *Repo {
 		status:   status,
 		interval: defaultInterval,
 		err:      nil,
+		Env:	  env,
 		notify:   make(chan struct{}, 1), // `1` so that Notify doesn't block
 		C:        make(chan struct{}, 1), // `1` so we don't block on completing a refresh
 	}
@@ -216,7 +219,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 		case RepoNoConfig:
 			// this is not going to change in the lifetime of this
 			// process, so just exit.
-			glog.Error("repo no config")
+			glog.Errorf("env: %s repo no config", r.Env)
 			return nil
 		case RepoNew:
 			rootdir, err := ioutil.TempDir(os.TempDir(), MirrorRepoPrefix)
@@ -239,7 +242,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 				r.setStatus(RepoCloned, nil)
 				continue // with new status, skipping timer
 			}
-			glog.Errorf("repo new: %v", err)
+			glog.Errorf("env: %s repo new: %v", r.Env, err)
 			dir = ""
 			os.RemoveAll(rootdir)
 			r.setStatus(RepoNew, err)
@@ -255,12 +258,12 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 				r.refreshed()
 				continue // with new status, skipping timer
 			}
-			glog.Errorf("repo cloned: %v", err)
+			glog.Errorf("env: %s repo clone error: %v",r.Env,  err)
 			r.setStatus(RepoCloned, err)
 
 		case RepoReady:
 			if err := r.refreshLoop(shutdown, repoShutdown); err != nil {
-				glog.Errorf("repo ready: %v", err)
+				glog.Errorf("env: %s repo ready: %v", r.Env, err)
 				r.setStatus(RepoNew, err)
 				continue // with new status, skipping timer
 			}

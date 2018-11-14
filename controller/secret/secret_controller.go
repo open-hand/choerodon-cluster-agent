@@ -98,7 +98,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		go wait.Until(c.runWorker, time.Second, stopCh)
 	}
 	<-stopCh
-	glog.Info("Shutting down secret workers")
+	glog.V(1).Info("Shutting down secret workers")
 }
 func (c *controller) enqueueSecret(obj interface{}) {
 	var key string

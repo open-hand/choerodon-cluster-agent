@@ -95,7 +95,7 @@ func CreateControllerContext(
 
 func (ctx *ControllerContext) StartControllers() error {
 
-	glog.V(1).Infof("Starting controllers")
+	glog.Infof("Starting controllers")
 
 	go func() {
 		for {
@@ -113,6 +113,7 @@ func (ctx *ControllerContext) StartControllers() error {
 			ctx.c7nInformer.Start(ctx.stop)
 			select {
 			case <- ctx.stopController:
+				glog.Infof("Stopping controllers")
 				close(ctx.stop)
 				return
 			case <- ctx.stop :

@@ -180,7 +180,7 @@ func (c *Controller) Run(workers int, stopCh <-chan struct{}) {
 	//	}
 	//}
 	<-stopCh
-	glog.Info("Shutting down c7nhelmrelease workers")
+	glog.V(1).Info("Shutting down c7nhelmrelease workers")
 }
 
 // runWorker is a long-running function that will continually call the
