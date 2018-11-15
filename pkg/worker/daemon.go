@@ -45,7 +45,7 @@ type Spec struct {
 
 
 
-func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRepo  chan<- struct{}, done *sync.WaitGroup) {
+func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRepo  <-chan struct{}, done *sync.WaitGroup) {
 	defer done.Done()
 
 	// We want to sync at least every `SyncInterval`. Being told to
@@ -62,6 +62,8 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRep
 	w.AskForSync(namespace)
 	for {
 		select {
+		case <- stopRepo:
+			glog.Info("sync loop stopping")
 		case <-stop:
 			glog.Info("sync loop stopping")
 			return
