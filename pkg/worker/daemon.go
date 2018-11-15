@@ -64,6 +64,7 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRep
 		select {
 		case <- stopRepo:
 			glog.Info("sync loop stopping")
+			return
 		case <-stop:
 			glog.Info("sync loop stopping")
 			return
