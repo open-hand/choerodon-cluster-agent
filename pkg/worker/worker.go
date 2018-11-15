@@ -242,6 +242,7 @@ func deleteEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pac
 
 	w.helmClient.DeleteNamespaceReleases(env.Namespace)
 	w.kubeClient.DeleteNamespace(env.Namespace)
+	close(w.repoStopChans[env.Namespace])
 
 	return nil, &model.Packet{
 		Key:     cmd.Key,
