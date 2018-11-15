@@ -6,6 +6,8 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/manager"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
+	k8sclient "k8s.io/client-go/kubernetes"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
@@ -122,6 +124,12 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	glog.Infof("Starting connect to tiller...")
 	helmClient := helm.NewClient(kubeClient)
 	glog.Infof("Tiller connect success")
+
+
+	if err := checkKube(kubeClient.GetKubeClient()); err != nil {
+		errChan <- err
+		return
+	}
 
 	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, chans)
 	if err != nil {
@@ -273,3 +281,9 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.gitTimeOut, "git-timeout", 1*time.Minute, "git time out")
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
 }
+
+func checkKube(client *k8sclient.Clientset) error {
+	_, err := client.CoreV1().Pods("").List(meta_v1.ListOptions{})
+	return err
+}
+

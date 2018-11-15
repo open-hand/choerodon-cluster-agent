@@ -4,21 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
-	"k8s.io/apimachinery/pkg/labels"
-	"strings"
-	"syscall"
-	"time"
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1_informer "k8s.io/client-go/informers/core/v1"
 	v1_lister "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"strings"
+	"time"
 )
 
 var (
@@ -73,7 +72,6 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		pods, err := c.lister.Pods(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
-			syscall.Exit(0)
 		} else {
 			var podList []string
 			for _, pod := range pods {
