@@ -30,6 +30,10 @@ func preInstallHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
+
+	if req.Namespace == "" {
+		req.Namespace = cmd.Namespace()
+	}
 	hooks, err := w.helmClient.PreInstallRelease(&req)
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
@@ -79,6 +83,9 @@ func preUpdateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet,
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	if req.Namespace == "" {
+		req.Namespace = cmd.Namespace()
 	}
 	hooks, err := w.helmClient.PreUpgradeRelease(&req)
 	if err != nil {
