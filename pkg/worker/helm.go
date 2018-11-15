@@ -62,6 +62,9 @@ func installHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
+	if req.Namespace == "" {
+		req.Namespace = cmd.Namespace()
+	}
 	resp, err := w.helmClient.InstallRelease(&req)
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
@@ -114,6 +117,9 @@ func updateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *m
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	if req.Namespace == "" {
+		req.Namespace = cmd.Namespace()
 	}
 	resp, err := w.helmClient.UpgradeRelease(&req)
 	if err != nil {
