@@ -116,24 +116,17 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	// new kubernetes client
 	kubeClient, err := kube.NewClient(f)
 	if err != nil {
-		glog.Errorf("check role binding failed %v", err)
-		os.Exit(0	)
+		errChan <- err
 		return
 	}
-	glog.Infof("KubeClient manager success.")
+	glog.Infof("KubeClient init success.")
 
 	glog.Infof("Starting connect to tiller...")
 	helmClient := helm.NewClient(kubeClient)
 	glog.Infof("Tiller connect success")
 
+	go checkKube(kubeClient.GetKubeClient())
 
-	go func() {
-		if err := checkKube(kubeClient.GetKubeClient()); err != nil {
-
-			errChan <- err
-			return
-		}
-	}()
 
 	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, chans)
 	if err != nil {
@@ -286,9 +279,13 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
 }
 
-func checkKube(client *k8sclient.Clientset) error {
+func checkKube(client *k8sclient.Clientset)  {
 	glog.Infof("check k8s role binding...")
 	_, err := client.CoreV1().Pods("").List(meta_v1.ListOptions{})
-	return err
+	if err != nil {
+		glog.Errorf("check role binding failed %v", err)
+		os.Exit(0	)
+	}
+	glog.Infof(" k8s role binding succeed.")
 }
 
