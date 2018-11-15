@@ -63,10 +63,10 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRep
 	for {
 		select {
 		case <- stopRepo:
-			glog.Info("sync loop stopping")
+			glog.Infof("env %s sync loop stopping", namespace)
 			return
 		case <-stop:
-			glog.Info("sync loop stopping")
+			glog.Infof("env %s sync loop stopping", namespace)
 			return
 		case <-syncTimer.C:
 			w.AskForSync(namespace)
