@@ -7,6 +7,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"k8s.io/apimachinery/pkg/labels"
 	"strings"
+	"syscall"
 	"time"
 	"github.com/golang/glog"
 	"k8s.io/api/core/v1"
@@ -72,6 +73,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		pods, err := c.lister.Pods(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
+			syscall.Exit(0)
 		} else {
 			var podList []string
 			for _, pod := range pods {

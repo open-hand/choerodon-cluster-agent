@@ -321,6 +321,8 @@ func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
 		repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(w.gitConfig.GitPollInterval))
 		w.wg.Add(1)
 		repoStopChan := make(chan struct{}, 1)
+		// to wait create env git repo
+		time.Sleep(10 * time.Second)
 		go func() {
 			err := repo.Start(w.stop, repoStopChan, w.wg)
 			if err != nil {
