@@ -307,6 +307,7 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 			ChartVersion: request.ChartVersion,
 			Values:       request.Values,
 			ReleaseName:  request.ReleaseName,
+			Namespace:    request.Namespace,
 		}
 		return c.PreInstallRelease(installReq)
 	}
@@ -354,6 +355,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 			ChartVersion: request.ChartVersion,
 			Values:       request.Values,
 			ReleaseName:  request.ReleaseName,
+			Namespace:    request.Namespace,
 		}
 		installResp, err := c.InstallRelease(installReq)
 		if err != nil {

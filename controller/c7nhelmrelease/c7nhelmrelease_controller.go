@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
-
 	"strings"
 	"time"
 
@@ -261,6 +260,11 @@ func (c *Controller) syncHandler(key string) error {
 	if err != nil {
 		// The C7NHelmRelease resource may no longer exist, in which case we stop processing.
 		if errors.IsNotFound(err) {
+			_,err := c.kubeClientset.Discovery().ServerResourcesForGroupVersion("choerodon.io/v1alpha1")
+			if err != nil && errors.IsNotFound(err) {
+				glog.Warningf("C7NHelmReleases CustomResourceDefinition been deleted!")
+				return nil
+			}
 			runtime.HandleError(fmt.Errorf("C7NHelmReleases '%s' in work queue no longer exists", key))
 			if cmd := deleteHelmReleaseCmd(namespace, name); cmd != nil {
 				glog.Infof("release %s delete", name)
