@@ -259,6 +259,9 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 				continue // with new status, skipping timer
 			}
 			glog.Errorf("env: %s repo clone error: %v",r.Env,  err)
+			ctx, cancel = context.WithTimeout(bg, opTimeout)
+			r.fetch(ctx)
+			cancel()
 			r.setStatus(RepoCloned, err)
 
 		case RepoReady:

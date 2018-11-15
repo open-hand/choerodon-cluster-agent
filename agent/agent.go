@@ -125,7 +125,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	helmClient := helm.NewClient(kubeClient)
 	glog.Infof("Tiller connect success")
 
-	go checkKube(kubeClient.GetKubeClient())
+	checkKube(kubeClient.GetKubeClient())
 
 
 	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, chans)
