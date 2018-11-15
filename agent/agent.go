@@ -116,7 +116,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	// new kubernetes client
 	kubeClient, err := kube.NewClient(f)
 	if err != nil {
-		errChan <- err
+		glog.Errorf("check role binding failed %v", err)
+		os.Exit(0	)
 		return
 	}
 	glog.Infof("KubeClient manager success.")
@@ -126,10 +127,13 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	glog.Infof("Tiller connect success")
 
 
-	if err := checkKube(kubeClient.GetKubeClient()); err != nil {
-		errChan <- err
-		return
-	}
+	go func() {
+		if err := checkKube(kubeClient.GetKubeClient()); err != nil {
+
+			errChan <- err
+			return
+		}
+	}()
 
 	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, chans)
 	if err != nil {
@@ -283,6 +287,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 }
 
 func checkKube(client *k8sclient.Clientset) error {
+	glog.Infof("check k8s role binding...")
 	_, err := client.CoreV1().Pods("").List(meta_v1.ListOptions{})
 	return err
 }
