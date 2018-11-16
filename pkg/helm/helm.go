@@ -515,7 +515,16 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, error) {
 	for _,rls := range listReleasesRsp.Releases{
 		if rls.Chart.Metadata.Name == "choerodon-agent" {
 			if c.kubeClient.GetNamespace(rls.Namespace) == nil {
-
+			    stopRls :=	&model_helm.StopReleaseRequest{
+					ReleaseName: rls.Name,
+					Namespace: rls.Namespace,
+				}
+				rsp,err :=  c.StopRelease(stopRls)
+				if err == nil {
+					glog.Infof("stop old agent %s succeed", rsp.ReleaseName)
+				} else {
+					glog.Warningf("stop old agent %s failed", rls.Name)
+				}
 				err,connectUrl,envId := getEnvInfo(rls.Config.Raw)
 				if	err != nil {
 					glog.Infof("rls: %s upgrade error ", rls.Name)
