@@ -531,7 +531,7 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, error) {
 				if err == nil {
 					glog.Infof("stop old agent %s succeed", rsp.ReleaseName)
 				} else {
-					glog.Warningf("stop old agent %s failed", rls.Name)
+					glog.Warningf("stop old agent %s failed: %v", rls.Name, err)
 				}
 
 				oldEnv := model.OldEnv{
