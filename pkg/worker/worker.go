@@ -2,6 +2,7 @@ package worker
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
@@ -177,8 +178,8 @@ func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet
 	}
 
 
-	if err =  w.kubeClient.GetNamespace(newAgentInitOps.Envs[0].Namespace); err != nil {
-		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
+	if err =  w.kubeClient.GetNamespace(newAgentInitOps.Envs[0].Namespace); err == nil {
+		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, errors.New("env already exist"))
 	}
 
 	w.agentInitOps.Envs = append(w.agentInitOps.Envs, newAgentInitOps.Envs[0])
