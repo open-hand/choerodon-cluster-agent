@@ -3,12 +3,12 @@ package kube
 import (
 	"bytes"
 	"encoding/json"
+	err_go "errors"
 	"fmt"
-	"io"
-	"net/http"
-
+	chrclientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
+	"io"
 	appsv1 "k8s.io/api/apps/v1"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	appsv1beta2 "k8s.io/api/apps/v1beta2"
@@ -22,16 +22,17 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	chrclientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
 	"k8s.io/kubernetes/pkg/kubectl"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
+	"net/http"
 
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 )
 
 type Client interface {
@@ -48,6 +49,7 @@ type Client interface {
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
 	LabelObjects(namespace string, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
+	LabelTestObjects(namespace string, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
 	LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
 	GetIngress(namespace string, ingressName string) (string, error)
@@ -459,16 +461,32 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 		Namespace(namespace).SubResource("exec").
 		Param("container", containerName)
 
-	req.VersionedParams(&core_v1.PodExecOptions{
-		Stdin:     true,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       true,
-		Container: containerName,
-		Command:   []string{"/bin/sh", "-c", "TERM=xterm exec $( (type getent > /dev/null 2>&1  && getent passwd root | cut -d: -f7 2>/dev/null) || echo /bin/sh)"},
-	}, legacyscheme.ParameterCodec)
+	validShells := []string{"bash", "sh", "powershell", "cmd"}
+	for _,testShell := range validShells {
+		cmd := []string{testShell}
+		req.VersionedParams(&core_v1.PodExecOptions{
+			Stdin:     true,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       true,
+			Container: containerName,
+			Command:   cmd,
+		}, legacyscheme.ParameterCodec)
 
-	return execute(http.MethodPost, req.URL(), config, local, local, local, true)
+		exec, err := remotecommand.NewSPDYExecutor(config, http.MethodPost, req.URL())
+		if err == nil {
+			return exec.Stream(remotecommand.StreamOptions{
+				Stdin:  local,
+				Stdout: local,
+				Stderr: local,
+				Tty:    true,
+			})
+		}
+	}
+	return err_go.New("no support command")
+
+
+
 }
 
 func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
@@ -514,6 +532,7 @@ func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]
 }
 
 func (c *client) LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
+
 	result, err := c.buildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -975,4 +994,325 @@ func getSelectorFromObject(obj runtime.Object) (map[string]string, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func (c *client) LabelTestObjects(namespace string, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error) {
+	result, err := c.buildUnstructured(namespace, manifest)
+	if err != nil {
+		return nil, fmt.Errorf("build unstructured: %v", err)
+	}
+
+	newManifestBuf := bytes.NewBuffer(nil)
+	for _, info := range result {
+
+		// add object and pod template label
+		obj, err := labelTestObject(info, releaseName, app, version, label)
+		if err != nil {
+			return nil, fmt.Errorf("label object: %v", err)
+		}
+
+		objB, err := yaml.Marshal(obj)
+		if err != nil {
+			return nil, fmt.Errorf("yaml marshal: %v", err)
+		}
+		newManifestBuf.WriteString("\n---\n")
+		newManifestBuf.Write(objB)
+	}
+
+	return newManifestBuf, nil
+}
+
+
+func labelTestObject(info *resource.Info, releaseName string, app string, version string, label string) (runtime.Object, error) {
+	versioned, err := info.Versioned()
+	switch {
+	case runtime.IsNotRegisteredError(err):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+
+	obj := versioned.DeepCopyObject()
+	switch typed := obj.(type) {
+	// ReplicationController
+	case *core_v1.ReplicationController:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		// ReplicaSet
+	case *ext_v1beta1.ReplicaSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		if typed.Spec.Selector == nil {
+			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.AppVersionLabel] = version
+		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.AppLabel] = app
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
+	case *appsv1.ReplicaSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		if typed.Spec.Selector == nil {
+			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.AppVersionLabel] = version
+		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.AppLabel] = app
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		// Deployment
+	case *ext_v1beta1.Deployment:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		if typed.Spec.Selector == nil {
+			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.AppVersionLabel] = version
+		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.AppLabel] = app
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+	case *appsv1beta1.Deployment:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		if typed.Spec.Selector == nil {
+			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.AppVersionLabel] = version
+		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.AppLabel] = app
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+	case *appsv1beta2.Deployment:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		if typed.Spec.Selector == nil {
+			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.AppVersionLabel] = version
+		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.AppLabel] = app
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+	case *appsv1.Deployment:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		if typed.Spec.Selector == nil {
+			typed.Spec.Selector = &meta_v1.LabelSelector{}
+		}
+		if typed.Spec.Selector.MatchLabels == nil {
+			typed.Spec.Selector.MatchLabels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.AppVersionLabel] = version
+		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.AppLabel] = app
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		// ConfigMap
+	case *core_v1.ConfigMap:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		// Service
+	case *core_v1.Service:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.NetworkLabel] = "service"
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Labels[model.NetworkNoDelLabel] = "true"
+
+		// Ingress
+	case *ext_v1beta1.Ingress:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.NetworkLabel] = "ingress"
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Labels[model.NetworkNoDelLabel] = "true"
+
+		// Job
+	case *batch.Job:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Labels[model.TestLabel] =  label
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+		typed.Spec.Template.Labels[model.TestLabel] = label
+
+		// DaemonSet
+	case *ext_v1beta1.DaemonSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1beta2.DaemonSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1.DaemonSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		// StatefulSet
+	case *appsv1beta1.StatefulSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1beta2.StatefulSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+	case *appsv1.StatefulSet:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		if typed.Spec.Template.Labels == nil {
+			typed.Spec.Template.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		// Secret
+	case *core_v1.Secret:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AppLabel] = app
+		typed.Labels[model.AppVersionLabel] = version
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
+	default:
+		glog.Warningf("label object not matched: %v", obj)
+	}
+
+	return obj, nil
 }

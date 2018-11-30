@@ -10,6 +10,30 @@ type InstallReleaseRequest struct {
 	Namespace    string `json:"namespace,omitempty"`
 }
 
+type TestReleaseRequest struct {
+	RepoURL      string `json:"repoURL,omitempty"`
+	ChartName    string `json:"chartName,omitempty"`
+	ChartVersion string `json:"chartVersion,omitempty"`
+	Values       string `json:"values,omitempty"`
+	ReleaseName  string `json:"releaseName,omitempty"`
+	Label        string `json:"label,omitempty"`
+}
+
+type TestStatusResponse struct {
+	ReleaseName  string `json:"releaseName,omitempty"`
+	Pod          string `json:"pod,omitempty"`
+	ReleaseStatus string `json:"releaseStatus,omitempty"`
+}
+
+type TestJobFinished struct {
+	Succeed  bool	`json:"succeed,omitempty"`
+	Log      string `json:"log,omitempty"`
+}
+
+type TestReleaseResponse struct {
+	ReleaseName  string `json:"releaseName,omitempty"`
+}
+
 type Release struct {
 	Name         string             `json:"name,omitempty"`
 	Revision     int32              `json:"revision,omitempty"`

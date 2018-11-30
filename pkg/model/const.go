@@ -8,12 +8,12 @@ const (
 	InitAgentSucceed = "init_agent_succeed"
 	InitAgentFailed  = "init_agent_failed"
 	EnvCreateFailed  = "env_create_failed"
-	EnvCreateSucceed  = "env_create_succeed"
-	EnvDeleteSucceed  = "env_stop_succeed"
+	EnvCreateSucceed = "env_create_succeed"
+	EnvDeleteSucceed = "env_stop_succeed"
 	EnvDeleteFailed  = "env_stop_failed"
-	EnvDelete  = "delete_env"
-	CreateEnv  = "create_env"
-	NamespaceUpdate = "namespace_update"
+	EnvDelete        = "delete_env"
+	CreateEnv        = "create_env"
+	NamespaceUpdate  = "namespace_update"
 
 	// helm
 	HelmReleaseSynced           = "helm_release_sync"
@@ -36,6 +36,15 @@ const (
 	HelmReleaseHookGetLogs      = "helm_release_hook_get_logs"
 	HelmReleaseGetContent       = "helm_release_get_content"
 	HelmReleaseGetContentFailed = "helm_release_get_content_failed"
+	// automatic test
+	ExecuteTest        = "execute_test"
+	ExecuteTestSucceed = "execute_test_succeed"
+	ExecuteTestFailed  = "execute_test_failed"
+	TestJobLog         = "test_job_log"
+	TestPodEvent       = "test_pod_event"
+	TestPodUpdate      = "test_pod_update"
+	TestStatusRequest = "test_status"
+	TestStatusResponse = "test_status_response"
 	// network
 	NetworkService             = "network_service"
 	NetworkServiceFailed       = "network_service_failed"
@@ -70,9 +79,9 @@ const (
 	GitOpsSyncFailed = "git_ops_sync_failed"
 	GitOpsSyncEvent  = "git_ops_sync_event"
 
-	StatusSyncEvent = "status_sync_event"
-	StatusSync      = "status_sync"
-	Upgrade       = "upgrade"
+	StatusSyncEvent      = "status_sync_event"
+	StatusSync           = "status_sync"
+	Upgrade              = "upgrade"
 	UpgradeCluster       = "upgrade_cluster"
-	UpgradeClusterFailed       = "upgrade_cluster_failed"
+	UpgradeClusterFailed = "upgrade_cluster_failed"
 )

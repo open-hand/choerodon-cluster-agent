@@ -190,7 +190,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		chans,
 		namespaces,
 	)
-
 	var k8sManifests cluster.Manifests
 	var k8s cluster.Cluster
 	{

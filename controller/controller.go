@@ -186,6 +186,7 @@ func startJobController(ctx *ControllerContext) (bool,  error) {
 	go job.NewJobController(
 		ctx.kubeInformer.Batch().V1().Jobs(),
 		ctx.kubeClient,
+		ctx.helmClient,
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)

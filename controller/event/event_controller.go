@@ -141,24 +141,28 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	//
 	//_,err = c.client.CoreV1().Pods(namespace).Get(event.InvolvedObject.Name,meta_v1.GetOptions{})
 	if event.InvolvedObject.Kind == "Job" {
-		_, err = c.client.BatchV1().Jobs(namespace).Get(event.InvolvedObject.Name, meta_v1.GetOptions{})
+		job, err := c.client.BatchV1().Jobs(namespace).Get(event.InvolvedObject.Name, meta_v1.GetOptions{})
 		if err != nil {
 			return true, nil
 		}
-		c.responseChan <- newEventRep(event)
+		if job.Labels[model.TestLabel] == "" {
+			c.responseChan <- newEventRep(event)
+		}
 	}
 	if event.InvolvedObject.Kind == "Pod" {
 		pod, err := c.client.CoreV1().Pods(namespace).Get(event.InvolvedObject.Name, meta_v1.GetOptions{})
 		if err != nil {
 			return true, nil
 		}
-		if pod.Labels[model.ReleaseLabel] != "" {
+		if pod.Labels[model.ReleaseLabel] != "" && pod.Labels[model.TestLabel] == "" {
 			//实例pod产生的事件
 			c.responseChan <- newInstanceEventRep(event, pod.Labels[model.ReleaseLabel])
 			return true, nil
 
+		} else if pod.Labels[model.TestLabel] != ""	{
+			//测试pod事件
+			c.responseChan <- newTestPodEventRep(event, pod.Labels[model.ReleaseLabel], pod.Labels[model.TestLabel])
 		}
-		c.responseChan <- newEventRep(event)
 
 	}
 
@@ -192,6 +196,18 @@ func newInstanceEventRep(event *v1.Event, release string) *model.Packet {
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.Event:%s", event.Namespace, release, event.Name),
 		Type:    model.ReleasePodEvent,
+		Payload: string(payload),
+	}
+}
+
+func newTestPodEventRep(event *v1.Event, release string, label string) *model.Packet {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.release:%s.label:%s", event.Namespace, release, label),
+		Type:    model.TestPodEvent,
 		Payload: string(payload),
 	}
 }

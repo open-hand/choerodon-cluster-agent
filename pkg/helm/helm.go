@@ -2,10 +2,12 @@ package helm
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/golang/glog"
@@ -23,12 +25,13 @@ import (
 	envkube "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 	"gopkg.in/yaml.v2"
-	"regexp"
 	"strconv"
 )
 
 const (
 	notesFileSuffix = "NOTES.txt"
+	testNamespace   = "choerodon-test"
+	tmpMagicStr = 	"crockitwoodzZ: heihei"
 )
 
 var (
@@ -55,6 +58,7 @@ var (
 
 type Client interface {
 	ListRelease(namespace string) ([]*model_helm.Release, error)
+	ExecuteTest(request *model_helm.TestReleaseRequest) (*model_helm.TestReleaseResponse, error)
 	InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.Release, error)
 	PreInstallRelease(request *model_helm.InstallReleaseRequest) ([]*model_helm.ReleaseHook, error)
 	PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([]*model_helm.ReleaseHook, error)
@@ -176,13 +180,32 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
 
+
 	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
+
+	cm, err := cmForChart(chartRequested)
+	if  err != nil{
+		return nil, fmt.Errorf("install chart error: %v", err)
+	}
+	valuesMap := make(map[string]string)
+	valuesMap = getValuesMap(cm, valuesMap)
+	oldValues := chartRequested.Values.Raw
+
+	err,newChartValues := removeStringValues(chartRequested.Values.Raw)
+	if err != nil {
+		return nil, err
+	}
+	err,newValues := removeStringValues(request.Values)
+	if err != nil {
+		return nil, err
+	}
+	chartRequested.Values.Raw = newChartValues
 
 	hooks, manifestDoc, err := c.renderManifests(
 		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
-		request.Values,
+		newValues,
 		1)
 	if err != nil {
 		glog.V(1).Infof("sort error...")
@@ -204,17 +227,21 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
+		manifestBytes :=  []byte(replaceValue(string(newManifestBuf.Bytes()), valuesMap))
+		fmt.Println(string(manifestBytes))
 		if index == 0 {
-			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
+			newTemplate := &chart.Template{Name: request.ReleaseName, Data: manifestBytes}
 			newTemplates = append(newTemplates, newTemplate)
 		} else {
-			newTemplate := &chart.Template{Name: "hook"+strconv.Itoa(index), Data: newManifestBuf.Bytes()}
+			newTemplate := &chart.Template{Name: "hook"+strconv.Itoa(index), Data: manifestBytes}
 			newTemplates = append(newTemplates, newTemplate)
 		}
 	}
 
+
 	chartRequested.Templates = newTemplates
 	chartRequested.Dependencies = []*chart.Chart{}
+	chartRequested.Values.Raw = oldValues
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
 		request.Namespace,
@@ -240,6 +267,83 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		return nil, err
 	}
 	return rls, err
+}
+
+
+
+func (c *client) ExecuteTest(request *model_helm.TestReleaseRequest) (*model_helm.TestReleaseResponse, error) {
+
+	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
+	if err != nil {
+		return nil, fmt.Errorf("load chart: %v", err)
+	}
+
+	chartutil.ProcessRequirementsEnabled(chartRequested,&chart.Config{Raw: request.Values})
+
+	hooks, manifestDoc, err := c.renderManifests(
+		testNamespace,
+		chartRequested,
+		request.ReleaseName,
+		request.Values,
+		1)
+	if err != nil {
+		glog.V(1).Infof("sort error...")
+		return nil, err
+	}
+
+	manifestDocs := []string{}
+	newTemplates := []*chart.Template{}
+
+	if manifestDoc != nil {
+		manifestDocs = append(manifestDocs, manifestDoc.String())
+	}
+	for _,hook := range hooks {
+		manifestDocs = append(manifestDocs, hook.Manifest)
+	}
+
+	for index,manifestToInsert := range manifestDocs  {
+		newManifestBuf, err := c.kubeClient.LabelTestObjects(testNamespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, "test-test")
+		if err != nil {
+			return nil, fmt.Errorf("label objects: %v", err)
+		}
+		if index == 0 {
+			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
+		} else {
+			newTemplate := &chart.Template{Name: "hook"+strconv.Itoa(index), Data: newManifestBuf.Bytes()}
+			newTemplates = append(newTemplates, newTemplate)
+		}
+	}
+
+	chartRequested.Templates = newTemplates
+	chartRequested.Dependencies = []*chart.Chart{}
+	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
+		chartRequested,
+		testNamespace,
+		helm.ValueOverrides([]byte(request.Values)),
+		helm.ReleaseName(request.ReleaseName),
+	)
+
+	resp := &model_helm.TestReleaseResponse{ReleaseName: request.ReleaseName}
+	if err != nil {
+		newError := fmt.Errorf("execute test release %s: %v", request.ReleaseName, err)
+		if installReleaseResp != nil {
+			_, err := c.getHelmRelease(installReleaseResp.GetRelease())
+			if err != nil {
+				c.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: request.ReleaseName})
+				return nil, err
+			}
+
+			return resp, newError
+		}
+		c.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: request.ReleaseName})
+		return nil, newError
+	}
+	_, err = c.getHelmRelease(installReleaseResp.GetRelease())
+	if err != nil {
+		return nil, err
+	}
+	return resp, err
 }
 
 func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, error) {
@@ -670,31 +774,7 @@ func InitEnvSettings() {
 	settings.Init(pflag.CommandLine)
 }
 
-func removeValues(values map[string]interface{})  {
-	for key, value := range values {
-		if valued,ok := value.(string);  ok {
-			if matched,_ := regexp.MatchString(".*{{.*}}.*", valued); matched {
-				values[key] = "test"
-			}
-		} else if valued,ok := value.(map[string]interface{});  ok{
-			removeValues(valued)
-		}
 
-	}
-}
-
-func removeStringValues(values string) (error, string) {
-	mapValues := make(map[string]interface{})
-	if err := yaml.Unmarshal([]byte(values), mapValues); err != nil {
-		return fmt.Errorf("unmarshal values err: %v", err), ""
-	}
-	removeValues(mapValues)
-	bytesValues,err := yaml.Marshal(mapValues)
-	if  err != nil {
-		return fmt.Errorf("marshal map values err: %v", err), ""
-	}
-	return nil, string(bytesValues)
-}
 
 func getEnvInfo (values string) (error, string, int) {
 	mapValues := make(map[string]interface{})
@@ -709,4 +789,167 @@ func getEnvInfo (values string) (error, string, int) {
 	connect,_ := valued["connect"].(string)
 	envId,_ := valued["envId"].(int)
 	return nil, connect, envId
+}
+
+
+func cmForChart(chart *chart.Chart) (string, error) {
+	results := []string{}
+	if err := labelChartsConfigMap(chart, &results); err != nil {
+		return  "", err
+	}
+	return mergeConfigMap(results), nil
+}
+
+func getValuesMap (cms string,vMap map[string]string) map[string]string {
+	keyIndex :=  strings.Index(cms, "{{")
+	if  keyIndex == -1{
+		return vMap
+	}
+
+	valueIndex :=  strings.Index(cms, "}}")
+	value := cms[keyIndex:valueIndex+2]
+
+	key := cms[:keyIndex]
+	key = strings.Replace(key," ","",-1)
+	key = strings.Replace(key,"\n","",-1)
+	if len(key) >=5 {
+		vMap[key[len(key)-5:]] = value
+	}
+	newCms := cms[valueIndex+2:]
+	return getValuesMap(newCms, vMap)
+}
+
+func removeValues(values map[string]interface{})  {
+	for key, value := range values {
+		if valued,ok := value.(string);  ok {
+			if matched,_ := regexp.MatchString(".*{{.*}}.*", valued); matched {
+				values[key] = tmpMagicStr
+			}
+		} else if valued,ok := value.(map[string]interface{});  ok{
+			removeValues(valued)
+		}
+
+	}
+}
+
+func replaceValue(manifest string,valueMap map[string]string) string {
+	index := strings.Index(manifest, tmpMagicStr)
+	if index != -1 && index >= 8{
+		key := manifest[0:index]
+		key = strings.Replace(key," ","",-1)
+		key = strings.Replace(key,"\n","",-1)
+		replaceTo := "test: test"
+		if len(key) >=5  && valueMap[key[len(key)-5:]] != "" {
+			value := valueMap[key[len(key)-5:]]
+			if indent := calculateIndent(value); indent != -1 {
+				manifest = manifest[:index-indent] + manifest[index:]
+			}
+			manifest = strings.Replace(manifest,tmpMagicStr, valueMap[key[len(key)-5:]], 1)
+			delete(valueMap, key)
+		}else {
+			manifest = strings.Replace(manifest,tmpMagicStr, replaceTo, 1)
+		}
+	}else {
+		return manifest
+	}
+	return replaceValue(manifest, valueMap)
+}
+
+func calculateIndent(tmpStr string) int{
+	idx := strings.Index(tmpStr,"indent")
+	if idx == -1 {
+		return -1
+	}
+	rest := tmpStr[idx+6:]
+	str := strings.TrimSpace(rest)
+	strs := strings.Split(str, " ")
+	count := strs[0]
+	b,error := strconv.Atoi(count)
+	if	error != nil {
+		return -1
+	}
+	return b
+}
+
+
+
+func removeStringValues(values string) (error, string) {
+	mapValues := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(values), mapValues); err != nil {
+		return fmt.Errorf("unmarshal values err: %v", err), ""
+	}
+	removeValues(mapValues)
+	bytesValues,err := yaml.Marshal(mapValues)
+	if  err != nil {
+		return fmt.Errorf("marshal map values err: %v", err), ""
+	}
+	return nil, string(bytesValues)
+}
+
+
+func labelChartsConfigMap(chart *chart.Chart, results *[]string ) (error){
+	for _,tmp := range chart.Templates {
+		tmpContent := string(tmp.Data)
+		if strings.Contains(tmpContent, "ConfigMap") {
+			if strings.Contains(tmpContent, "---\n") {
+				resources := strings.Split(tmpContent, "---\n")
+				for _,resource := range resources {
+					if strings.Contains(resource, "ConfigMap") {
+						*results = append(*results, resource)
+					}
+				}
+
+			} else {
+				*results = append(*results, tmpContent)
+			}
+
+		}
+	}
+	for _,dependentChart := range chart.Dependencies {
+		err :=  labelChartsConfigMap(dependentChart, results)
+		if	err != nil {
+			return err
+		}
+	}
+
+	return  nil
+}
+
+
+func labelConfigMap(tmp string, releaseName string ) (string, error) {
+	tmpMap := make(map[string]interface{})
+	if err := yaml.Unmarshal([]byte(tmp), tmpMap); err != nil {
+		return "", fmt.Errorf("label configMap error: %v", err)
+	}
+	metadata := tmpMap["metadata"]
+	valuedMetadata, ok := metadata.(map[string]interface{})
+	if !ok {
+		return "", errors.New("label configMap error")
+	}
+	if valuedMetadata["labels"] == nil {
+		labels := make(map[string]string)
+		labels[model.ReleaseLabel] = releaseName
+		valuedMetadata["labels"] = labels
+
+	} else {
+		labels := valuedMetadata["labels"]
+		valuedMap, ok := labels.(map[string]string)
+		if !ok {
+			return "", errors.New("label configMap error")
+		}
+		valuedMap[model.ReleaseLabel] = releaseName
+	}
+	data := []byte{}
+	if err := yaml.Unmarshal(data, tmpMap); err != nil {
+		return "", fmt.Errorf("label configMap error: %v", err)
+	}
+	return string(data), nil
+}
+
+func mergeConfigMap(cms []string) string {
+	result := ""
+	for _,cm := range cms {
+		result = "\n---\n" + cm
+	}
+	return result
 }

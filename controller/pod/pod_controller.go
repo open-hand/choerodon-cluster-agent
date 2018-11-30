@@ -200,9 +200,12 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		return false, err
 	}
 
-	if pod.Labels[model.ReleaseLabel] != "" {
+	if pod.Labels[model.ReleaseLabel] != "" && pod.Labels[model.TestLabel] == "" {
 		glog.V(2).Info(pod.Labels[model.ReleaseLabel], ":", pod)
 		c.responseChan <- newPodRep(pod)
+	} else if pod.Labels[model.TestLabel] != "" {
+		// 测试执行Job pod状态变更
+		c.responseChan <- newTestPodRep(pod)
 	}
 	return true, nil
 }
@@ -223,6 +226,20 @@ func newPodRep(pod *v1.Pod) *model.Packet {
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.Pod:%s", pod.Namespace, release, pod.Name),
 		Type:    model.ResourceUpdate,
+		Payload: string(payload),
+	}
+}
+
+func newTestPodRep(pod *v1.Pod) *model.Packet {
+	payload, err := json.Marshal(pod)
+	release := pod.Labels[model.ReleaseLabel]
+	label := pod.Labels[model.TestLabel]
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.release:%s.Pod:%s.label:%s", pod.Namespace, release, pod.Name, label),
+		Type:    model.TestPodUpdate,
 		Payload: string(payload),
 	}
 }

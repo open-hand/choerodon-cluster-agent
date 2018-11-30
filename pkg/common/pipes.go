@@ -128,7 +128,6 @@ func (p *pipe) CopyToWebsocket(end io.ReadWriter, conn *websocket.Conn) error {
 			if p.Closed() {
 				return
 			}
-
 			if _, err := end.Write(buf); err != nil {
 				errors <- err
 				return
@@ -148,7 +147,6 @@ func (p *pipe) CopyToWebsocket(end io.ReadWriter, conn *websocket.Conn) error {
 			if p.Closed() {
 				return
 			}
-
 			if err := conn.WriteMessage(websocket.BinaryMessage, buf[:n]); err != nil {
 				errors <- err
 				return

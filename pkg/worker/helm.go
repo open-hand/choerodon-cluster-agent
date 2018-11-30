@@ -20,6 +20,8 @@ func init() {
 	registerCmdFunc(model.HelmReleaseStop, stopHelmRelease)
 	registerCmdFunc(model.HelmReleaseGetContent, getHelmReleaseContent)
 	registerCmdFunc(model.StatusSync, syncStatus)
+	registerCmdFunc(model.ExecuteTest, executeTestRelease)
+	registerCmdFunc(model.TestStatusRequest,GetTestStatus )
 
 }
 
@@ -80,6 +82,61 @@ func installHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *
 	}
 }
 
+func executeTestRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var req model_helm.TestReleaseRequest
+	err := json.Unmarshal([]byte(cmd.Payload), &req)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
+	}
+
+	resp, err := w.helmClient.ExecuteTest(&req)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
+	}
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
+	}
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.ExecuteTestSucceed,
+		Payload: string(respB),
+	}
+}
+
+func GetTestStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	//var req model_helm.TestReleaseStatusRequest
+	//err := json.Unmarshal([]byte(cmd.Payload), &req)
+	//if err != nil {
+	//	return nil, NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
+	//}
+	releaseName := cmd.Payload
+	_, err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: releaseName})
+	if err != nil {
+		if strings.Contains(err.Error(), "not exist"){
+			return nil, &model.Packet{
+				Key:     cmd.Key,
+				Type:    model.TestStatusResponse,
+				Payload: "deleted",
+			}
+		}
+		return nil, nil
+	}
+	jobRun := w.kubeClient.IsReleaseJobRun("choerodon-test",releaseName)
+	if jobRun {
+		return nil, &model.Packet{
+			Key:     cmd.Key,
+			Type:    model.TestStatusResponse,
+			Payload: "running",
+		}
+	} else {
+		return nil, &model.Packet{
+			Key:     cmd.Key,
+			Type:    model.TestStatusResponse,
+			Payload: "finished",
+		}
+	}
+}
 func preUpdateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.UpgradeReleaseRequest
 	var newCmds []*model.Packet
@@ -111,6 +168,7 @@ func preUpdateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet,
 	newCmds = append(newCmds, newCmd)
 	return newCmds, resp
 }
+
 
 func updateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.UpgradeReleaseRequest
@@ -339,3 +397,5 @@ func newSyncResponse(name string, reType string, commit string,id int32) *model_
 		Id: id,
 	}
 }
+
+

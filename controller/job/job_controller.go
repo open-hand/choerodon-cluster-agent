@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
+	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 	"strings"
 	"time"
 
@@ -33,10 +35,12 @@ type controller struct {
 	responseChan     chan<- *model.Packet
 	jobSynced        cache.InformerSynced
 	kubeClient       kube.Client
+	helmClient       helm.Client
 	namespaces       *manager.Namespaces
 }
 
-func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, responseChan chan<- *model.Packet, namespaces   *manager.Namespaces) *controller {
+
+func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, helmClient helm.Client, responseChan chan<- *model.Packet, namespaces   *manager.Namespaces) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "job"),
@@ -44,6 +48,7 @@ func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, r
 		lister:           jobInformer.Lister(),
 		responseChan:     responseChan,
 		kubeClient:       client,
+		helmClient:       helmClient,
 		namespaces:        namespaces,
 	}
 
@@ -163,10 +168,10 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		return false, err
 	}
 
-	if job.Labels[model.ReleaseLabel] != "" {
+	if job.Labels[model.ReleaseLabel] != "" &&  job.Labels[model.TestLabel] == ""{
 		glog.V(2).Info(job.Labels[model.ReleaseLabel], ":", job)
 		c.responseChan <- newJobRep(job)
-		if IsJobFinished(job) {
+		if  finish,_ := IsJobFinished(job); finish {
 			jobLogs, err := c.kubeClient.LogsForJob(namespace, job.Name)
 			if err != nil {
 				glog.Error("get job log error ", err)
@@ -179,7 +184,23 @@ func (c *controller) syncHandler(key string) (bool, error) {
 			}
 		}
 
+	} else if  job.Labels[model.TestLabel] != "" {
+		//监听
+		if  finsish,succeed := IsJobFinished(job); finsish {
+			jobLogs, err := c.kubeClient.LogsForJob(namespace, job.Name)
+			if err != nil {
+				glog.Error("get job log error ", err)
+			} else if strings.TrimSpace(jobLogs) != "" {
+				c.responseChan <- newTestJobLogRep(job.Labels[model.TestLabel], job.Labels[model.ReleaseLabel], jobLogs, namespace, succeed)
+			}
+			_,err = c.helmClient.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: job.Labels[model.ReleaseLabel]})
+			if err != nil {
+				glog.Error("delete release error", err)
+			}
+
+		}
 	}
+
 	return true, nil
 }
 
@@ -199,6 +220,22 @@ func newJobLogRep(name string, release string, jobLogs string, namespace string)
 	}
 }
 
+func newTestJobLogRep(label string, release string, jobLogs string, namespace string, succeed bool) *model.Packet {
+	rsp := &model_helm.TestJobFinished{
+		Succeed: succeed,
+		Log:     jobLogs,
+	}
+	rspBytes,err := json.Marshal(rsp)
+	if err != nil {
+		glog.Errorf("marshal test job rsp error: %v",err )
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.release:%s.label:%s", namespace, release, label),
+		Type:    model.TestJobLog,
+		Payload: string(rspBytes),
+	}
+}
+
 func newJobRep(job *v1.Job) *model.Packet {
 	payload, err := json.Marshal(job)
 	release := job.Labels[model.ReleaseLabel]
@@ -212,29 +249,16 @@ func newJobRep(job *v1.Job) *model.Packet {
 	}
 }
 
-func IsJobFinished(j *v1.Job) bool {
+func IsJobFinished(j *v1.Job) (bool,bool) {
 	for _, c := range j.Status.Conditions {
-		if (c.Type == v1.JobComplete || c.Type == v1.JobFailed) && c.Status == "True" {
-			return true
-		}
-	}
-	return false
-}
+		if  c.Status == "True" {
+			if c.Type == v1.JobComplete {
 
-func IsJobCompleted(j *v1.Job) bool {
-	for _, c := range j.Status.Conditions {
-		if c.Type == v1.JobComplete && c.Status == "True" {
-			return true
+				return true, true
+			} else if  c.Type == v1.JobFailed {
+				return true,false
+			}
 		}
 	}
-	return false
-}
-
-func IsJobFailed(j *v1.Job) bool {
-	for _, c := range j.Status.Conditions {
-		if c.Type == v1.JobFailed && c.Status == "True" {
-			return true
-		}
-	}
-	return false
+	return false,false
 }

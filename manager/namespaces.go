@@ -8,9 +8,11 @@ type Namespaces struct {
 }
 
 func NewNamespaces() *Namespaces {
-	return &Namespaces{
+	ns := &Namespaces{
 		m: map[string]bool{},
 	}
+	ns.Add("choerodon-test")
+	return ns
 }
 
 func (nsSet *Namespaces) Add (ns string)  {
