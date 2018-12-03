@@ -110,31 +110,52 @@ func GetTestStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model
 	//if err != nil {
 	//	return nil, NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
 	//}
-	releaseName := cmd.Payload
+	releaseNames := []string{}
+	err := json.Unmarshal([]byte(cmd.Payload), &releaseNames)
+	if err != nil {
+		glog.Errorf("unmarshal test status request error %v,", err)
+		return nil, nil
+	}
+
+	releasesStatus := []model_helm.TestReleaseStatus{}
+	for _,rls := range releaseNames {
+		status := releaseStatus(w,rls)
+		if status != "" {
+			testRlsStatus := model_helm.TestReleaseStatus{
+				ReleaseName: rls,
+				Status: status,
+			}
+			releasesStatus = append(releasesStatus, testRlsStatus)
+		}
+	}
+	contents,err := json.Marshal(releasesStatus)
+
+	if err != nil {
+		glog.Errorf("marshal test status request response error %v,", err)
+		return nil, nil
+	}
+
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.TestStatusResponse,
+		Payload: string(contents),
+	}
+
+}
+
+func releaseStatus(w *workerManager,releaseName string) string {
 	_, err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: releaseName})
 	if err != nil {
 		if strings.Contains(err.Error(), "not exist"){
-			return nil, &model.Packet{
-				Key:     cmd.Key,
-				Type:    model.TestStatusResponse,
-				Payload: "deleted",
-			}
+			return "delete"
 		}
-		return nil, nil
+		return  ""
 	}
 	jobRun := w.kubeClient.IsReleaseJobRun("choerodon-test",releaseName)
 	if jobRun {
-		return nil, &model.Packet{
-			Key:     cmd.Key,
-			Type:    model.TestStatusResponse,
-			Payload: "running",
-		}
+		return "running"
 	} else {
-		return nil, &model.Packet{
-			Key:     cmd.Key,
-			Type:    model.TestStatusResponse,
-			Payload: "finished",
-		}
+		return "finished"
 	}
 }
 func preUpdateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {

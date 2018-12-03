@@ -34,6 +34,11 @@ type TestReleaseResponse struct {
 	ReleaseName  string `json:"releaseName,omitempty"`
 }
 
+type TestReleaseStatus struct {
+	ReleaseName  string `json:"releaseName,omitempty"`
+	Status       string `json:"status,omitempty"`
+}
+
 type Release struct {
 	Name         string             `json:"name,omitempty"`
 	Revision     int32              `json:"revision,omitempty"`
