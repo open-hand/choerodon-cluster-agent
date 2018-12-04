@@ -484,9 +484,6 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 		}
 	}
 	return err_go.New("no support command")
-
-
-
 }
 
 func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
@@ -648,12 +645,17 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		}
 		typed.Labels[model.NetworkLabel] = "ingress"
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+	case *core_v1.ConfigMap:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		//typed.Labels[model.ReleaseLabel] = releaseName
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	default:
 		glog.Warningf("label object not matched: %v", obj)
 		return obj, nil
 	}
-
 	return obj, nil
 }
 

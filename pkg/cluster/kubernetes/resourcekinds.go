@@ -21,6 +21,7 @@ func init() {
 	resourceKinds["service"] = &serviceKind{}
 	resourceKinds["ingress"] = &ingressKind{}
 	resourceKinds["c7nhelmrelease"] = &c7nHelmReleaseKind{}
+	resourceKinds["configmap"] = &configMap{}
 }
 
 type k8sResource struct {
@@ -33,7 +34,7 @@ type k8sResource struct {
 
 
 // ==============================================
-
+// service
 type serviceKind struct {
 }
 
@@ -54,7 +55,18 @@ func (dk *serviceKind) getResources(c *Cluster, namespace string) ([]k8sResource
 
 	return k8sResources, nil
 }
+func makeServiceK8sResource(service *core_v1.Service) k8sResource {
+	return k8sResource{
+		apiVersion: "v1",
+		kind:       "Service",
+		name:       service.Name,
+		k8sObject:  service,
+	}
+}
 
+
+// ==============================================
+// service
 type ingressKind struct {
 }
 
@@ -85,14 +97,7 @@ func makeIngressK8sResource(ingress *ext_v1beta1.Ingress) k8sResource {
 	}
 }
 
-func makeServiceK8sResource(service *core_v1.Service) k8sResource {
-	return k8sResource{
-		apiVersion: "v1",
-		kind:       "Service",
-		name:       service.Name,
-		k8sObject:  service,
-	}
-}
+
 
 // ==============================================
 // choerodon.io/v1alpha1 C7NHelmRelease
@@ -120,5 +125,37 @@ func makeC7nHelmReleaseK8sResource(chr *c7nv1alpha1.C7NHelmRelease) k8sResource 
 		kind:       "C7NHelmRelease",
 		name:       chr.Name,
 		k8sObject:  chr,
+	}
+}
+
+// ==============================================
+// configmap
+
+type configMap struct {
+}
+
+func (cm *configMap) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
+	configMaps, err := c.client.ConfigMaps(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var k8sResources []k8sResource
+	for i := range configMaps.Items {
+		cm := configMaps.Items[i]
+		if cm.Labels[model.ReleaseLabel]== "" && cm.Labels[model.AgentVersionLabel] != "" {
+			k8sResources = append(k8sResources, makeConfigMapK8sResource(&configMaps.Items[i]))
+		}
+	}
+
+	return k8sResources, nil
+}
+
+func makeConfigMapK8sResource(cm *core_v1.ConfigMap) k8sResource {
+	return k8sResource{
+		apiVersion: "v1",
+		kind:       "ConfigMap",
+		name:       cm.Name,
+		k8sObject:  cm,
 	}
 }
