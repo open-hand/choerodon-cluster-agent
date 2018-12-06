@@ -651,6 +651,11 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		}
 		//typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+	case *core_v1.Secret:
+		if typed.Labels == nil {
+			typed.Labels = make(map[string]string)
+		}
+		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
 	default:
 		glog.Warningf("label object not matched: %v", obj)
