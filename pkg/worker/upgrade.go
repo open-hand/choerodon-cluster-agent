@@ -6,7 +6,6 @@ import (
 	"github.com/golang/glog"
 )
 
-var choerodonId string
 
 func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	upgradeInfo,certInfo,err := w.helmClient.ListAgent(cmd.Payload)
@@ -30,13 +29,13 @@ func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packe
 	}
 
 	if certInfo != nil{
-		certRsp, err := json.Marshal(upgradeInfo)
+		certRsp, err := json.Marshal(certInfo)
 		if err != nil{
 			glog.Errorf("check cert manager error while marshal cert rsp")
 		} else {
 			certInfoResp := &model.Packet{
 				Key:     cmd.Key,
-				Type:    model.CertManagerConfig,
+				Type:    model.CertManagerInfo,
 				Payload: string(certRsp),
 			}
 			w.chans.ResponseChan <- certInfoResp
@@ -45,7 +44,7 @@ func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packe
 	} else {
 		certInfoResp := &model.Packet{
 			Key:     cmd.Key,
-			Type:    model.CertManagerConfig,
+			Type:    model.CertManagerInfo,
 		}
 		w.chans.ResponseChan <- certInfoResp
 	}

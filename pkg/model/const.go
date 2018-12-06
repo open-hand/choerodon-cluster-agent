@@ -84,6 +84,5 @@ const (
 	Upgrade              = "upgrade"
 	UpgradeCluster       = "upgrade_cluster"
 	UpgradeClusterFailed = "upgrade_cluster_failed"
-	CertManagerConfig    = "cert_manager_config"
 	CertManagerInfo      = "cert_manager_info"
 )
