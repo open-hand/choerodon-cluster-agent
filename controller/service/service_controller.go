@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
+	"k8s.io/apimachinery/pkg/labels"
 	"time"
 
 	"github.com/golang/glog"
@@ -31,6 +33,38 @@ type controller struct {
 	responseChan     chan<- *model.Packet
 	servicesSynced   cache.InformerSynced
 	namespaces       *manager.Namespaces
+}
+
+func (c *controller) resourceSync()  {
+	namespaces := c.namespaces.GetAll()
+	for  _,ns := range namespaces {
+		pods, err := c.lister.Services(ns).List(labels.NewSelector())
+		if err != nil {
+			glog.Fatal("can not list resource, no rabc bind, exit !")
+		} else {
+			var serviceList []string
+			for _, pod := range pods {
+				if pod.Labels[model.ReleaseLabel] != "" {
+					serviceList = append(serviceList, pod.GetName())
+				}
+			}
+			resourceList := &kubernetes.ResourceList{
+				Resources:    serviceList,
+				ResourceType: "Service",
+			}
+			content, err := json.Marshal(resourceList)
+			if err != nil {
+				glog.Fatal("marshal service list error")
+			} else {
+				response := &model.Packet{
+					Key:     fmt.Sprintf("env:%s", ns),
+					Type:    model.ResourceSync,
+					Payload: string(content),
+				}
+				c.responseChan <- response
+			}
+		}
+	}
 }
 
 func NewserviceController(serviceInformer v1_informer.ServiceInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
@@ -65,34 +99,8 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	if ok := cache.WaitForCacheSync(stopCh, c.servicesSynced); !ok {
 		glog.Fatal("failed to wait for caches to sync")
 	}
-
-	//resources, err := c.lister.Services(c.namespace).List(labels.NewSelector())
-	//if err != nil {
-	//	glog.Fatal("failed list service")
-	//} else {
-	//	var resourceList []string
-	//	for _, resource := range resources {
-	//		if resource.Labels[model.NetworkLabel] != "" {
-	//			resourceList = append(resourceList, resource.GetName())
-	//		}
-	//	}
-	//	resourceListResp := &kubernetes.ResourceList{
-	//		Resources:    resourceList,
-	//		ResourceType: "Service",
-	//	}
-	//	content, err := json.Marshal(resourceListResp)
-	//	if err != nil {
-	//		glog.Fatal("marshal service list error")
-	//	} else {
-	//		response := &model.Packet{
-	//			Key:     fmt.Sprintf("env:%s", c.namespace),
-	//			Type:    model.ResourceSync,
-	//			Payload: string(content),
-	//		}
-	//		c.responseChan <- response
-	//	}
-	//}
-
+	// sync resource list
+	c.resourceSync()
 	// Launch two workers to process Foo resources
 	for i := 0; i < workers; i++ {
 		go wait.Until(c.runWorker, time.Second, stopCh)

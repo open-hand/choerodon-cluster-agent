@@ -20,23 +20,23 @@ type TestReleaseRequest struct {
 }
 
 type TestStatusResponse struct {
-	ReleaseName  string `json:"releaseName,omitempty"`
-	Pod          string `json:"pod,omitempty"`
+	ReleaseName   string `json:"releaseName,omitempty"`
+	Pod           string `json:"pod,omitempty"`
 	ReleaseStatus string `json:"releaseStatus,omitempty"`
 }
 
 type TestJobFinished struct {
-	Succeed  bool	`json:"succeed,omitempty"`
-	Log      string `json:"log,omitempty"`
+	Succeed bool   `json:"succeed,omitempty"`
+	Log     string `json:"log,omitempty"`
 }
 
 type TestReleaseResponse struct {
-	ReleaseName  string `json:"releaseName,omitempty"`
+	ReleaseName string `json:"releaseName,omitempty"`
 }
 
 type TestReleaseStatus struct {
-	ReleaseName  string `json:"releaseName,omitempty"`
-	Status       string `json:"status,omitempty"`
+	ReleaseName string `json:"releaseName,omitempty"`
+	Status      string `json:"status,omitempty"`
 }
 
 type Release struct {
@@ -50,7 +50,7 @@ type Release struct {
 	Hooks        []*ReleaseHook     `json:"hooks,omitempty"`
 	Resources    []*ReleaseResource `json:"resources,omitempty"`
 	Config       string             `json:"config,omitempty"`
-	Commit       string				`json:"commit,omitempty"`
+	Commit       string             `json:"commit,omitempty"`
 }
 
 type ReleaseResource struct {
@@ -76,7 +76,7 @@ type UpgradeReleaseRequest struct {
 	ChartName    string `json:"chartName,omitempty"`
 	ChartVersion string `json:"chartVersion,omitempty"`
 	Values       string `json:"values,omitempty"`
-	Commit       string	`json:"commit,omitempty"`
+	Commit       string `json:"commit,omitempty"`
 	Namespace    string `json:"namespace,omitempty"`
 }
 
@@ -91,7 +91,7 @@ type DeleteReleaseRequest struct {
 
 type StopReleaseRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`
-	Namespace    string `json:"namespace,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
 }
 
 type StopReleaseResponse struct {
@@ -100,7 +100,7 @@ type StopReleaseResponse struct {
 
 type StartReleaseRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`
-	Namespace    string `json:"namespace,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
 }
 
 type StartReleaseResponse struct {
@@ -115,7 +115,13 @@ type GetReleaseContentRequest struct {
 type SyncRequest struct {
 	ResourceType string `json:"resourceType,omitempty"`
 	ResourceName string `json:"resourceName,omitempty"`
-	Commit 		 string `json:"commit,omitempty"`
+	Commit       string `json:"commit,omitempty"`
 	Id           int32  `json:"id,omitempty"`
 	Namespace    string `json:"namespace,omitempty"`
+}
+
+type CertManagerInfo struct {
+	ReleaseName string `json:"releaseName,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+	Version     string `json:"version,omitempty"`
 }

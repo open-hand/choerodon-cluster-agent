@@ -366,3 +366,4 @@ func reSync(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet
 	w.controllerContext.ReSync()
 	return nil, nil
 }
+

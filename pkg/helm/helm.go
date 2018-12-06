@@ -69,7 +69,7 @@ type Client interface {
 	StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error)
 	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
 	GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
-    ListAgent(devConnectUrl string) (*model.UpgradeInfo, error)
+    ListAgent(devConnectUrl string) (*model.UpgradeInfo,*model_helm.CertManagerInfo ,error)
 	DeleteNamespaceReleases(namespaces string) error
 }
 
@@ -228,7 +228,7 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
 		manifestBytes :=  []byte(replaceValue(string(newManifestBuf.Bytes()), valuesMap))
-		fmt.Println(string(manifestBytes))
+		//fmt.Println(string(manifestBytes))
 		if index == 0 {
 			newTemplate := &chart.Template{Name: request.ReleaseName, Data: manifestBytes}
 			newTemplates = append(newTemplates, newTemplate)
@@ -608,13 +608,14 @@ func (c *client) StartRelease(request *model_helm.StartReleaseRequest) (*model_h
 	return resp, nil
 }
 
-func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, error) {
+func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *model_helm.CertManagerInfo, error) {
 	listReleasesRsp, err := c.helmClient.ListReleases(helm.ReleaseListStatuses([]release.Status_Code{}))
 	upgradeInfo :=  &model.UpgradeInfo{
 		Envs: []model.OldEnv{},
 	}
+	var certInfo *model_helm.CertManagerInfo
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _,rls := range listReleasesRsp.Releases{
 		if rls.Chart.Metadata.Name == "choerodon-agent" {
@@ -646,11 +647,17 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, error) {
 				upgradeInfo.Envs = append(upgradeInfo.Envs, oldEnv)
 			}
 
-		}
+		} else if rls.Chart.Metadata.Name == "cert-manager" {
+			certInfo =  &model_helm.CertManagerInfo{
+				ReleaseName: rls.Name,
+				Namespace: rls.Namespace,
+				Version: rls.Chart.Metadata.Version,
+			}
 
+		}
 	}
 
-	return upgradeInfo, nil
+	return upgradeInfo, certInfo, nil
 }
 
 func (c *client) renderManifests(

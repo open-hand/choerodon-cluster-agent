@@ -22,6 +22,7 @@ func init() {
 	resourceKinds["ingress"] = &ingressKind{}
 	resourceKinds["c7nhelmrelease"] = &c7nHelmReleaseKind{}
 	resourceKinds["configmap"] = &configMap{}
+	resourceKinds["secret"] = &secret{}
 }
 
 type k8sResource struct {
@@ -155,6 +156,38 @@ func makeConfigMapK8sResource(cm *core_v1.ConfigMap) k8sResource {
 	return k8sResource{
 		apiVersion: "v1",
 		kind:       "ConfigMap",
+		name:       cm.Name,
+		k8sObject:  cm,
+	}
+}
+
+// ==============================================
+// Secret
+
+type secret struct {
+}
+
+func (s *secret) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
+	configMaps, err := c.client.Secrets(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var k8sResources []k8sResource
+	for i := range configMaps.Items {
+		cm := configMaps.Items[i]
+		if cm.Labels[model.ReleaseLabel]== "" && cm.Labels[model.AgentVersionLabel] != "" {
+			k8sResources = append(k8sResources, makeSecretK8sResource(&configMaps.Items[i]))
+		}
+	}
+
+	return k8sResources, nil
+}
+
+func makeSecretK8sResource(cm *core_v1.Secret) k8sResource {
+	return k8sResource{
+		apiVersion: "v1",
+		kind:       "Secret",
 		name:       cm.Name,
 		k8sObject:  cm,
 	}

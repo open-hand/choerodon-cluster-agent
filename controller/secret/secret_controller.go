@@ -165,6 +165,8 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		if newCertIssuedRep(secret) != nil {
 			c.responseChan <- newCertIssuedRep(secret)
 		}
+	} else if secret.Labels[model.AgentVersionLabel] != "" {
+		c.responseChan <- newSecretRepoRep(secret)
 	}
 	return true, nil
 }
@@ -185,6 +187,18 @@ func newsecretRep(secret *v1.Secret) *model.Packet {
 	}
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.Secret:%s", secret.Namespace, release, secret.Name),
+		Type:    model.ResourceUpdate,
+		Payload: string(payload),
+	}
+}
+
+func newSecretRepoRep(secret *v1.Secret) *model.Packet {
+	payload, err := json.Marshal(secret)
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.Secret:%s", secret.Namespace, secret.Name),
 		Type:    model.ResourceUpdate,
 		Payload: string(payload),
 	}

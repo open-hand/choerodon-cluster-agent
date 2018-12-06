@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
+	"k8s.io/apimachinery/pkg/labels"
 	"time"
 
 	"github.com/golang/glog"
@@ -27,9 +29,43 @@ type controller struct {
 	// workerLoopPeriod is the time between worker runs. The workers process the queue of service and pod changes.
 	workerLoopPeriod  time.Duration
 	replicsetInformer appv1.ReplicaSetInformer
+
 	responseChan      chan<- *model.Packet
 	replicasetsSynced cache.InformerSynced
 	namespaces       *manager.Namespaces
+}
+
+func (c *controller) resourceSync()  {
+	namespaces := c.namespaces.GetAll()
+	for  _,ns := range namespaces {
+		lister := c.replicsetInformer.Lister()
+		rsList, err := lister.ReplicaSets(ns).List(labels.NewSelector())
+		if err != nil {
+			glog.Fatal("can not list resource, no rabc bind, exit !")
+		} else {
+			var resourceSyncList []string
+			for _, resource := range rsList {
+				if resource.Labels[model.ReleaseLabel] != "" {
+					resourceSyncList = append(resourceSyncList, resource.GetName())
+				}
+			}
+			resourceList := &kubernetes.ResourceList{
+				Resources:    resourceSyncList,
+				ResourceType: "ReplicaSet",
+			}
+			content, err := json.Marshal(resourceList)
+			if err != nil {
+				glog.Fatal("marshal ReplicaSet list error")
+			} else {
+				response := &model.Packet{
+					Key:     fmt.Sprintf("env:%s", ns),
+					Type:    model.ResourceSync,
+					Payload: string(content),
+				}
+				c.responseChan <- response
+			}
+		}
+	}
 }
 
 func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, responseChan chan<- *model.Packet, namespaces  *manager.Namespaces) *controller {
@@ -66,32 +102,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		glog.Fatal("failed to wait for caches to sync")
 	}
 
-	//resources, err := c.replicsetInformer.Lister().List(labels.NewSelector())
-	//if err != nil {
-	//	glog.Fatal("failed list replicaset")
-	//} else {
-	//	var resourceList []string
-	//	for _, resource := range resources {
-	//		if resource.Labels[model.ReleaseLabel] != "" {
-	//			resourceList = append(resourceList, resource.GetName())
-	//		}
-	//	}
-	//	resourceListResp := &kubernetes.ResourceList{
-	//		Resources:    resourceList,
-	//		ResourceType: "ReplicaSet",
-	//	}
-	//	content, err := json.Marshal(resourceListResp)
-	//	if err != nil {
-	//		glog.Fatal("marshal pod replicaSet error")
-	//	} else {
-	//		response := &model.Packet{
-	//			Key:     fmt.Sprintf("env:%s", c.namespace),
-	//			Type:    model.ResourceSync,
-	//			Payload: string(content),
-	//		}
-	//		c.responseChan <- response
-	//	}
-	//}
+	c.resourceSync()
 
 	// Launch two workers to process Foo resources
 	for i := 0; i < workers; i++ {
