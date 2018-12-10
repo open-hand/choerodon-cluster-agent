@@ -302,7 +302,7 @@ func (c *client) ExecuteTest(request *model_helm.TestReleaseRequest) (*model_hel
 	}
 
 	for index,manifestToInsert := range manifestDocs  {
-		newManifestBuf, err := c.kubeClient.LabelTestObjects(testNamespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, "test-test")
+		newManifestBuf, err := c.kubeClient.LabelTestObjects(testNamespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.Label)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}

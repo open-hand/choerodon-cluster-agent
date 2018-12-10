@@ -37,10 +37,11 @@ type controller struct {
 	kubeClient       kube.Client
 	helmClient       helm.Client
 	namespaces       *manager.Namespaces
+	platformCode    string
 }
 
 
-func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, helmClient helm.Client, responseChan chan<- *model.Packet, namespaces   *manager.Namespaces) *controller {
+func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, helmClient helm.Client, responseChan chan<- *model.Packet, namespaces   *manager.Namespaces, platformCode string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "job"),
@@ -49,7 +50,8 @@ func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, h
 		responseChan:     responseChan,
 		kubeClient:       client,
 		helmClient:       helmClient,
-		namespaces:        namespaces,
+		namespaces:       namespaces,
+		platformCode:     platformCode,
 	}
 
 	jobInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -184,7 +186,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 			}
 		}
 
-	} else if  job.Labels[model.TestLabel] != "" {
+	} else if  job.Labels[model.TestLabel] == c.platformCode {
 		//监听
 		if  finsish,succeed := IsJobFinished(job); finsish {
 			jobLogs, err := c.kubeClient.LogsForJob(namespace, job.Name)

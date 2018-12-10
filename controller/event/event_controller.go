@@ -34,9 +34,10 @@ type controller struct {
 	eventsSynced     cache.InformerSynced
 	client           clientset.Interface
 	namespaces       *manager.Namespaces
+	platformCode     string
 }
 
-func NewEventController(eventInformer event_informer.EventInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces, client clientset.Interface) *controller {
+func NewEventController(eventInformer event_informer.EventInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces, client clientset.Interface, platformCode string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pod"),
@@ -45,6 +46,7 @@ func NewEventController(eventInformer event_informer.EventInformer, responseChan
 		responseChan:     responseChan,
 		namespaces:       namespaces,
 		client:           client,
+		platformCode:     platformCode,
 	}
 	eventInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{})
 	eventInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -159,7 +161,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 			c.responseChan <- newInstanceEventRep(event, pod.Labels[model.ReleaseLabel])
 			return true, nil
 
-		} else if pod.Labels[model.TestLabel] != ""	{
+		} else if pod.Labels[model.TestLabel] == c.platformCode	{
 			//测试pod事件
 			c.responseChan <- newTestPodEventRep(event, pod.Labels[model.ReleaseLabel], pod.Labels[model.TestLabel])
 		}

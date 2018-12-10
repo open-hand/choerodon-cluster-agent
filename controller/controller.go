@@ -46,6 +46,7 @@ type ControllerContext struct {
 	chans         *manager.CRChan
 	Namespaces    *manager.Namespaces
 	informers []cache.SharedIndexInformer
+	PlatformCode string
 }
 
 func init() {
@@ -70,7 +71,8 @@ func CreateControllerContext(
 	helmClient helm.Client,
 	stop <-chan struct{},
 	chans *manager.CRChan,
-	Namespaces *manager.Namespaces) *ControllerContext {
+	Namespaces *manager.Namespaces,
+	platformCode string) *ControllerContext {
 
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClientset, time.Second*30)
 	c7nInformer := c7ninformers.NewSharedInformerFactory(c7nClientset, time.Second*30)
@@ -87,6 +89,7 @@ func CreateControllerContext(
 		Namespaces:    Namespaces,
 		chans:         chans,
 		informers: []cache.SharedIndexInformer{},
+		PlatformCode: platformCode,
 	}
 	return ctx
 }
@@ -189,6 +192,7 @@ func startJobController(ctx *ControllerContext) (bool,  error) {
 		ctx.helmClient,
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
+		ctx.PlatformCode,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -225,6 +229,7 @@ func startPodController(ctx *ControllerContext) (bool, error) {
 		ctx.kubeInformer.Core().V1().Pods(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
+		ctx.PlatformCode,
 	).Run(workers, ctx.stop)
 	return true, nil
 }
@@ -248,6 +253,7 @@ func startEventController(ctx *ControllerContext) (bool, error) {
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 		ctx.kubeClientset,
+		ctx.PlatformCode,
 	).Run(workers, ctx.stop)
 	return true, nil
 }

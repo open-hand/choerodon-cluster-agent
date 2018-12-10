@@ -189,6 +189,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		shutdown,
 		chans,
 		namespaces,
+		o.PlatformCode,
 	)
 	//ctx.StartControllers()
 	var k8sManifests cluster.Manifests

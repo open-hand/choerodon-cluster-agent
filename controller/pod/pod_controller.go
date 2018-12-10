@@ -32,9 +32,10 @@ type controller struct {
 	responseChan     chan<- *model.Packet
 	podsSynced       cache.InformerSynced
 	namespaces       *manager.Namespaces
+	platformCode     string
 }
 
-func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
+func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces, platformCode string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pod"),
@@ -42,6 +43,7 @@ func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *
 		lister:           podInformer.Lister(),
 		responseChan:     responseChan,
 		namespaces:        namespaces,
+		platformCode:    platformCode,
 	}
 
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -203,7 +205,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if pod.Labels[model.ReleaseLabel] != "" && pod.Labels[model.TestLabel] == "" {
 		glog.V(2).Info(pod.Labels[model.ReleaseLabel], ":", pod)
 		c.responseChan <- newPodRep(pod)
-	} else if pod.Labels[model.TestLabel] != "" {
+	} else if pod.Labels[model.TestLabel] == c.platformCode {
 		// 测试执行Job pod状态变更
 		c.responseChan <- newTestPodRep(pod)
 	}

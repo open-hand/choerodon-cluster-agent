@@ -88,7 +88,7 @@ func executeTestRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
 	}
-
+	req.Label = w.platformCode
 	resp, err := w.helmClient.ExecuteTest(&req)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
