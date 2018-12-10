@@ -21,6 +21,30 @@ const CRD_YAML string = "apiVersion: apiextensions.k8s.io/v1beta1\n" +
 	"  scope: Namespaced\n" +
 	"  version: v1alpha1\n"
 
+const CERT_MANAGER_CONFIG string = "apiVersion: certmanager.k8s.io/v1alpha1\n" +
+	"kind: ClusterIssuer\n" +
+	"metadata:\n" +
+	"  name: letsencrypt-prod\n" +
+	"spec:\n" +
+	"  acme:\n" +
+	"    server: https://acme-v02.api.letsencrypt.org/directory\n" +
+	"    email: choerodon@vk.vu\n" +
+	"    privateKeySecretRef:\n" +
+	"      name: letsencrypt-prod\n" +
+	"    http01: {}\n" +
+	"---\n" +
+	"apiVersion: certmanager.k8s.io/v1alpha1\n" +
+	"kind: ClusterIssuer\n" +
+	"metadata:\n" +
+	"  name: localhost\n" +
+	"spec:\n" +
+	"  acme:\n" +
+	"    server: https://acme-staging.api.letsencrypt.org/directory\n" +
+	"    email: choerodon@vk.vu\n" +
+	"    privateKeySecretRef:\n" +
+	"      name: localhost\n" +
+	"    http01: {}";
+
 type AgentInitOptions struct {
 	Envs    []EnvParas `json:"envs,omitempty"`
 	GitHost string     `json:"gitHost,omitempty"`

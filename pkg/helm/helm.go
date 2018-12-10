@@ -498,22 +498,24 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 		manifestDocs = append(manifestDocs, hook.Manifest)
 	}
 
-	for index,manifestToInsert := range manifestDocs  {
-		newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
-		if err != nil {
-			return nil, fmt.Errorf("label objects: %v", err)
+	if request.ChartName != "choerodon-cluster-agent" {
+		for index,manifestToInsert := range manifestDocs  {
+			newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
+			if err != nil {
+				return nil, fmt.Errorf("label objects: %v", err)
+			}
+			if index == 0 {
+				newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
+				newTemplates = append(newTemplates, newTemplate)
+			} else {
+				newTemplate := &chart.Template{Name: "hook"+ strconv.Itoa(index), Data: newManifestBuf.Bytes()}
+				newTemplates = append(newTemplates, newTemplate)
+			}
 		}
-		if index == 0 {
-			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
-			newTemplates = append(newTemplates, newTemplate)
-		} else {
-			newTemplate := &chart.Template{Name: "hook"+ strconv.Itoa(index), Data: newManifestBuf.Bytes()}
-			newTemplates = append(newTemplates, newTemplate)
-		}
+		chartRequested.Templates = newTemplates
+		chartRequested.Dependencies = []*chart.Chart{}
 	}
 
-	chartRequested.Templates = newTemplates
-	chartRequested.Dependencies = []*chart.Chart{}
 
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,
