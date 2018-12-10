@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"io/ioutil"
+	"k8s.io/client-go/rest"
 	"os"
+	"os/exec"
 	"regexp"
 	"strings"
 
@@ -74,6 +77,7 @@ type Client interface {
 }
 
 type client struct {
+	config  *rest.Config
 	helmClient *helm.Client
 	kubeClient envkube.Client
 }
@@ -82,8 +86,7 @@ func init() {
 	settings.AddFlags(pflag.CommandLine)
 }
 
-func NewClient(
-	kubeClient envkube.Client) Client {
+func NewClient(kubeClient envkube.Client, config *rest.Config) Client {
 	if _, err := os.Stat(settings.Home.Archive()); os.IsNotExist(err) {
 		os.MkdirAll(settings.Home.Archive(), 0755)
 
@@ -98,6 +101,7 @@ func NewClient(
 	helmClient := helm.NewClient(helm.Host(settings.TillerHost), helm.ConnectTimeout(settings.TillerConnectionTimeout))
 
 	return &client{
+		config: config,
 		helmClient: helmClient,
 		kubeClient: kubeClient,
 	}
@@ -265,6 +269,15 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 	rls.Commit = request.Commit
 	if err != nil {
 		return nil, err
+	}
+	if rls.Name == "choerodon-cert-manager" {
+		kubectl, err := exec.LookPath("kubectl")
+		if err != nil {
+			glog.Fatal(err)
+		}
+		glog.Infof("kubectl %s", kubectl)
+		kubectlApplier := kubernetes.NewKubectl(kubectl, c.config)
+		kubectlApplier.ApplySingleObj("kube-system", model.CERT_MANAGER_CONFIG)
 	}
 	return rls, err
 }

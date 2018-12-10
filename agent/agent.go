@@ -120,9 +120,9 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		return
 	}
 	glog.Infof("KubeClient init success.")
-
+	config,_ := f.ClientConfig()
 	glog.Infof("Starting connect to tiller...")
-	helmClient := helm.NewClient(kubeClient)
+	helmClient := helm.NewClient(kubeClient, config)
 	glog.Infof("Tiller connect success")
 
 	checkKube(kubeClient.GetKubeClient())
