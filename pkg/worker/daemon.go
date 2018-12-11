@@ -161,7 +161,7 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 
 
 
-	if initialSync {
+	if initialSync || w.syncAll {
 		// no synctag, We are syncing everything from scratch
 		changedResources = allResources
 		for _,file := range files {
