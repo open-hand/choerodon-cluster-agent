@@ -260,17 +260,30 @@ func (c *Controller) syncHandler(key string) error {
 	if err != nil {
 		// The C7NHelmRelease resource may no longer exist, in which case we stop processing.
 		if errors.IsNotFound(err) {
-			_,err := c.kubeClientset.Discovery().ServerResourcesForGroupVersion("choerodon.io/v1alpha1")
-			if err != nil && errors.IsNotFound(err) {
-				glog.Warningf("C7NHelmReleases CustomResourceDefinition been deleted!")
+			list,err := c.kubeClientset.Discovery().ServerResourcesForGroupVersion("choerodon.io/v1alpha1")
+			if err != nil  {
+				glog.Warningf("client query ServerResourcesForGroupVersion or crd been deleted")
 				return nil
 			}
-			runtime.HandleError(fmt.Errorf("C7NHelmReleases '%s' in work queue no longer exists", key))
-			if cmd := deleteHelmReleaseCmd(namespace, name); cmd != nil {
-				glog.Infof("release %s delete", name)
-				c.commandChan <- cmd
+			flag := false
+			for _,apiResource := range list.APIResources {
+				if apiResource.Name == "c7nhelmreleases" {
+					flag = true
+					break
+				}
 			}
-			return nil
+			if flag {
+				runtime.HandleError(fmt.Errorf("C7NHelmReleases '%s' in work queue no longer exists", key))
+				if cmd := deleteHelmReleaseCmd(namespace, name); cmd != nil {
+					glog.Infof("release %s delete", name)
+					c.commandChan <- cmd
+				}
+				return nil
+			} else {
+				glog.Warningf("C7NHelmReleases crd not exist")
+				return nil
+			}
+
 		}
 		return err
 	}
