@@ -67,6 +67,7 @@ type AgentOptions struct {
 	syncInterval       time.Duration
 	kubernetesKubectl  string
 	statusSyncInterval time.Duration
+	syncAll            bool
 }
 
 func NewAgentOptions() *AgentOptions {
@@ -229,6 +230,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		shutdown,
 		o.Token,
 		o.PlatformCode,
+		o.syncAll,
 	)
 
 	go workerManager.Start()
@@ -278,6 +280,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.statusSyncInterval, "status-sync-interval", 3*time.Minute, "status sync interval")
 	fs.DurationVar(&o.gitTimeOut, "git-timeout", 1*time.Minute, "git time out")
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
+	fs.BoolVar(&o.syncAll, "sync-all", false, "sync all or change")
 }
 
 func checkKube(client *k8sclient.Clientset)  {

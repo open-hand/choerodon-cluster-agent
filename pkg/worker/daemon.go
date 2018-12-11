@@ -214,7 +214,12 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 		}
 	}
 
-	if err := c7n_sync.Sync(namespace, w.manifests, allResources, changedResources, w.cluster); err != nil {
+	if w.syncAll {
+		err = c7n_sync.SyncAll(namespace, w.manifests, allResources, w.cluster)
+	} else {
+		err = c7n_sync.Sync(namespace, w.manifests, allResources, changedResources, w.cluster)
+	}
+	if  err != nil {
 		glog.Errorf("sync: %v", err)
 		switch syncerr := err.(type) {
 		case cluster.SyncError:

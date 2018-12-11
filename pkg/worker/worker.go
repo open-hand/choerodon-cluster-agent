@@ -50,6 +50,7 @@ type workerManager struct {
 	stop               <-chan struct{}
 	token              string
 	platformCode       string
+	syncAll            bool
 }
 
 func NewWorkerManager(
@@ -68,7 +69,8 @@ func NewWorkerManager(
 	wg *sync.WaitGroup,
 	stop <-chan struct{},
 	token string,
-	platformCode string) *workerManager {
+	platformCode string,
+	syncAll bool) *workerManager {
 	return &workerManager{
 		chans:              chans,
 		helmClient:         helmClient,
@@ -89,6 +91,7 @@ func NewWorkerManager(
 		cluster:            cluster,
 		token:              token,
 		platformCode:       platformCode,
+		syncAll:            syncAll,
 	}
 }
 
