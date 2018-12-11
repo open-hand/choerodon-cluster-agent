@@ -198,25 +198,40 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 		}
 	}
 
-	for key,k8sResource := range changedResources{
 
-		k8sResourceBuff,err := w.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
-		if err != nil {
-			glog.Errorf("label of object error ",err)
-		} else if k8sResourceBuff != nil {
-			obj := resource2.BaseObject{
-				SourceName :k8sResource.Source(),
-				BytesArray: k8sResourceBuff.Bytes(),
-				Meta: k8sResource.Metas(),
-				Kind: k8sResource.SourceKind(),
-			}
-			changedResources[key] = obj
-		}
-	}
 
 	if w.syncAll {
+		for key,k8sResource := range allResources{
+			k8sResourceBuff,err := w.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
+			if err != nil {
+				glog.Errorf("label of object error ",err)
+			} else if k8sResourceBuff != nil {
+				obj := resource2.BaseObject{
+					SourceName :k8sResource.Source(),
+					BytesArray: k8sResourceBuff.Bytes(),
+					Meta: k8sResource.Metas(),
+					Kind: k8sResource.SourceKind(),
+				}
+				changedResources[key] = obj
+			}
+		}
 		err = c7n_sync.SyncAll(namespace, w.manifests, allResources, w.cluster)
 	} else {
+		for key,k8sResource := range changedResources{
+
+			k8sResourceBuff,err := w.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
+			if err != nil {
+				glog.Errorf("label of object error ",err)
+			} else if k8sResourceBuff != nil {
+				obj := resource2.BaseObject{
+					SourceName :k8sResource.Source(),
+					BytesArray: k8sResourceBuff.Bytes(),
+					Meta: k8sResource.Metas(),
+					Kind: k8sResource.SourceKind(),
+				}
+				changedResources[key] = obj
+			}
+		}
 		err = c7n_sync.Sync(namespace, w.manifests, allResources, changedResources, w.cluster)
 	}
 	if  err != nil {
