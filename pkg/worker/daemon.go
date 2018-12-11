@@ -212,7 +212,7 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 					Meta: k8sResource.Metas(),
 					Kind: k8sResource.SourceKind(),
 				}
-				changedResources[key] = obj
+				allResources[key] = obj
 			}
 		}
 		err = c7n_sync.SyncAll(namespace, w.manifests, allResources, w.cluster)
