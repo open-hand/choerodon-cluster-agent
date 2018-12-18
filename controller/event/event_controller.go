@@ -164,6 +164,8 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		} else if pod.Labels[model.TestLabel] == c.platformCode	{
 			//测试pod事件
 			c.responseChan <- newTestPodEventRep(event, pod.Labels[model.ReleaseLabel], pod.Labels[model.TestLabel])
+		} else {
+			c.responseChan <- newEventRep(event)
 		}
 
 	}
