@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 	"time"
 
@@ -254,8 +255,9 @@ func (c *Controller) syncHandler(key string) error {
 	if !c.namespaces.Contain(namespace) {
 		return nil
 	}
+	chr, err := c.chrClientset.ChoerodonV1alpha1().C7NHelmReleases(namespace).Get(name,v1.GetOptions{})
 
-	chr, err := c.chrLister.C7NHelmReleases(namespace).Get(name)
+	 //c.chrLister.C7NHelmReleases(namespace).Get(name)
 
 	if err != nil {
 		// The C7NHelmRelease resource may no longer exist, in which case we stop processing.

@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"github.com/choerodon/choerodon-cluster-agent/controller/daemonset"
 	"github.com/choerodon/choerodon-cluster-agent/controller/namespace"
+	"github.com/choerodon/choerodon-cluster-agent/controller/statefulset"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
 	"k8s.io/client-go/tools/cache"
 	"time"
@@ -62,6 +64,8 @@ func init() {
 	controllers["event"] = startEventController
 	controllers["c7nhelmrelease"] = startC7NHelmReleaseController
 	controllers["namesapce"] = startNamespaceController
+	controllers["daemonset"] = startDaemonSetController
+	controllers["statefulset"] = startStatefulSetController
 }
 
 func CreateControllerContext(
@@ -160,6 +164,26 @@ func startDeploymentController(ctx *ControllerContext) (bool, error) {
 
 	go deployment.NewDeploymentController(
 		ctx.kubeInformer.Extensions().V1beta1().Deployments(),
+		ctx.chans.ResponseChan,
+		ctx.Namespaces,
+	).Run(workers, ctx.stop)
+	return true, nil
+}
+
+func startDaemonSetController(ctx *ControllerContext) (bool, error) {
+
+	go daemonset.NewDaemonSetController(
+		ctx.kubeInformer.Extensions().V1beta1().DaemonSets(),
+		ctx.chans.ResponseChan,
+		ctx.Namespaces,
+	).Run(workers, ctx.stop)
+	return true, nil
+}
+
+func startStatefulSetController(ctx *ControllerContext) (bool, error) {
+
+	go statefulset.NewStatefulSetController(
+		ctx.kubeInformer.Apps().V1().StatefulSets(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)
