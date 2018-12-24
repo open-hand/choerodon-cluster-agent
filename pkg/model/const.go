@@ -74,6 +74,9 @@ const (
 	KubernetesGetLogsFailed = "kubernetes_get_logs_failed"
 	KubernetesExec          = "kubernetes_exec"
 	KubernetesExecFailed    = "kubernetes_exec_failed"
+	OperatePodCount         = "operate_pod_count"
+	OperatePodCountFailed   = "operate_pod_count_failed"
+	OperatePodCountSuccess   = "operate_pod_count_succeed"
 	// git ops
 	GitOpsSync       = "git_ops_sync"
 	GitOpsSyncFailed = "git_ops_sync_failed"
