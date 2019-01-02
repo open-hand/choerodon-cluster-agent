@@ -12,9 +12,9 @@ RUN apk --no-cache add \
 RUN apk update && apk add curl bash tree tzdata \
     && cp -r -f /usr/share/zoneinfo/Hongkong /etc/localtime \
     && echo -ne "Alpine Linux 3.4 image. (`uname -rsv`)\n" >> /root/.built
-
+RUN apk add --no-cache tini
 
 COPY ./docker/ssh_config /etc/ssh/ssh_config
 COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent .
-
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["/choerodon-cluster-agent"]

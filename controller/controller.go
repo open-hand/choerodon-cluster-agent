@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/choerodon/choerodon-cluster-agent/controller/daemonset"
 	"github.com/choerodon/choerodon-cluster-agent/controller/namespace"
+	"github.com/choerodon/choerodon-cluster-agent/controller/node"
 	"github.com/choerodon/choerodon-cluster-agent/controller/statefulset"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
 	"k8s.io/client-go/tools/cache"
@@ -66,6 +67,7 @@ func init() {
 	controllers["namesapce"] = startNamespaceController
 	controllers["daemonset"] = startDaemonSetController
 	controllers["statefulset"] = startStatefulSetController
+	controllers["node"] = startNodeController
 }
 
 func CreateControllerContext(
@@ -251,6 +253,16 @@ func startConfigMapController(ctx *ControllerContext) (bool, error) {
 func startPodController(ctx *ControllerContext) (bool, error) {
 	go pod.NewpodController(
 		ctx.kubeInformer.Core().V1().Pods(),
+		ctx.chans.ResponseChan,
+		ctx.Namespaces,
+		ctx.PlatformCode,
+	).Run(workers, ctx.stop)
+	return true, nil
+}
+
+func startNodeController(ctx *ControllerContext) (bool, error) {
+	go node.NewNodeController(
+		ctx.kubeInformer.Core().V1().Nodes(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 		ctx.PlatformCode,

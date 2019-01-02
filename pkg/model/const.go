@@ -61,8 +61,12 @@ const (
 	Cert_Faild  = "cert_failed"
 	// kubernetes resource
 	ResourceUpdate = "resource_update"
+	NodeUpdate = "node_update"
+	NodeDelete = "node_delete"
+
 	ResourceDelete = "resource_delete"
 	ResourceSync   = "resource_sync"
+	NodeSync   = "node_sync"
 
 	//kubernetes event
 	JobEvent = "job_event"
