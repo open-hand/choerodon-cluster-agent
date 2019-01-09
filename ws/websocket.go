@@ -15,8 +15,11 @@ func dial(urlStr string, token Token) (*websocket.Conn, error) {
 	}
 
 	token.Set(req)
-
-	conn, _, err := websocket.DefaultDialer.Dial(urlStr, req.Header)
+	dialer := &websocket.Dialer{
+		Proxy: http.ProxyFromEnvironment,
+		WriteBufferSize: 65535,
+	}
+	conn, _, err := dialer.Dial(urlStr, req.Header)
 	if err != nil {
 		return nil, fmt.Errorf("dial error %s: %v", urlStr, err)
 	}
