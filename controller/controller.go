@@ -67,7 +67,7 @@ func init() {
 	controllers["namesapce"] = startNamespaceController
 	controllers["daemonset"] = startDaemonSetController
 	controllers["statefulset"] = startStatefulSetController
-	controllers["node"] = startNodeController
+	//controllers["node"] = startNodeController
 }
 
 func CreateControllerContext(
