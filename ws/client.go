@@ -172,7 +172,11 @@ func (c *appClient) sendResponse(resp *model.Packet) error {
 	content, _ := json.Marshal(resp)
 	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
 	glog.V(1).Info("send response: ", string(content))
-	return c.conn.WriteJSON(resp)
+	if len(content) > 65535 {
+		glog.Errorf("message %s/%s to large", resp.Key, resp.Type)
+		return nil
+	}
+	return  c.conn.WriteMessage(websocket.TextMessage,content)
 }
 
 func (c *appClient) hasQuit() bool {
