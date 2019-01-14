@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller/daemonset"
 	"github.com/choerodon/choerodon-cluster-agent/controller/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/controller/node"
@@ -111,7 +112,7 @@ func (ctx *ControllerContext) StartControllers() error {
 			for controllerName, initFn := range controllers {
 				started, err := initFn(ctx)
 				if err != nil {
-					glog.Errorf("Error starting %q", controllerName)
+					glog.Errorf("Error starting %q :%v", controllerName,err)
 				}
 				if !started {
 					glog.Warningf("Skipping %q", controllerName)
@@ -183,13 +184,39 @@ func startDaemonSetController(ctx *ControllerContext) (bool, error) {
 }
 
 func startStatefulSetController(ctx *ControllerContext) (bool, error) {
+	resp,err := ctx.kubeClientset.Discovery().ServerResourcesForGroupVersion("apps/v1beta2")
+	if err != nil {
+		 return false, fmt.Errorf("start statefulsets error: %v", err)
+	}
+	apiList := resp.APIResources
+	for _,resource := range apiList  {
+		if resource.Name == "statefulsets" {
+			go statefulset.NewBeta2StatefulSetController(ctx.kubeInformer.Apps().V1beta2().StatefulSets(),
+				ctx.chans.ResponseChan,
+				ctx.Namespaces,
+			).Run(workers, ctx.stop)
+			return true, nil
+		}
 
-	go statefulset.NewStatefulSetController(
-		ctx.kubeInformer.Apps().V1().StatefulSets(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-	).Run(workers, ctx.stop)
-	return true, nil
+	}
+	resp,err = ctx.kubeClientset.Discovery().ServerResourcesForGroupVersion("apps/v1")
+	if err != nil {
+		return false, fmt.Errorf("start statefulsets error: %v", err)
+	}
+	apiList = resp.APIResources
+	for _,resource := range apiList  {
+		if resource.Name == "statefulsets" {
+			go statefulset.NewStatefulSetController(
+				ctx.kubeInformer.Apps().V1().StatefulSets(),
+				ctx.chans.ResponseChan,
+				ctx.Namespaces,
+			).Run(workers, ctx.stop)
+			return true, nil
+		}
+
+	}
+
+	return false, fmt.Errorf("no  group version for statefulset compatiable")
 }
 
 func startIngressController(ctx *ControllerContext) (bool, error) {
