@@ -7,7 +7,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"github.com/golang/glog"
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	v1_informer "k8s.io/client-go/informers/core/v1"
 	v1_lister "k8s.io/client-go/listers/core/v1"
@@ -53,20 +52,40 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 			glog.Info("stop node controller")
 			return
 		case <- syncTimer.C:
-			var nodes []string
+			nodes := []kubernetes.NodeInfo{}
 			nodelist,err := c.lister.List(labels.NewSelector())
 			if err != nil {
 				glog.Errorf("list node error :", err)
 			}
 			for _, node := range  nodelist {
-				nodes = append(nodes, node.Name)
-				c.responseChan <- newNodeRep(node)
+
+				nodeInfo := &kubernetes.NodeInfo{
+					NodeName: node.Name,
+					CreateTime:    node.CreationTimestamp.String(),
+					CpuRequest:  node.Status.Allocatable.Cpu().String(),
+					CpuLimit:  node.Status.Capacity.Cpu().String(),
+					MemoryLimit: node.Status.Capacity.Memory().String(),
+					MemoryRequest: node.Status.Allocatable.Memory().String(),
+					PodCount: node.Status.Allocatable.Pods().String(),
+					PodLimit: node.Status.Capacity.Pods().String(),
+				}
+				if _,ok := node.Labels["node-role.kubernetes.io/master"]; ok {
+					nodeInfo.Type = "master"
+				} else {
+					nodeInfo.Type = "none"
+				}
+				for _,condition := range node.Status.Conditions {
+					if string(condition.Status) == "True"{
+						nodeInfo.Status = string(condition.Type)
+					}
+				}
+				if nodeInfo.Status == ""  {
+					nodeInfo.Status = "Unknown"
+				}
+				nodes = append(nodes, *nodeInfo)
+
 			}
-			resourceList := &kubernetes.ResourceList{
-				Resources:    nodes,
-				ResourceType: "Node",
-			}
-			content, err := json.Marshal(resourceList)
+			content, err := json.Marshal(nodes)
 			if err != nil {
 				glog.Fatal("marshal pod list error")
 			} else {
@@ -86,16 +105,4 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 
 
 
-}
-
-func newNodeRep(node *v1.Node) *model.Packet {
-	payload, err := json.Marshal(node)
-	if err != nil {
-		glog.Error(err)
-	}
-	return &model.Packet{
-		Key:     fmt.Sprintf("node:%s", node.Name),
-		Type:    model.NodeUpdate,
-		Payload: string(payload),
-	}
 }
