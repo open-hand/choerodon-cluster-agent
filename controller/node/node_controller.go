@@ -11,13 +11,19 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/sets"
 	clientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"strings"
 	"time"
 )
 
 var (
-	keyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
+	keyFunc             = cache.DeletionHandlingMetaNamespaceKeyFunc
+	LabelNodeRolePrefix = "node-role.kubernetes.io/"
+
+	// NodeLabelRole specifies the role of a node
+	NodeLabelRole = "kubernetes.io/role"
 )
 
 type controller struct {
@@ -65,6 +71,13 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 					glog.Errorf("list node pod error: %v", err)
 					continue
 				}
+				roles := findNodeRoles(&node)
+				var role string
+				if len(roles) == 0 {
+					role = "none"
+				} else {
+					role = strings.Join(roles, "")
+				}
 				reqs, limit := getPodsTotalRequestsAndLimits(podList)
 				CpuLimit := limit["cpu"]
 				CpuRequest := reqs["cpu"]
@@ -84,11 +97,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 					MemoryRequest:     MemoryRequest.String(),
 					MemoryLimit:       MemoryLimit.String(),
 					PodCount:          len(podList.Items),
-				}
-				if _, ok := node.Labels["node-role.kubernetes.io/master"]; ok {
-					nodeInfo.Type = "master"
-				} else {
-					nodeInfo.Type = "none"
+					Type:              role,
 				}
 				for _, condition := range node.Status.Conditions {
 					if string(condition.Status) == "True" {
@@ -182,4 +191,20 @@ func maxResourceList(list, new corev1.ResourceList) {
 			}
 		}
 	}
+}
+
+func findNodeRoles(node *corev1.Node) []string {
+	roles := sets.NewString()
+	for k, v := range node.Labels {
+		switch {
+		case strings.HasPrefix(k, LabelNodeRolePrefix):
+			if role := strings.TrimPrefix(k, LabelNodeRolePrefix); len(role) > 0 {
+				roles.Insert(role)
+			}
+
+		case k == NodeLabelRole && v != "":
+			roles.Insert(v)
+		}
+	}
+	return roles.List()
 }
