@@ -289,7 +289,7 @@ func startPodController(ctx *ControllerContext) (bool, error) {
 
 func startNodeController(ctx *ControllerContext) (bool, error) {
 	go node.NewNodeController(
-		ctx.kubeInformer.Core().V1().Nodes(),
+		ctx.kubeClientset,
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 		ctx.PlatformCode,
