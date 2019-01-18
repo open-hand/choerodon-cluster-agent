@@ -3,7 +3,6 @@ package kube
 import (
 	"bytes"
 	"encoding/json"
-	err_go "errors"
 	"fmt"
 	chrclientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
 	"github.com/ghodss/yaml"
@@ -455,15 +454,15 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 	if pod.Status.Phase == core_v1.PodSucceeded || pod.Status.Phase == core_v1.PodFailed {
 		return fmt.Errorf("cannot exec into a container in a completed pod; current phase is %s", pod.Status.Phase)
 	}
-	req := c.client.CoreV1().RESTClient().Post().
-		Resource("pods").
-		Name(podName).
-		Namespace(namespace).SubResource("exec").
-		Param("container", containerName)
 
 	validShells := []string{"bash", "sh", "powershell", "cmd"}
 	for _,testShell := range validShells {
 		cmd := []string{testShell}
+		req := c.client.CoreV1().RESTClient().Post().
+			Resource("pods").
+			Name(podName).
+			Namespace(namespace).SubResource("exec").
+			Param("container", containerName)
 		req.VersionedParams(&core_v1.PodExecOptions{
 			Stdin:     true,
 			Stdout:    true,
@@ -475,15 +474,20 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 
 		exec, err := remotecommand.NewSPDYExecutor(config, http.MethodPost, req.URL())
 		if err == nil {
-			return exec.Stream(remotecommand.StreamOptions{
+			err = exec.Stream(remotecommand.StreamOptions{
 				Stdin:  local,
 				Stdout: local,
 				Stderr: local,
 				Tty:    true,
 			})
+			if err == nil {
+				return nil
+			}
+
 		}
 	}
-	return err_go.New("no support command")
+	glog.Errorf("no support command")
+	return nil
 }
 
 func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
