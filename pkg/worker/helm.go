@@ -2,6 +2,8 @@ package worker
 
 import (
 	"encoding/json"
+	rand2 "math/rand"
+	"time"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
@@ -202,6 +204,14 @@ func updateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *m
 	}
 	resp, err := w.helmClient.UpgradeRelease(&req)
 	if err != nil {
+		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == "choerodon"{
+			go func() {
+				randWait := rand2.Intn(20)
+				time.Sleep(time.Duration(randWait) * time.Second)
+				glog.Infof("start retry upgrade agent ...")
+				w.chans.CommandChan <- cmd
+			}()
+		}
 		return nil, NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	respB, err := json.Marshal(resp)
