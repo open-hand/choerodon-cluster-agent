@@ -134,6 +134,8 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if configMap.Labels[model.ReleaseLabel] != "" {
 		glog.V(2).Info(configMap.Labels[model.ReleaseLabel], ":", configMap)
 		c.responseChan <- newconfigMapRep(configMap)
+	} else if configMap.Labels[model.MicroServiceConfig] != "" {
+		c.responseChan <- newConfigConfigMapRep(configMap)
 	} else if configMap.Labels[model.AgentVersionLabel] != ""{
 		glog.V(2).Info(configMap.Labels[model.ReleaseLabel], ":", configMap)
 		c.responseChan <- newRepoConfigMapRep(configMap)
@@ -170,6 +172,18 @@ func newRepoConfigMapRep(configMap *v1.ConfigMap) *model.Packet {
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.configMap:%s", configMap.Namespace, configMap.Name),
 		Type:    model.ResourceUpdate,
+		Payload: string(payload),
+	}
+}
+
+func newConfigConfigMapRep(configMap *v1.ConfigMap) *model.Packet {
+	payload, err := json.Marshal(configMap)
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.configMap:%s", configMap.Namespace, configMap.Name),
+		Type:    model.ConfigUpdate,
 		Payload: string(payload),
 	}
 }

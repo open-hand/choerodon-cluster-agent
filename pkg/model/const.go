@@ -61,6 +61,7 @@ const (
 	Cert_Faild  = "cert_failed"
 	// kubernetes resource
 	ResourceUpdate = "resource_update"
+	ConfigUpdate = "config_update"
 	NodeUpdate = "node_update"
 	NodeDelete = "node_delete"
 
