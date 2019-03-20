@@ -47,9 +47,9 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
-	LabelTestObjects(namespace string, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
-	LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error)
+	LabelObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
+	LabelTestObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
+	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
 	GetIngress(namespace string, ingressName string) (string, error)
 	GetNamespace(namespace string) error
@@ -59,13 +59,14 @@ type Client interface {
 	GetKubeClient() (*kubernetes.Clientset)
 	GetC7NClient() (*chrclientset.Clientset)
 	IsReleaseJobRun(namespace, releaseName string) bool
+	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
 }
 
-var	AgentVersion string
+var AgentVersion string
 
 type client struct {
 	cmdutil.Factory
-	client *kubernetes.Clientset
+	client    *kubernetes.Clientset
 	c7nClient *chrclientset.Clientset
 }
 
@@ -74,17 +75,17 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get kubernetes client: %v", err)
 	}
-	clientConfig,err := f.ClientConfig()
+	clientConfig, err := f.ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
 	}
-	c7nClient,err := chrclientset.NewForConfig(clientConfig)
+	c7nClient, err := chrclientset.NewForConfig(clientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error building c7n clientset: %v", err)
 	}
 	return &client{
-		Factory: f,
-		client:  kubeClient,
+		Factory:   f,
+		client:    kubeClient,
 		c7nClient: c7nClient,
 	}, nil
 }
@@ -259,7 +260,7 @@ func (c *client) GetService(namespace string, serviceName string) (string, error
 	if service.Annotations != nil && service.Annotations[model.CommitLabel] != "" {
 		return service.Annotations[model.CommitLabel], nil
 	}
-	return "",nil
+	return "", nil
 }
 
 func (c *client) GetIngress(namespace string, ingressName string) (string, error) {
@@ -273,7 +274,7 @@ func (c *client) GetIngress(namespace string, ingressName string) (string, error
 	if ingress.Annotations != nil && ingress.Annotations[model.CommitLabel] != "" {
 		return ingress.Annotations[model.CommitLabel], nil
 	}
-	return "",nil
+	return "", nil
 }
 
 func (c *client) GetSecret(namespace string, secretName string) (string, error) {
@@ -287,7 +288,7 @@ func (c *client) GetSecret(namespace string, secretName string) (string, error) 
 	if secret.Annotations != nil && secret.Annotations[model.CommitLabel] != "" {
 		return secret.Annotations[model.CommitLabel], nil
 	}
-	return "",nil
+	return "", nil
 }
 
 func (c *client) GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error) {
@@ -301,25 +302,25 @@ func (c *client) GetC7nHelmRelease(namespace string, releaseName string) (*v1alp
 	if release.Annotations != nil && release.Annotations[model.CommitLabel] != "" {
 		return release, nil
 	}
-	return nil,nil
+	return nil, nil
 }
 
-func (c *client) IsReleaseJobRun(namespace, releaseName string) bool  {
+func (c *client) IsReleaseJobRun(namespace, releaseName string) bool {
 	labelMap := make(map[string]string)
 	labelMap[model.ReleaseLabel] = releaseName
-	options :=  &meta_v1.LabelSelector{
-		MatchLabels:labelMap,}
+	options := &meta_v1.LabelSelector{
+		MatchLabels: labelMap,}
 
-	slector,err := meta_v1.LabelSelectorAsSelector(options)
+	slector, err := meta_v1.LabelSelectorAsSelector(options)
 	if err != nil {
 		glog.Infof("resource sync list job error: %v", err)
 		return false
 	}
-    selector := meta_v1.ListOptions{
-		LabelSelector:slector.String(),
+	selector := meta_v1.ListOptions{
+		LabelSelector: slector.String(),
 	}
 
-	jobList,err := c.client.BatchV1().Jobs(namespace).List(selector)
+	jobList, err := c.client.BatchV1().Jobs(namespace).List(selector)
 
 	if err != nil {
 		glog.Infof("resource sync list job error: %v", err)
@@ -332,28 +333,26 @@ func (c *client) IsReleaseJobRun(namespace, releaseName string) bool  {
 }
 
 func (c *client) GetNamespace(namespace string) error {
-	_,err := c.client.CoreV1().Namespaces().Get(namespace,meta_v1.GetOptions{})
+	_, err := c.client.CoreV1().Namespaces().Get(namespace, meta_v1.GetOptions{})
 	if err != nil {
-		if  errors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			return fmt.Errorf("get Namespace error : %v", err)
 		} else {
-		   return nil
+			return nil
 		}
 	}
 	return nil
 }
 
-
 func (c *client) DeleteNamespace(namespace string) error {
-	err := c.client.CoreV1().Namespaces().Delete(namespace,&meta_v1.DeleteOptions{})
+	err := c.client.CoreV1().Namespaces().Delete(namespace, &meta_v1.DeleteOptions{})
 	if err != nil {
-		if  errors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			return fmt.Errorf("delete namespace error : %v", err)
 		}
 	}
 	return nil
 }
-
 
 func (c *client) CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error) {
 	client, err := c.KubernetesClientSet()
@@ -456,7 +455,7 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 	}
 
 	validShells := []string{"bash", "sh", "powershell", "cmd"}
-	for _,testShell := range validShells {
+	for _, testShell := range validShells {
 		cmd := []string{testShell}
 		req := c.client.CoreV1().RESTClient().Post().
 			Resource("pods").
@@ -532,7 +531,7 @@ func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]
 	return objPods, nil
 }
 
-func (c *client) LabelRepoObj (namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
+func (c *client) LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
 
 	result, err := c.buildUnstructured(namespace, manifest)
 	if err != nil {
@@ -549,7 +548,7 @@ func (c *client) LabelRepoObj (namespace, manifest, version string, commit strin
 			return nil, fmt.Errorf("label object: %v", err)
 		}
 		if obj == nil {
-			return nil,nil
+			return nil, nil
 		}
 
 		objB, err := yaml.Marshal(obj)
@@ -580,8 +579,6 @@ func (c *client) LabelRepoObj (namespace, manifest, version string, commit strin
 		m["metadata"] = metaDataMap
 		newObj, err := yaml.Marshal(m)
 
-
-
 		if err != nil {
 			return nil, fmt.Errorf("yaml marshal: %v", err)
 		}
@@ -593,7 +590,12 @@ func (c *client) LabelRepoObj (namespace, manifest, version string, commit strin
 	return newManifestBuf, nil
 }
 
-func (c *client) LabelObjects(namespace string, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error) {
+func (c *client) LabelObjects(namespace string,
+	imagePullSecret []core_v1.LocalObjectReference,
+	manifest string,
+	releaseName string,
+	app string,
+	version string) (*bytes.Buffer, error) {
 	result, err := c.buildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -603,7 +605,7 @@ func (c *client) LabelObjects(namespace string, manifest string, releaseName str
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelObject(info, releaseName, app, version)
+		obj, err := labelObject(imagePullSecret, info, releaseName, app, version)
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
 		}
@@ -632,9 +634,9 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 
 	switch typed := obj.(type) {
 	// ReplicationController
-		// Deployment
+	// Deployment
 
-		// Service
+	// Service
 	case *core_v1.Service:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -668,7 +670,11 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 	return obj, nil
 }
 
-func labelObject(info *resource.Info, releaseName string, app string, version string) (runtime.Object, error) {
+func labelObject(imagePullSecret []core_v1.LocalObjectReference,
+	info *resource.Info,
+	releaseName string,
+	app string,
+	version string) (runtime.Object, error) {
 	versioned, err := info.Versioned()
 	switch {
 	case runtime.IsNotRegisteredError(err):
@@ -693,6 +699,12 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 		// ReplicaSet
 	case *ext_v1beta1.ReplicaSet:
 		if typed.Labels == nil {
@@ -716,6 +728,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.AppLabel] = app
 		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1.ReplicaSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -738,6 +757,12 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
 
 	// Deployment
 	case *ext_v1beta1.Deployment:
@@ -762,6 +787,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1beta1.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -784,6 +816,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1beta2.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -806,6 +845,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -828,6 +874,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	// ConfigMap
 	case *core_v1.ConfigMap:
 		if typed.Labels == nil {
@@ -864,6 +917,12 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	// DaemonSet
 	case *ext_v1beta1.DaemonSet:
 		if typed.Labels == nil {
@@ -877,6 +936,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1beta2.DaemonSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -889,6 +955,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1.DaemonSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -901,6 +974,12 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
 
 	// StatefulSet
 	case *appsv1beta1.StatefulSet:
@@ -915,6 +994,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1beta2.StatefulSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -927,6 +1013,13 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1.StatefulSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -939,6 +1032,12 @@ func labelObject(info *resource.Info, releaseName string, app string, version st
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
 
 	// Secret
 	case *core_v1.Secret:
@@ -1007,7 +1106,13 @@ func getSelectorFromObject(obj runtime.Object) (map[string]string, bool) {
 	}
 }
 
-func (c *client) LabelTestObjects(namespace string, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error) {
+func (c *client) LabelTestObjects(namespace string,
+	imagePullSecret []core_v1.LocalObjectReference,
+	manifest string,
+	releaseName string,
+	app string,
+	version string,
+	label string) (*bytes.Buffer, error) {
 	result, err := c.buildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -1017,7 +1122,7 @@ func (c *client) LabelTestObjects(namespace string, manifest string, releaseName
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelTestObject(info, releaseName, app, version, label)
+		obj, err := labelTestObject(info, imagePullSecret, releaseName, app, version, label)
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
 		}
@@ -1033,8 +1138,12 @@ func (c *client) LabelTestObjects(namespace string, manifest string, releaseName
 	return newManifestBuf, nil
 }
 
-
-func labelTestObject(info *resource.Info, releaseName string, app string, version string, label string) (runtime.Object, error) {
+func labelTestObject(info *resource.Info,
+	imagePullSecret []core_v1.LocalObjectReference,
+	releaseName string,
+	app string,
+	version string,
+	label string) (runtime.Object, error) {
 	versioned, err := info.Versioned()
 	switch {
 	case runtime.IsNotRegisteredError(err):
@@ -1059,6 +1168,12 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 		// ReplicaSet
 	case *ext_v1beta1.ReplicaSet:
 		if typed.Labels == nil {
@@ -1082,6 +1197,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.AppLabel] = app
 		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1.ReplicaSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -1104,6 +1226,12 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
 
 		// Deployment
 	case *ext_v1beta1.Deployment:
@@ -1128,6 +1256,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1beta1.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -1150,6 +1285,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1beta2.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -1172,6 +1314,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppLabel] = app
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1.Deployment:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -1194,6 +1343,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 		// ConfigMap
 	case *core_v1.ConfigMap:
 		if typed.Labels == nil {
@@ -1232,9 +1388,15 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		}
 		typed.Labels[model.ReleaseLabel] = releaseName
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Labels[model.TestLabel] =  label
+		typed.Labels[model.TestLabel] = label
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
 		typed.Spec.Template.Labels[model.TestLabel] = label
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
 
 		// DaemonSet
 	case *ext_v1beta1.DaemonSet:
@@ -1249,6 +1411,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1beta2.DaemonSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -1261,6 +1430,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1.DaemonSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -1273,6 +1449,12 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
 
 		// StatefulSet
 	case *appsv1beta1.StatefulSet:
@@ -1287,6 +1469,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1beta2.StatefulSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -1299,6 +1488,13 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
+
 	case *appsv1.StatefulSet:
 		if typed.Labels == nil {
 			typed.Labels = make(map[string]string)
@@ -1311,6 +1507,12 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 		typed.Labels[model.AppVersionLabel] = version
 		typed.Labels[model.AgentVersionLabel] = AgentVersion
 		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
+
+		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
+			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
+		} else {
+			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
+		}
 
 		// Secret
 	case *core_v1.Secret:
@@ -1326,4 +1528,15 @@ func labelTestObject(info *resource.Info, releaseName string, app string, versio
 	}
 
 	return obj, nil
+}
+
+func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {
+	_, err := c.client.CoreV1().Secrets(namespace).Get(secret.Name, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return c.client.CoreV1().Secrets(namespace).Create(secret)
+		}
+		return nil, err
+	}
+	return c.client.CoreV1().Secrets(namespace).Update(secret)
 }

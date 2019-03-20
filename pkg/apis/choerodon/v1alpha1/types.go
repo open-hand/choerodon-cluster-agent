@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -23,10 +24,11 @@ type C7NHelmRelease struct {
 }
 
 type C7NHelmReleaseSpec struct {
-	RepoURL      string `json:"repoURL,omitempty"`
-	ChartName    string `json:"chartName,omitempty"`
-	ChartVersion string `json:"chartVersion,omitempty"`
-	Values       string `json:"values,omitempty"`
+	RepoURL          string                        `json:"repoURL,omitempty"`
+	ChartName        string                        `json:"chartName,omitempty"`
+	ChartVersion     string                        `json:"chartVersion,omitempty"`
+	Values           string                        `json:"values,omitempty"`
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 type C7NHelmReleaseStatus struct {

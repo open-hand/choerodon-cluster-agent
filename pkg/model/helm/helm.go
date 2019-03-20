@@ -1,22 +1,28 @@
 package helm
 
+import (
+	core_v1 "k8s.io/api/core/v1"
+)
+
 type InstallReleaseRequest struct {
-	RepoURL      string `json:"repoURL,omitempty"`
-	ChartName    string `json:"chartName,omitempty"`
-	ChartVersion string `json:"chartVersion,omitempty"`
-	Values       string `json:"values,omitempty"`
-	ReleaseName  string `json:"releaseName,omitempty"`
-	Commit       string `json:"commit,omitempty"`
-	Namespace    string `json:"namespace,omitempty"`
+	RepoURL          string                         `json:"repoURL,omitempty"`
+	ChartName        string                         `json:"chartName,omitempty"`
+	ChartVersion     string                         `json:"chartVersion,omitempty"`
+	Values           string                         `json:"values,omitempty"`
+	ReleaseName      string                         `json:"releaseName,omitempty"`
+	Commit           string                         `json:"commit,omitempty"`
+	Namespace        string                         `json:"namespace,omitempty"`
+	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 type TestReleaseRequest struct {
-	RepoURL      string `json:"repoURL,omitempty"`
-	ChartName    string `json:"chartName,omitempty"`
-	ChartVersion string `json:"chartVersion,omitempty"`
-	Values       string `json:"values,omitempty"`
-	ReleaseName  string `json:"releaseName,omitempty"`
-	Label        string `json:"label,omitempty"`
+	RepoURL          string                         `json:"repoURL,omitempty"`
+	ChartName        string                         `json:"chartName,omitempty"`
+	ChartVersion     string                         `json:"chartVersion,omitempty"`
+	Values           string                         `json:"values,omitempty"`
+	ReleaseName      string                         `json:"releaseName,omitempty"`
+	Label            string                         `json:"label,omitempty"`
+	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 type TestStatusResponse struct {
@@ -71,13 +77,14 @@ type ReleaseHook struct {
 }
 
 type UpgradeReleaseRequest struct {
-	ReleaseName  string `json:"releaseName,omitempty"`
-	RepoURL      string `json:"repoURL,omitempty,omitempty"`
-	ChartName    string `json:"chartName,omitempty"`
-	ChartVersion string `json:"chartVersion,omitempty"`
-	Values       string `json:"values,omitempty"`
-	Commit       string `json:"commit,omitempty"`
-	Namespace    string `json:"namespace,omitempty"`
+	ReleaseName      string                         `json:"releaseName,omitempty"`
+	RepoURL          string                         `json:"repoURL,omitempty,omitempty"`
+	ChartName        string                         `json:"chartName,omitempty"`
+	ChartVersion     string                         `json:"chartVersion,omitempty"`
+	Values           string                         `json:"values,omitempty"`
+	Commit           string                         `json:"commit,omitempty"`
+	Namespace        string                         `json:"namespace,omitempty"`
+	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
 type RollbackReleaseRequest struct {

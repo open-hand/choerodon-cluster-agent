@@ -1,7 +1,6 @@
 package model
 
 const (
-
 	//manager
 	InitAgent        = "init_agent"
 	ReSyncAgent      = "re_sync"
@@ -43,7 +42,7 @@ const (
 	TestJobLog         = "test_job_log"
 	TestPodEvent       = "test_pod_event"
 	TestPodUpdate      = "test_pod_update"
-	TestStatusRequest = "test_status"
+	TestStatusRequest  = "test_status"
 	TestStatusResponse = "test_status_response"
 	// network
 	NetworkService             = "network_service"
@@ -61,13 +60,13 @@ const (
 	Cert_Faild  = "cert_failed"
 	// kubernetes resource
 	ResourceUpdate = "resource_update"
-	ConfigUpdate = "config_update"
-	NodeUpdate = "node_update"
-	NodeDelete = "node_delete"
+	ConfigUpdate   = "config_update"
+	NodeUpdate     = "node_update"
+	NodeDelete     = "node_delete"
 
 	ResourceDelete = "resource_delete"
 	ResourceSync   = "resource_sync"
-	NodeSync   = "node_sync"
+	NodeSync       = "node_sync"
 
 	//kubernetes event
 	JobEvent = "job_event"
@@ -75,13 +74,16 @@ const (
 	ReleasePodEvent = "release_pod_event"
 
 	// kubernetes
-	KubernetesGetLogs       = "kubernetes_get_logs"
-	KubernetesGetLogsFailed = "kubernetes_get_logs_failed"
-	KubernetesExec          = "kubernetes_exec"
-	KubernetesExecFailed    = "kubernetes_exec_failed"
-	OperatePodCount         = "operate_pod_count"
-	OperatePodCountFailed   = "operate_pod_count_failed"
-	OperatePodCountSuccess   = "operate_pod_count_succeed"
+	KubernetesGetLogs                  = "kubernetes_get_logs"
+	KubernetesGetLogsFailed            = "kubernetes_get_logs_failed"
+	KubernetesExec                     = "kubernetes_exec"
+	KubernetesExecFailed               = "kubernetes_exec_failed"
+	OperatePodCount                    = "operate_pod_count"
+	OperatePodCountFailed              = "operate_pod_count_failed"
+	OperatePodCountSuccess             = "operate_pod_count_succeed"
+	OperateDockerRegistrySecret        = "operate_docker_registry_secret"
+	OperateDockerRegistrySecretFailed  = "operate_docker_registry_secret_failed"
+
 	// git ops
 	GitOpsSync       = "git_ops_sync"
 	GitOpsSyncFailed = "git_ops_sync_failed"
