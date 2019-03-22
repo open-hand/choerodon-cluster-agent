@@ -40,7 +40,6 @@ const (
 	MessageResourceSynced = "C7NHelmRelease synced successfully"
 )
 
-
 type Controller struct {
 	kubeClientset kubernetes.Interface
 	chrClientset  chrclientset.Interface
@@ -255,9 +254,9 @@ func (c *Controller) syncHandler(key string) error {
 	if !c.namespaces.Contain(namespace) {
 		return nil
 	}
-	chr, err := c.chrClientset.ChoerodonV1alpha1().C7NHelmReleases(namespace).Get(name,v1.GetOptions{})
+	chr, err := c.chrClientset.ChoerodonV1alpha1().C7NHelmReleases(namespace).Get(name, v1.GetOptions{})
 
-	 //c.chrLister.C7NHelmReleases(namespace).Get(name)
+	//c.chrLister.C7NHelmReleases(namespace).Get(name)
 
 	if err != nil {
 		// The C7NHelmRelease resource may no longer exist, in which case we stop processing.
@@ -330,13 +329,14 @@ func deleteHelmReleaseCmd(namespace, name string) *model.Packet {
 
 func installHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Packet {
 	req := &modelhelm.InstallReleaseRequest{
-		RepoURL:      chr.Spec.RepoURL,
-		ChartName:    chr.Spec.ChartName,
-		ChartVersion: chr.Spec.ChartVersion,
-		Values:       chr.Spec.Values,
-		ReleaseName:  chr.Name,
-		Commit:       chr.Annotations[model.CommitLabel],
-		Namespace:    chr.Namespace,
+		RepoURL:          chr.Spec.RepoURL,
+		ChartName:        chr.Spec.ChartName,
+		ChartVersion:     chr.Spec.ChartVersion,
+		Values:           chr.Spec.Values,
+		ReleaseName:      chr.Name,
+		Commit:           chr.Annotations[model.CommitLabel],
+		Namespace:        chr.Namespace,
+		ImagePullSecrets: chr.Spec.ImagePullSecrets,
 	}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
@@ -352,13 +352,14 @@ func installHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Packet {
 
 func updateHelmReleaseCmd(chr *c7nv1alpha1.C7NHelmRelease) *model.Packet {
 	req := &modelhelm.UpgradeReleaseRequest{
-		RepoURL:      chr.Spec.RepoURL,
-		ChartName:    chr.Spec.ChartName,
-		ChartVersion: chr.Spec.ChartVersion,
-		Values:       chr.Spec.Values,
-		ReleaseName:  chr.Name,
-		Commit:       chr.Annotations[model.CommitLabel],
-		Namespace:    chr.Namespace,
+		RepoURL:          chr.Spec.RepoURL,
+		ChartName:        chr.Spec.ChartName,
+		ChartVersion:     chr.Spec.ChartVersion,
+		Values:           chr.Spec.Values,
+		ReleaseName:      chr.Name,
+		Commit:           chr.Annotations[model.CommitLabel],
+		Namespace:        chr.Namespace,
+		ImagePullSecrets: chr.Spec.ImagePullSecrets,
 	}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
@@ -389,17 +390,17 @@ func newReleaseSyncFailRep(chr *c7nv1alpha1.C7NHelmRelease, msg string) *model.P
 
 func (c *Controller) checkCrdDeleted() bool {
 	count := 0
-	for i := 0; i < 5 ; i++ {
-		list,err := c.kubeClientset.Discovery().ServerResourcesForGroupVersion("choerodon.io/v1alpha1")
-		if err != nil  {
+	for i := 0; i < 5; i++ {
+		list, err := c.kubeClientset.Discovery().ServerResourcesForGroupVersion("choerodon.io/v1alpha1")
+		if err != nil {
 			glog.Warningf("client query ServerResourcesForGroupVersion or crd been deleted")
 			return true
 		}
-		for _,apiResource := range list.APIResources {
+		for _, apiResource := range list.APIResources {
 			if apiResource.Name == "c7nhelmreleases" {
 				count ++
 				if count == 5 {
-					return  false
+					return false
 				}
 				continue
 

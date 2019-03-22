@@ -1,23 +1,26 @@
-image: registry.cn-hangzhou.aliyuncs.com/choerodon-tools/cibase:0.6.0
+image: registry${ALIYUN_VPC}.cn-shanghai.aliyuncs.com/choerodon-tools/cibase:0.8.1
 
 stages:
-  - docker-build
+  - build
+  - release
 
-docker-build:
-  stage: docker-build
+build:
+  stage: build
   script:
-    - docker build --pull -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG} .
-    - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}
+    - kaniko -c $PWD -f $PWD/Dockerfile -d ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}
+
+release:
+  stage: release
+  script:
     - chart_build
 
 .auto_devops: &auto_devops |
-    curl -o .auto_devops.sh \
-        "${CHOERODON_URL}/devops/ci?token=${Token}&type=microservice"
-    if [ $? -ne 0 ];then
-      cat .auto_devops.sh
-      exit 1
-    fi
-    source .auto_devops.sh
+  http_status_code=`curl -o .auto_devops.sh -s -m 10 --connect-timeout 10 -w %{http_code} "${CHOERODON_URL}/devops/ci?token=${Token}&type=microservice"`
+  if [ "$http_status_code" != "200" ]; then
+    cat .auto_devops.sh
+    exit 1
+  fi
+  source .auto_devops.sh
 
 before_script:
   - *auto_devops

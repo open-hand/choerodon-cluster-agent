@@ -23,7 +23,7 @@ func init() {
 func writeSSHkey(fileName, key string) error {
 
 	filename := "/rsa-" + fileName
-	//filename := "/Users/crcokitwood/" + fileName
+	//filename := "/Users/setzero/" + fileName
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)
@@ -56,7 +56,7 @@ func config(host, namespace string) string {
 	result = result + fmt.Sprintf("  StrictHostKeyChecking no\n")
 	result = result + fmt.Sprintf("  UserKnownHostsFile /dev/null\n")
 	result = result + fmt.Sprintf("  IdentityFile /rsa-%s\n", namespace)
-	//result = result + fmt.Sprintf("  IdentityFile /Users/crcokitwood/%s\n", namespace)
+	//result = result + fmt.Sprintf("  IdentityFile /Users/setzero/%s\n", namespace)
 	result = result + fmt.Sprintf("  LogLevel error\n")
 	return result
 }
@@ -64,7 +64,7 @@ func config(host, namespace string) string {
 func writeSshConfig(content string) error {
 
 	filename := "/etc/ssh/ssh_config"
-	//filename:= "/Users/crcokitwood/ssh_config"
+	//filename:= "/Users/setzero/ssh_config"
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)
