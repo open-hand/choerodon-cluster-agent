@@ -12,8 +12,9 @@ RUN apk --no-cache add \
         tree \
         tzdata \
         openssh && \
-    cp -rf /usr/share/zoneinfo/Hongkong /etc/localtime && \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    echo "Asia/Shanghai" > /etc/timezone
 COPY ./docker/ssh_config /etc/ssh/ssh_config
-COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent .
+COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent /
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["/choerodon-cluster-agent"]
