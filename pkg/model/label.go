@@ -2,7 +2,7 @@ package model
 
 const (
 	AppLabel           = "choerodon.io/application"
-	MicroServiceConfig = "choerodon.io/config"
+	MicroServiceConfig = "choerodon.io/feature"
 	AppVersionLabel    = "choerodon.io/version"
 	ReleaseLabel       = "choerodon.io/release"
 	NetworkLabel       = "choerodon.io/network"

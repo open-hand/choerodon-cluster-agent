@@ -134,7 +134,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	if configMap.Labels[model.ReleaseLabel] != "" {
 		glog.V(2).Info(configMap.Labels[model.ReleaseLabel], ":", configMap)
 		c.responseChan <- newconfigMapRep(configMap)
-	} else if configMap.Labels[model.MicroServiceConfig] != "" {
+	} else if configMap.Annotations[model.MicroServiceConfig] != "" {
 		c.responseChan <- newConfigConfigMapRep(configMap)
 	} else if configMap.Labels[model.AgentVersionLabel] != ""{
 		glog.V(2).Info(configMap.Labels[model.ReleaseLabel], ":", configMap)
