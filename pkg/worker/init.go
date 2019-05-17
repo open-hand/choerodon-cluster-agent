@@ -24,6 +24,10 @@ func writeSSHkey(fileName, key string) error {
 
 	filename := "/rsa-" + fileName
 	//filename := "/Users/setzero/" + fileName
+	//home, _:= homedir.Dir()
+	//filename := home +"\\" + fileName
+
+
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)
@@ -57,6 +61,8 @@ func config(host, namespace string) string {
 	result = result + fmt.Sprintf("  UserKnownHostsFile /dev/null\n")
 	result = result + fmt.Sprintf("  IdentityFile /rsa-%s\n", namespace)
 	//result = result + fmt.Sprintf("  IdentityFile /Users/setzero/%s\n", namespace)
+	//home,_:= homedir.Dir()
+	//result = result + fmt.Sprintf("  IdentityFile %s/%s\n", home,namespace)
 	result = result + fmt.Sprintf("  LogLevel error\n")
 	return result
 }
@@ -65,6 +71,8 @@ func writeSshConfig(content string) error {
 
 	filename := "/etc/ssh/ssh_config"
 	//filename:= "/Users/setzero/ssh_config"
+	//home,_:= homedir.Dir()
+	//filename := fmt.Sprintf("%s/ssh_config", home)
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)

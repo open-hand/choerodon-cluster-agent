@@ -178,9 +178,9 @@ func (c *controller) syncHandler(key string) (bool, error) {
 			if err != nil {
 				glog.Error("get job log error ", err)
 			} else if strings.TrimSpace(jobLogs) != "" {
-				if len(jobLogs) > 20480 {
-					jobLogs = jobLogs[:20489]
-				}
+				//if len(jobLogs) > 20480 {
+				//	jobLogs = jobLogs[:20489]
+				//}
 				c.responseChan <- newJobLogRep(job.Name, job.Labels[model.ReleaseLabel], jobLogs, namespace)
 			}
 			err = c.kubeClient.DeleteJob(namespace, job.Name)
