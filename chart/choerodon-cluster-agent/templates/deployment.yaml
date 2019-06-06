@@ -41,11 +41,4 @@ spec:
           protocol: TCP
         resources:
 {{ toYaml .Values.resources | indent 12 }}
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      schedulerName: default-scheduler
-      securityContext: {}
       serviceAccountName: {{ if .Values.rbac.create }}"{{ .Release.Name }}"{{ else }}"{{ .Values.rbac.serviceAccountName }}"{{ end }}
-      terminationGracePeriodSeconds: 30
-  revisionHistoryLimit: 3
-  minReadySeconds: 0

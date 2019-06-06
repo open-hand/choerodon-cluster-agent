@@ -37,11 +37,10 @@ type controller struct {
 	kubeClient       kube.Client
 	helmClient       helm.Client
 	namespaces       *manager.Namespaces
-	platformCode    string
+	platformCode     string
 }
 
-
-func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, helmClient helm.Client, responseChan chan<- *model.Packet, namespaces   *manager.Namespaces, platformCode string) *controller {
+func NewJobController(jobInformer v1_informer.JobInformer, client kube.Client, helmClient helm.Client, responseChan chan<- *model.Packet, namespaces *manager.Namespaces, platformCode string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "job"),
@@ -170,11 +169,11 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		return false, err
 	}
 
-	if job.Labels[model.ReleaseLabel] != "" &&  job.Labels[model.TestLabel] == ""{
+	if job.Labels[model.ReleaseLabel] != "" && job.Labels[model.TestLabel] == "" {
 		glog.V(2).Info(job.Labels[model.ReleaseLabel], ":", job)
 		c.responseChan <- newJobRep(job)
-		if  finish,_ := IsJobFinished(job); finish {
-			jobLogs, err := c.kubeClient.LogsForJob(namespace, job.Name)
+		if finish, _ := IsJobFinished(job); finish {
+			jobLogs, _, err := c.kubeClient.LogsForJob(namespace, job.Name, model.ReleaseLabel)
 			if err != nil {
 				glog.Error("get job log error ", err)
 			} else if strings.TrimSpace(jobLogs) != "" {
@@ -189,16 +188,21 @@ func (c *controller) syncHandler(key string) (bool, error) {
 			}
 		}
 
-	} else if  job.Labels[model.TestLabel] == c.platformCode {
+	} else if job.Labels[model.TestLabel] == c.platformCode {
 		//监听
-		if  finsish,succeed := IsJobFinished(job); finsish {
-			jobLogs, err := c.kubeClient.LogsForJob(namespace, job.Name)
+		if finsish, succeed := IsJobFinished(job); finsish {
+			jobLogs, jobstatus, err := c.kubeClient.LogsForJob(namespace, job.Name, model.TestLabel)
+
+			if succeed == false && jobstatus == "success"{
+				succeed = true
+			}
+
 			if err != nil {
 				glog.Error("get job log error ", err)
 			} else if strings.TrimSpace(jobLogs) != "" {
 				c.responseChan <- newTestJobLogRep(job.Labels[model.TestLabel], job.Labels[model.ReleaseLabel], jobLogs, namespace, succeed)
 			}
-			_,err = c.helmClient.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: job.Labels[model.ReleaseLabel]})
+			_, err = c.helmClient.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: job.Labels[model.ReleaseLabel]})
 			if err != nil {
 				glog.Error("delete release error", err)
 			}
@@ -230,9 +234,9 @@ func newTestJobLogRep(label string, release string, jobLogs string, namespace st
 		Succeed: succeed,
 		Log:     jobLogs,
 	}
-	rspBytes,err := json.Marshal(rsp)
+	rspBytes, err := json.Marshal(rsp)
 	if err != nil {
-		glog.Errorf("marshal test job rsp error: %v",err )
+		glog.Errorf("marshal test job rsp error: %v", err)
 	}
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.label:%s", namespace, release, label),
@@ -254,16 +258,16 @@ func newJobRep(job *v1.Job) *model.Packet {
 	}
 }
 
-func IsJobFinished(j *v1.Job) (bool,bool) {
+func IsJobFinished(j *v1.Job) (bool, bool) {
 	for _, c := range j.Status.Conditions {
-		if  c.Status == "True" {
+		if c.Status == "True" {
 			if c.Type == v1.JobComplete {
 
 				return true, true
-			} else if  c.Type == v1.JobFailed {
-				return true,false
+			} else if c.Type == v1.JobFailed {
+				return true, false
 			}
 		}
 	}
-	return false,false
+	return false, false
 }

@@ -3,7 +3,8 @@ WORKDIR /go/src/github.com/choerodon/choerodon-cluster-agent
 COPY . .
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build .
 
-FROM registry.cn-hangzhou.aliyuncs.com/choerodon-tools/agent-kubectl:1.9.0
+FROM alpine:3.7
+ARG KUBECTL_VRESION=v1.14.1
 RUN apk --no-cache add \
         git \
         tini \
@@ -11,7 +12,11 @@ RUN apk --no-cache add \
         bash \
         tree \
         tzdata \
-        openssh && \
+        openssh \
+        ca-certificates && \
+    wget -q -O /usr/bin/kubectl \
+           "http://mirror.azure.cn/kubernetes/kubectl/${KUBECTL_VRESION}/bin/linux/amd64/kubectl" && \
+    chmod a+x /usr/bin/kubectl && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone
 COPY ./docker/ssh_config /etc/ssh/ssh_config

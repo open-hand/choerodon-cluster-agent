@@ -28,6 +28,7 @@ import (
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"k8s.io/kubernetes/pkg/kubectl/resource"
 	"net/http"
+	"strings"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
@@ -36,7 +37,7 @@ import (
 
 type Client interface {
 	DeleteJob(namespace string, name string) error
-	LogsForJob(namespace string, name string) (string, error)
+	LogsForJob(namespace string, name string, jobLabel string) (string, string, error)
 	GetResources(namespace string, manifest string) ([]*model_helm.ReleaseResource, error)
 	CreateOrUpdateService(namespace string, serviceStr string) (*core_v1.Service, error)
 	CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error)
@@ -61,6 +62,8 @@ type Client interface {
 	IsReleaseJobRun(namespace, releaseName string) bool
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
 }
+
+const testContainer string = "automation-test"
 
 var AgentVersion string
 
@@ -202,32 +205,57 @@ func (c *client) AsVersionedObject(obj runtime.Object) (runtime.Object, error) {
 	return versions.First(), err
 }
 
-func (c *client) LogsForJob(namespace string, name string) (string, error) {
+func (c *client) LogsForJob(namespace string, name string, jobLabel string) (string, string, error) {
+
+	var jobStatus = ""
 	job, err := c.client.BatchV1().Jobs(namespace).Get(name, meta_v1.GetOptions{})
 	if err != nil {
-		return "", err
+		return "", jobStatus, err
 	}
 	selector, err := meta_v1.LabelSelectorAsSelector(job.Spec.Selector)
 	if err != nil {
-		return "", err
+		return "", jobStatus, err
 	}
 	podList, err := c.client.CoreV1().Pods(namespace).List(meta_v1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
-		return "", err
+		return "", jobStatus, err
 	}
 	if len(podList.Items) == 0 {
-		return "", nil
+		return "", jobStatus, nil
 	}
 	pod := podList.Items[0]
-	req := c.client.CoreV1().Pods(namespace).GetLogs(pod.Name, &core_v1.PodLogOptions{})
+
+	//测试应用类型为2个容器的,返回指定容器的日志，job状态由指定容器的状态决定
+	var options = &core_v1.PodLogOptions{}
+	if jobLabel == model.TestLabel {
+		for _, container := range pod.Spec.Containers {
+			if strings.Contains(container.Name, testContainer) {
+				options = &core_v1.PodLogOptions{
+					Container: container.Name,
+				}
+			}
+		}
+	}
+
+	if jobLabel == model.TestLabel {
+		if len(pod.Status.ContainerStatuses) == 2 {
+			for _, podStatus := range pod.Status.ContainerStatuses {
+				if strings.Contains(podStatus.Name, testContainer) && podStatus.State.Terminated != nil && podStatus.State.Terminated.Reason == "Completed" {
+					jobStatus = "success"
+				}
+			}
+		}
+	}
+
+	req := c.client.CoreV1().Pods(namespace).GetLogs(pod.Name, options)
 	readCloser, err := req.Stream()
 	if err != nil {
-		return "", err
+		return "", jobStatus, err
 	}
 	defer readCloser.Close()
 	buf := new(bytes.Buffer)
 	io.Copy(buf, readCloser)
-	return buf.String(), nil
+	return buf.String(), jobStatus, nil
 }
 
 func (c *client) CreateOrUpdateService(namespace string, serviceStr string) (*core_v1.Service, error) {
