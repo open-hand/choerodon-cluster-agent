@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
@@ -111,7 +112,7 @@ func (c *client) ListRelease(namespace string) ([]*model_helm.Release, error) {
 	releases := make([]*model_helm.Release, 0)
 	hlr, err := c.helmClient.ListReleases(helm.ReleaseListNamespace(namespace))
 	if err != nil {
-		glog.Errorf("helm client list release error", err)
+		glog.Error("helm client list release error", err)
 	}
 
 	for _, hr := range hlr.Releases {
@@ -281,9 +282,30 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		}
 		glog.Infof("kubectl %s", kubectl)
 		kubectlApplier := kubernetes.NewKubectl(kubectl, c.config)
-		kubectlApplier.ApplySingleObj("kube-system", model.CERT_MANAGER_CONFIG)
+
+		err = kubectlApplier.ApplySingleObj("kube-system", getCertManagerIssuerData())
 	}
 	return rls, err
+}
+
+func getCertManagerIssuerData() string {
+	email := os.Getenv("ACME_EMAIL")
+	if email == "" {
+		email = "change_it@choerodon.io"
+	}
+	tml, err := template.New("issuertpl").Parse(model.CertManagerClusterIssuer)
+	if err != nil {
+		glog.Error(err)
+	}
+	var data bytes.Buffer
+	if err := tml.Execute(&data, struct {
+		ACME_EMAIL string
+	}{
+		ACME_EMAIL: email,
+	}); err != nil {
+		glog.Error(err)
+	}
+	return data.String()
 }
 
 func (c *client) ExecuteTest(request *model_helm.TestReleaseRequest) (*model_helm.TestReleaseResponse, error) {
@@ -317,7 +339,7 @@ func (c *client) ExecuteTest(request *model_helm.TestReleaseRequest) (*model_hel
 	}
 
 	for index, manifestToInsert := range manifestDocs {
-		newManifestBuf, err := c.kubeClient.LabelTestObjects(testNamespace,request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.Label)
+		newManifestBuf, err := c.kubeClient.LabelTestObjects(testNamespace, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.Label)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
@@ -641,7 +663,7 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *model_hel
 					glog.Infof("rls: %s upgrade error ", rls.Name)
 					continue
 				}
-				if ! strings.Contains(devConnectUrl, connectUrl) {
+				if !strings.Contains(devConnectUrl, connectUrl) {
 					continue
 				}
 				stopRls := &model_helm.StopReleaseRequest{
@@ -903,7 +925,7 @@ func removeStringValues(values string) (error, string) {
 	return nil, string(bytesValues)
 }
 
-func labelChartsConfigMap(chart *chart.Chart, results *[]string) (error) {
+func labelChartsConfigMap(chart *chart.Chart, results *[]string) error {
 	for _, tmp := range chart.Templates {
 		tmpContent := string(tmp.Data)
 		if strings.Contains(tmpContent, "ConfigMap") {
