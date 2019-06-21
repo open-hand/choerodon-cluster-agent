@@ -17,6 +17,7 @@ config:
   logLevel: 0
   envId: ""
   extraArgs:
+  email: change_it@choerodon.io
 
 logs:
   parser: docker

@@ -23,6 +23,9 @@ spec:
       - name: {{ .Release.Name }}
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+          - name: ACME_EMAIL
+            value: {{ .Values.config.email }}
         args:
         - /choerodon-cluster-agent
         - --v={{ .Values.config.logLevel }}
