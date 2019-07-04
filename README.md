@@ -8,16 +8,22 @@
 
 - [x] helm release management
 - [x] Web Services and Domain Management
-- [x] K8s object monitoring and processing
+- [x] Kubernetes object monitoring and processing
 - [x] Container log and shell
 - [x] WebSocket log of k8s object
 
 ## Requirements
 
-- Go 1.9.4 and above
-- [Dep](https://github.com/golang/dep)
+- Go 1.11.5 and above
 
 ## Installation and Run
+
+Get Code
+
+```bash
+go get github.com/choerodon/choerodon-cluster-agent
+cd `go env GOPATH`/src/github.com/choerodon/choerodon-cluster-agent/
+```
 
 Build
 
@@ -28,11 +34,13 @@ make
 Run
 
 ```bash
+SERVER_ADDRESS=wss://your.devops.domain/agent/?version=your-agent-version&clusterId=your-cluster-id&token=your-token&key=cluster:your-cluster-id
+Token=your-token
 ./bin/choerodon-cluster-agent \
     --v=1 \
     --tiller-connection-timeout=2 \
-    --connect=[Server address] \
-    --token=[Token] \
+    --connect=${SERVER_ADDRESS} \
+    --token=${Token} 
 ```
 
 ## Reporting Issues
