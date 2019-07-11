@@ -42,8 +42,8 @@ func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *
 		workerLoopPeriod: time.Second,
 		lister:           podInformer.Lister(),
 		responseChan:     responseChan,
-		namespaces:        namespaces,
-		platformCode:    platformCode,
+		namespaces:       namespaces,
+		platformCode:     platformCode,
 	}
 
 	podInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -70,7 +70,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	namespaces := c.namespaces.GetAll()
-	for  _,ns := range namespaces {
+	for _, ns := range namespaces {
 		pods, err := c.lister.Pods(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")

@@ -24,6 +24,7 @@ const (
 	initialBackOff = 1 * time.Second
 	maxBackOff     = 60 * time.Second
 )
+
 var connectFlag = false
 
 type WebSocketClient interface {
@@ -61,13 +62,13 @@ func NewClient(
 	httpClient := cleanhttp.DefaultClient()
 
 	c := &appClient{
-		url:        endpointURL,
-		token:      t,
+		url:       endpointURL,
+		token:     t,
 		crChannel: crChannel,
-		quit:       make(chan struct{}),
-		client:     httpClient,
-		pipeConns:  make(map[string]*websocket.Conn),
-		respQueue:  make([]*model.Packet, 0, 100),
+		quit:      make(chan struct{}),
+		client:    httpClient,
+		pipeConns: make(map[string]*websocket.Conn),
+		respQueue: make([]*model.Packet, 0, 100),
 	}
 
 	return c, nil
@@ -176,7 +177,7 @@ func (c *appClient) sendResponse(resp *model.Packet) error {
 	//	glog.Errorf("message %s/%s to large", resp.Key, resp.Type)
 	//	return nil
 	//}
-	return  c.conn.WriteMessage(websocket.TextMessage,content)
+	return c.conn.WriteMessage(websocket.TextMessage, content)
 }
 
 func (c *appClient) hasQuit() bool {
@@ -321,16 +322,16 @@ func (c *appClient) pipeConnection(id string, pipe common.Pipe) (bool, error) {
 	return true, nil
 }
 
-func newReConnectCommand()  *model.Packet{
+func newReConnectCommand() *model.Packet {
 	return &model.Packet{
-		Key: "inter:inter",
+		Key:  "inter:inter",
 		Type: model.ReSyncAgent,
 	}
 }
-func newUpgradeInfoCommand(connectUrl string)  *model.Packet{
+func newUpgradeInfoCommand(connectUrl string) *model.Packet {
 	return &model.Packet{
-		Key: "inter:inter",
-		Type: model.UpgradeCluster,
+		Key:     "inter:inter",
+		Type:    model.UpgradeCluster,
 		Payload: connectUrl,
 	}
 }

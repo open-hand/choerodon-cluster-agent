@@ -1,24 +1,24 @@
 package daemonset
 
 import (
-"encoding/json"
-"fmt"
-"github.com/choerodon/choerodon-cluster-agent/manager"
-"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
-"k8s.io/apimachinery/pkg/labels"
-"time"
+	"encoding/json"
+	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
+	"k8s.io/apimachinery/pkg/labels"
+	"time"
 
-"github.com/golang/glog"
-extensions "k8s.io/api/extensions/v1beta1"
-"k8s.io/apimachinery/pkg/api/errors"
-"k8s.io/apimachinery/pkg/util/runtime"
-"k8s.io/apimachinery/pkg/util/wait"
-appv1 "k8s.io/client-go/informers/extensions/v1beta1"
-appv1_lister "k8s.io/client-go/listers/extensions/v1beta1"
-"k8s.io/client-go/tools/cache"
-"k8s.io/client-go/util/workqueue"
+	"github.com/golang/glog"
+	extensions "k8s.io/api/extensions/v1beta1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/apimachinery/pkg/util/wait"
+	appv1 "k8s.io/client-go/informers/extensions/v1beta1"
+	appv1_lister "k8s.io/client-go/listers/extensions/v1beta1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
-"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 )
 
 var (
@@ -28,17 +28,16 @@ var (
 type controller struct {
 	queue workqueue.RateLimitingInterface
 	// workerLoopPeriod is the time between worker runs. The workers process the queue of service and pod changes.
-	workerLoopPeriod  time.Duration
-	lister            appv1_lister.DaemonSetLister
-	responseChan      chan<- *model.Packet
-	synced cache.InformerSynced
-	namespaces        *manager.Namespaces
+	workerLoopPeriod time.Duration
+	lister           appv1_lister.DaemonSetLister
+	responseChan     chan<- *model.Packet
+	synced           cache.InformerSynced
+	namespaces       *manager.Namespaces
 }
 
-
-func (c *controller) resourceSync()  {
+func (c *controller) resourceSync() {
 	namespaces := c.namespaces.GetAll()
-	for  _,ns := range namespaces {
+	for _, ns := range namespaces {
 		pods, err := c.lister.DaemonSets(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
@@ -196,6 +195,6 @@ func newDaemonSetRep(daemonSet *extensions.DaemonSet) *model.Packet {
 	}
 }
 
-func (c *controller) ReSync()  {
+func (c *controller) ReSync() {
 
 }

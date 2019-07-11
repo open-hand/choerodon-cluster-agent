@@ -15,8 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	v1_informer "k8s.io/client-go/informers/apps/v1"
-	v1_lister "k8s.io/client-go/listers/apps/v1"
 	beta2_informer "k8s.io/client-go/informers/apps/v1beta2"
+	v1_lister "k8s.io/client-go/listers/apps/v1"
 	beta2_lister "k8s.io/client-go/listers/apps/v1beta2"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -33,12 +33,9 @@ type controller struct {
 	workerLoopPeriod time.Duration
 	lister           v1_lister.StatefulSetLister
 	responseChan     chan<- *model.Packet
-	synced       cache.InformerSynced
+	synced           cache.InformerSynced
 	namespaces       *manager.Namespaces
 }
-
-
-
 
 func NewStatefulSetController(statefulSetInformer v1_informer.StatefulSetInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
 
@@ -47,7 +44,7 @@ func NewStatefulSetController(statefulSetInformer v1_informer.StatefulSetInforme
 		workerLoopPeriod: time.Second,
 		lister:           statefulSetInformer.Lister(),
 		responseChan:     responseChan,
-		namespaces:        namespaces,
+		namespaces:       namespaces,
 	}
 
 	statefulSetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -74,7 +71,7 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	namespaces := c.namespaces.GetAll()
-	for  _,ns := range namespaces {
+	for _, ns := range namespaces {
 		pods, err := c.lister.StatefulSets(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
@@ -196,14 +193,13 @@ func newPodRep(pod *v1.StatefulSet) *model.Packet {
 	}
 }
 
-
 type beta2Controller struct {
 	queue workqueue.RateLimitingInterface
 	// workerLoopPeriod is the time between worker runs. The workers process the queue of pod and pod changes.
 	workerLoopPeriod time.Duration
 	lister           beta2_lister.StatefulSetLister
 	responseChan     chan<- *model.Packet
-	synced       cache.InformerSynced
+	synced           cache.InformerSynced
 	namespaces       *manager.Namespaces
 }
 
@@ -214,7 +210,7 @@ func NewBeta2StatefulSetController(statefulSetInformer beta2_informer.StatefulSe
 		workerLoopPeriod: time.Second,
 		lister:           statefulSetInformer.Lister(),
 		responseChan:     responseChan,
-		namespaces:        namespaces,
+		namespaces:       namespaces,
 	}
 
 	statefulSetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -241,7 +237,7 @@ func (c *beta2Controller) Run(workers int, stopCh <-chan struct{}) {
 	}
 
 	namespaces := c.namespaces.GetAll()
-	for  _,ns := range namespaces {
+	for _, ns := range namespaces {
 		pods, err := c.lister.StatefulSets(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")

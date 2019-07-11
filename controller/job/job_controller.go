@@ -193,7 +193,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		if finsish, succeed := IsJobFinished(job); finsish {
 			jobLogs, jobstatus, err := c.kubeClient.LogsForJob(namespace, job.Name, model.TestLabel)
 
-			if succeed == false && jobstatus == "success"{
+			if succeed == false && jobstatus == "success" {
 				succeed = true
 			}
 

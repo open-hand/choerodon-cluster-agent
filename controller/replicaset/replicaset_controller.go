@@ -32,12 +32,12 @@ type controller struct {
 
 	responseChan      chan<- *model.Packet
 	replicasetsSynced cache.InformerSynced
-	namespaces       *manager.Namespaces
+	namespaces        *manager.Namespaces
 }
 
-func (c *controller) resourceSync()  {
+func (c *controller) resourceSync() {
 	namespaces := c.namespaces.GetAll()
-	for  _,ns := range namespaces {
+	for _, ns := range namespaces {
 		lister := c.replicsetInformer.Lister()
 		rsList, err := lister.ReplicaSets(ns).List(labels.NewSelector())
 		if err != nil {
@@ -68,14 +68,14 @@ func (c *controller) resourceSync()  {
 	}
 }
 
-func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, responseChan chan<- *model.Packet, namespaces  *manager.Namespaces) *controller {
+func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
 
 	c := &controller{
 		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "replicaset"),
 		workerLoopPeriod:  time.Second,
 		replicsetInformer: replicasetInformer,
 		responseChan:      responseChan,
-		namespaces:         namespaces,
+		namespaces:        namespaces,
 	}
 
 	replicasetInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

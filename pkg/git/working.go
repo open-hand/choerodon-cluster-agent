@@ -14,16 +14,16 @@ import (
 // Config holds some values we use when working in the working clone of
 // a repo.
 type Config struct {
-	Branch      string // branch we're syncing to
-	Path        string // path within the repo containing files we care about
-	SyncTag     string
-	NotesRef    string
-	UserName    string
-	UserEmail   string
-	SetAuthor   bool
-	SkipMessage string
-	DevOpsTag   string
-	GitUrl      string
+	Branch          string // branch we're syncing to
+	Path            string // path within the repo containing files we care about
+	SyncTag         string
+	NotesRef        string
+	UserName        string
+	UserEmail       string
+	SetAuthor       bool
+	SkipMessage     string
+	DevOpsTag       string
+	GitUrl          string
 	GitPollInterval time.Duration
 }
 
@@ -55,7 +55,6 @@ func (r *Repo) Clone(ctx context.Context, conf Config) (*Checkout, error) {
 		return nil, err
 	}
 
-
 	if err := config(ctx, repoDir, conf.UserName, conf.UserEmail); err != nil {
 		os.RemoveAll(repoDir)
 		return nil, err
@@ -68,9 +67,6 @@ func (r *Repo) Clone(ctx context.Context, conf Config) (*Checkout, error) {
 		os.RemoveAll(repoDir)
 		return nil, err
 	}
-
-
-
 
 	return &Checkout{
 		dir:          repoDir,
@@ -167,7 +163,7 @@ func (c *Checkout) ChangedFiles(ctx context.Context, ref string) ([]string, []st
 	return absolutePath, list, err
 }
 
-func (c *Checkout) FileLastCommit(ctx context.Context, file string) (string, error)  {
+func (c *Checkout) FileLastCommit(ctx context.Context, file string) (string, error) {
 	return fileLastCommit(ctx, c.dir, c.config.Path, file)
 }
 

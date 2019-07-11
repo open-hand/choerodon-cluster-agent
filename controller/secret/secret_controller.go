@@ -33,14 +33,14 @@ type controller struct {
 	namespaces       *manager.Namespaces
 }
 
-func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan chan<- *model.Packet, namespaces  *manager.Namespaces) *controller {
+func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "endpoint"),
 		workerLoopPeriod: time.Second,
 		lister:           secretInformer.Lister(),
 		responseChan:     responseChan,
-		namespaces:        namespaces,
+		namespaces:       namespaces,
 	}
 
 	secretInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

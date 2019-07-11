@@ -13,13 +13,12 @@ import (
 
 // -- unmarshaling code for specific object and field types
 
-
 // struct to embed in objects, to provide default implementation
 type BaseObject struct {
 	SourceName string
-	BytesArray  []byte
-	Kind   string `yaml:"kind"`
-	Meta   resource.Meta   `yaml:"metadata"`
+	BytesArray []byte
+	Kind       string        `yaml:"kind"`
+	Meta       resource.Meta `yaml:"metadata"`
 }
 
 func (o BaseObject) ResourceID() resource.ResourceID {
@@ -48,7 +47,7 @@ func (o BaseObject) Bytes() []byte {
 	return o.BytesArray
 }
 
-func (o BaseObject)Metas() resource.Meta{
+func (o BaseObject) Metas() resource.Meta {
 	return o.Meta
 }
 

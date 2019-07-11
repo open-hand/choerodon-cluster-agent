@@ -64,8 +64,8 @@ type Client interface {
 	DeleteNamespace(namespace string) error
 	GetSecret(namespace string, secretName string) (string, error)
 	GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error)
-	GetKubeClient() (*kubernetes.Clientset)
-	GetC7NClient() (*chrclientset.Clientset)
+	GetKubeClient() *kubernetes.Clientset
+	GetC7NClient() *chrclientset.Clientset
 	IsReleaseJobRun(namespace, releaseName string) bool
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
 }
@@ -140,11 +140,11 @@ func (c *client) GetDiscoveryClient() (discovery.DiscoveryInterface, error) {
 	return c.client.Discovery(), nil
 }
 
-func (c *client) GetKubeClient() (*kubernetes.Clientset) {
+func (c *client) GetKubeClient() *kubernetes.Clientset {
 	return c.client
 }
 
-func (c *client) GetC7NClient() (*chrclientset.Clientset) {
+func (c *client) GetC7NClient() *chrclientset.Clientset {
 	return c.c7nClient
 }
 
@@ -363,7 +363,7 @@ func (c *client) IsReleaseJobRun(namespace, releaseName string) bool {
 	labelMap := make(map[string]string)
 	labelMap[model.ReleaseLabel] = releaseName
 	options := &meta_v1.LabelSelector{
-		MatchLabels: labelMap,}
+		MatchLabels: labelMap}
 
 	slector, err := meta_v1.LabelSelectorAsSelector(options)
 	if err != nil {

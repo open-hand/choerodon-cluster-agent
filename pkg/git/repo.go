@@ -53,7 +53,7 @@ type Repo struct {
 	origin   Remote
 	interval time.Duration
 
-	Env    string
+	Env string
 
 	// State
 	mu     sync.RWMutex
@@ -86,7 +86,7 @@ func NewRepo(origin Remote, env string, opts ...Option) *Repo {
 		status:   status,
 		interval: defaultInterval,
 		err:      nil,
-		Env:	  env,
+		Env:      env,
 		notify:   make(chan struct{}, 1), // `1` so that Notify doesn't block
 		C:        make(chan struct{}, 1), // `1` so we don't block on completing a refresh
 	}
@@ -258,7 +258,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 				r.refreshed()
 				continue // with new status, skipping timer
 			}
-			glog.Errorf("env: %s repo clone error: %v",r.Env,  err)
+			glog.Errorf("env: %s repo clone error: %v", r.Env, err)
 			ctx, cancel = context.WithTimeout(bg, opTimeout)
 			r.fetch(ctx)
 			cancel()

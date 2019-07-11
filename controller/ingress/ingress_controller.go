@@ -35,9 +35,9 @@ type controller struct {
 	namespaces       *manager.Namespaces
 }
 
-func (c *controller) resourceSync()  {
+func (c *controller) resourceSync() {
 	namespaces := c.namespaces.GetAll()
-	for  _,ns := range namespaces {
+	for _, ns := range namespaces {
 		pods, err := c.lister.Ingresses(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
@@ -67,14 +67,14 @@ func (c *controller) resourceSync()  {
 	}
 }
 
-func NewIngressController(ingressInformer appv1.IngressInformer, responseChan chan<- *model.Packet, namespaces  *manager.Namespaces) *controller {
+func NewIngressController(ingressInformer appv1.IngressInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ingress"),
 		workerLoopPeriod: time.Second,
 		lister:           ingressInformer.Lister(),
 		responseChan:     responseChan,
-		namespaces:		namespaces,
+		namespaces:       namespaces,
 	}
 
 	ingressInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{

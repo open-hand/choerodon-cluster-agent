@@ -35,10 +35,9 @@ type controller struct {
 	namespaces        *manager.Namespaces
 }
 
-
-func (c *controller) resourceSync()  {
+func (c *controller) resourceSync() {
 	namespaces := c.namespaces.GetAll()
-	for  _,ns := range namespaces {
+	for _, ns := range namespaces {
 		pods, err := c.lister.Deployments(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
@@ -223,6 +222,6 @@ func newDeploymentRep(deployment *extensions.Deployment) *model.Packet {
 	}
 }
 
-func (c *controller) ReSync()  {
+func (c *controller) ReSync() {
 
 }

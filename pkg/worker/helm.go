@@ -23,7 +23,7 @@ func init() {
 	registerCmdFunc(model.HelmReleaseGetContent, getHelmReleaseContent)
 	registerCmdFunc(model.StatusSync, syncStatus)
 	registerCmdFunc(model.ExecuteTest, executeTestRelease)
-	registerCmdFunc(model.TestStatusRequest,GetTestStatus )
+	registerCmdFunc(model.TestStatusRequest, GetTestStatus)
 
 }
 
@@ -120,17 +120,17 @@ func GetTestStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model
 	}
 
 	releasesStatus := []model_helm.TestReleaseStatus{}
-	for _,rls := range releaseNames {
-		status := releaseStatus(w,rls)
+	for _, rls := range releaseNames {
+		status := releaseStatus(w, rls)
 		if status != "" {
 			testRlsStatus := model_helm.TestReleaseStatus{
 				ReleaseName: rls,
-				Status: status,
+				Status:      status,
 			}
 			releasesStatus = append(releasesStatus, testRlsStatus)
 		}
 	}
-	contents,err := json.Marshal(releasesStatus)
+	contents, err := json.Marshal(releasesStatus)
 
 	if err != nil {
 		glog.Errorf("marshal test status request response error %v,", err)
@@ -145,15 +145,15 @@ func GetTestStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model
 
 }
 
-func releaseStatus(w *workerManager,releaseName string) string {
+func releaseStatus(w *workerManager, releaseName string) string {
 	_, err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: releaseName})
 	if err != nil {
-		if strings.Contains(err.Error(), "not exist"){
+		if strings.Contains(err.Error(), "not exist") {
 			return "delete"
 		}
-		return  ""
+		return ""
 	}
-	jobRun := w.kubeClient.IsReleaseJobRun("choerodon-test",releaseName)
+	jobRun := w.kubeClient.IsReleaseJobRun("choerodon-test", releaseName)
 	if jobRun {
 		return "running"
 	} else {
@@ -192,7 +192,6 @@ func preUpdateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet,
 	return newCmds, resp
 }
 
-
 func updateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req model_helm.UpgradeReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
@@ -204,7 +203,7 @@ func updateHelmRelease(w *workerManager, cmd *model.Packet) ([]*model.Packet, *m
 	}
 	resp, err := w.helmClient.UpgradeRelease(&req)
 	if err != nil {
-		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == "choerodon"{
+		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == "choerodon" {
 			go func() {
 				randWait := rand2.Intn(20)
 				time.Sleep(time.Duration(randWait) * time.Second)
@@ -343,63 +342,63 @@ func syncStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pa
 		return nil, nil
 	}
 
-	for _,syncRequest := range reqs {
+	for _, syncRequest := range reqs {
 		namespace := cmd.Namespace()
 		switch syncRequest.ResourceType {
-			case "ingress":
-				commit,err  := w.kubeClient.GetIngress(namespace, syncRequest.ResourceName)
-				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
-				} else  if commit != "" {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
-				}
-				break
-			case "service":
-				commit,err  := w.kubeClient.GetService(namespace, syncRequest.ResourceName)
-				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
-				} else if commit != "" {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
-				}
-				break
-			case "certificate":
-				commit,err  := w.kubeClient.GetSecret(namespace, syncRequest.ResourceName)
-				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
-				} else if commit != "" {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
-				}
-				break
-			case "instance":
-				chr,err  := w.kubeClient.GetC7nHelmRelease(namespace, syncRequest.ResourceName)
-				if err != nil {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
-				} else if chr != nil {
-					if	chr.Annotations[model.CommitLabel] == syncRequest.Commit {
-					    release,err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName})
-						if err != nil {
-							glog.Infof("release %s get error ", syncRequest.ResourceName, err)
-							if  strings.Contains(err.Error(), "not exist") {
-								if w.kubeClient.IsReleaseJobRun(namespace,syncRequest.ResourceName) {
-									glog.Errorf("release %s not exist and not job run ", syncRequest.ResourceName, err)
-								} else {
-									reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
-								}
-							}
-						}
-						if release != nil && release.Status == "DEPLOYED" {
-							if release.ChartVersion != chr.Spec.ChartVersion || release.Config != chr.Spec.Values  {
-								glog.Infof("release deployed but not consistent")
-								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+		case "ingress":
+			commit, err := w.kubeClient.GetIngress(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+			}
+			break
+		case "service":
+			commit, err := w.kubeClient.GetService(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+			}
+			break
+		case "certificate":
+			commit, err := w.kubeClient.GetSecret(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+			}
+			break
+		case "instance":
+			chr, err := w.kubeClient.GetC7nHelmRelease(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+			} else if chr != nil {
+				if chr.Annotations[model.CommitLabel] == syncRequest.Commit {
+					release, err := w.helmClient.GetRelease(&model_helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName})
+					if err != nil {
+						glog.Infof("release %s get error ", syncRequest.ResourceName, err)
+						if strings.Contains(err.Error(), "not exist") {
+							if w.kubeClient.IsReleaseJobRun(namespace, syncRequest.ResourceName) {
+								glog.Errorf("release %s not exist and not job run ", syncRequest.ResourceName, err)
 							} else {
-								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 							}
 						}
-					} else {
-						reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
 					}
+					if release != nil && release.Status == "DEPLOYED" {
+						if release.ChartVersion != chr.Spec.ChartVersion || release.Config != chr.Spec.Values {
+							glog.Infof("release deployed but not consistent")
+							reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+						} else {
+							reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
+						}
+					}
+				} else {
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
 				}
-				break
+			}
+			break
 		}
 	}
 
@@ -420,13 +419,11 @@ func syncStatus(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pa
 	}
 }
 
-func newSyncResponse(name string, reType string, commit string,id int32) *model_helm.SyncRequest {
+func newSyncResponse(name string, reType string, commit string, id int32) *model_helm.SyncRequest {
 	return &model_helm.SyncRequest{
 		ResourceName: name,
 		ResourceType: reType,
-		Commit: commit,
-		Id: id,
+		Commit:       commit,
+		Id:           id,
 	}
 }
-
-

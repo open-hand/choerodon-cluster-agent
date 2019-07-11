@@ -8,8 +8,6 @@ import (
 	_ "net/http/pprof"
 )
 
-
-
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 	options := agent.NewAgentOptions()
 	cmd := &cobra.Command{
@@ -27,11 +25,3 @@ func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 
 	return cmd
 }
-
-
-
-
-
-
-
-

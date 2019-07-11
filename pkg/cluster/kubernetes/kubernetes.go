@@ -30,9 +30,9 @@ type extendedClient struct {
 // Cluster is a handle to a Kubernetes API server.
 // (Typically, this code is deployed into the same cluster.)
 type Cluster struct {
-	client    extendedClient
-	applier   Applier
-	mu        sync.Mutex
+	client  extendedClient
+	applier Applier
+	mu      sync.Mutex
 }
 
 // NewCluster returns a usable cluster.

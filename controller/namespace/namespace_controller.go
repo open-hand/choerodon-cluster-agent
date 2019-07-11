@@ -15,10 +15,8 @@ import (
 	"time"
 )
 
-
-
 var (
-	keyFunc = cache.DeletionHandlingMetaNamespaceKeyFunc
+	keyFunc   = cache.DeletionHandlingMetaNamespaceKeyFunc
 	startTime time.Time
 )
 
@@ -26,7 +24,7 @@ type controller struct {
 	queue workqueue.RateLimitingInterface
 	// workerLoopPeriod is the time between worker runs. The workers process the queue of service and pod changes.
 	workerLoopPeriod  time.Duration
-	lister			  v1.NamespaceLister
+	lister            v1.NamespaceLister
 	responseChan      chan<- *model.Packet
 	deploymentsSynced cache.InformerSynced
 }
@@ -54,12 +52,9 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 	defer runtime.HandleCrash()
 	defer c.queue.ShutDown()
 
-
 	if ok := cache.WaitForCacheSync(stopCh, c.deploymentsSynced); !ok {
 		glog.Fatal("failed to wait for caches to sync")
 	}
-
-
 
 	startTime = time.Now()
 	// Launch two workers to process Foo resources
@@ -69,9 +64,9 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 
 	time.Sleep(time.Second * 6)
 
-	namespaces,err := c.lister.List(labels.Everything())
+	namespaces, err := c.lister.List(labels.Everything())
 	nsList := []string{}
-	for _,ns := range namespaces {
+	for _, ns := range namespaces {
 		nsList = append(nsList, ns.GetName())
 	}
 	if err != nil {
@@ -80,8 +75,6 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 		c.responseChan <- newNamesapcesRep(nsList)
 
 	}
-
-
 
 	<-stopCh
 	glog.V(1).Info("Shutting down deployment workers")
@@ -131,24 +124,21 @@ func (c *controller) syncHandler(key string) (bool, error) {
 	//}
 
 	if startTime.Add(time.Second * 5).After(time.Now()) {
-		return true,nil
+		return true, nil
 	}
 
-
-	namespaces,err := c.lister.List(labels.Everything())
+	namespaces, err := c.lister.List(labels.Everything())
 	if err != nil {
 		glog.Errorf("namespace controller list namespace error: %v", err)
 	}
 	nsList := []string{}
-	for _,ns := range namespaces {
+	for _, ns := range namespaces {
 		nsList = append(nsList, ns.GetName())
 	}
 	c.responseChan <- newNamesapcesRep(nsList)
 
 	return true, nil
 }
-
-
 
 func newNamesapcesRep(namespace []string) *model.Packet {
 	payload, err := json.Marshal(namespace)

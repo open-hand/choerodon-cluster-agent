@@ -32,8 +32,6 @@ type k8sResource struct {
 	name       string
 }
 
-
-
 // ==============================================
 // service
 type serviceKind struct {
@@ -47,7 +45,7 @@ func (dk *serviceKind) getResources(c *Cluster, namespace string) ([]k8sResource
 
 	var k8sResources []k8sResource
 	for i := range services.Items {
-		_,noDelete := services.Items[i].Labels[model.NetworkNoDelLabel]
+		_, noDelete := services.Items[i].Labels[model.NetworkNoDelLabel]
 		if _, ok := services.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
 			continue
 		}
@@ -65,7 +63,6 @@ func makeServiceK8sResource(service *core_v1.Service) k8sResource {
 	}
 }
 
-
 // ==============================================
 // service
 type ingressKind struct {
@@ -79,7 +76,7 @@ func (dk *ingressKind) getResources(c *Cluster, namespace string) ([]k8sResource
 
 	var k8sResources []k8sResource
 	for i := range ingresses.Items {
-		_,noDelete := ingresses.Items[i].Labels[model.NetworkNoDelLabel]
+		_, noDelete := ingresses.Items[i].Labels[model.NetworkNoDelLabel]
 		if _, ok := ingresses.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
 			continue
 		}
@@ -97,8 +94,6 @@ func makeIngressK8sResource(ingress *ext_v1beta1.Ingress) k8sResource {
 		k8sObject:  ingress,
 	}
 }
-
-
 
 // ==============================================
 // choerodon.io/v1alpha1 C7NHelmRelease
@@ -144,7 +139,7 @@ func (cm *configMap) getResources(c *Cluster, namespace string) ([]k8sResource, 
 	var k8sResources []k8sResource
 	for i := range configMaps.Items {
 		cm := configMaps.Items[i]
-		if cm.Labels[model.ReleaseLabel]== "" && cm.Labels[model.AgentVersionLabel] != "" {
+		if cm.Labels[model.ReleaseLabel] == "" && cm.Labels[model.AgentVersionLabel] != "" {
 			k8sResources = append(k8sResources, makeConfigMapK8sResource(&configMaps.Items[i]))
 		}
 	}
@@ -176,7 +171,7 @@ func (s *secret) getResources(c *Cluster, namespace string) ([]k8sResource, erro
 	var k8sResources []k8sResource
 	for i := range configMaps.Items {
 		cm := configMaps.Items[i]
-		if cm.Labels[model.ReleaseLabel]== "" && cm.Labels[model.AgentVersionLabel] != "" {
+		if cm.Labels[model.ReleaseLabel] == "" && cm.Labels[model.AgentVersionLabel] != "" {
 			k8sResources = append(k8sResources, makeSecretK8sResource(&configMaps.Items[i]))
 		}
 	}

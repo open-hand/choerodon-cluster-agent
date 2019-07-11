@@ -1,7 +1,7 @@
-FROM golang:1.9.4-alpine3.7 as builder
+FROM dockerhub.azk8s.cn/library/golang:1.12.6 as builder
 WORKDIR /go/src/github.com/choerodon/choerodon-cluster-agent
 COPY . .
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build .
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -mod=vendor -v .
 
 FROM alpine:3.7
 ARG KUBECTL_VRESION=v1.14.1
@@ -18,6 +18,7 @@ RUN apk --no-cache add \
            "http://mirror.azure.cn/kubernetes/kubectl/${KUBECTL_VRESION}/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/bin/kubectl && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
+    mkdir -p /ssh-keys && \
     echo "Asia/Shanghai" > /etc/timezone
 COPY ./docker/ssh_config /etc/ssh/ssh_config
 COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent /

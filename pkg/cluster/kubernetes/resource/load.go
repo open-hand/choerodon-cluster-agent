@@ -24,7 +24,7 @@ import (
 func Load(namespace string, base, atLeastOne string, more ...string) (map[string]resource.Resource, []string, error) {
 	roots := append([]string{atLeastOne}, more...)
 	objs := map[string]resource.Resource{}
-	files := make([]string,0)
+	files := make([]string, 0)
 	for _, root := range roots {
 		err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -56,11 +56,11 @@ func Load(namespace string, base, atLeastOne string, more ...string) (map[string
 			return nil
 		})
 		if err != nil {
-			return objs,files, err
+			return objs, files, err
 		}
 	}
 
-	return objs,files, nil
+	return objs, files, nil
 }
 
 // ParseMultidoc takes a dump of config (a multidoc YAML) and

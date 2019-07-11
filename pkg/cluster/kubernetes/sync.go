@@ -152,9 +152,9 @@ func (c *Kubectl) apply(namespace string, cs changeSet) (errs cluster.SyncError)
 
 func (c *Kubectl) ApplySingleObj(namespace string, resourceFile string) error {
 	r := bytes.NewReader([]byte(resourceFile))
-	err :=  c.doCommand(r, "apply")
+	err := c.doCommand(r, "apply")
 	if err != nil {
-		glog.Errorf("app k8s resource error %v\n%s\n",err,resourceFile)
+		glog.Errorf("app k8s resource error %v\n%s\n", err, resourceFile)
 		return err
 	}
 	return nil
@@ -187,8 +187,6 @@ func makeMultidoc(objs []*apiObject) *bytes.Buffer {
 	}
 	return buf
 }
-
-
 
 func (c *Kubectl) kubectlCommand(args ...string) *exec.Cmd {
 	return exec.Command(c.exe, append(c.connectArgs(), args...)...)

@@ -398,7 +398,7 @@ func (c *Controller) checkCrdDeleted() bool {
 		}
 		for _, apiResource := range list.APIResources {
 			if apiResource.Name == "c7nhelmreleases" {
-				count ++
+				count++
 				if count == 5 {
 					return false
 				}

@@ -49,10 +49,10 @@ type EventMetadata interface {
 }
 
 type ResourceError struct {
-	ID    resource.ResourceID `json:"id,omitempty"`
-	Path  string `json:"path,omitempty"`
-	Error string `json:"error,omitempty"`
-	Commit string `json:"commit,omitempty"`
+	ID     resource.ResourceID `json:"id,omitempty"`
+	Path   string              `json:"path,omitempty"`
+	Error  string              `json:"error,omitempty"`
+	Commit string              `json:"commit,omitempty"`
 }
 
 // Commit represents the commit information in a sync event. We could
@@ -65,24 +65,22 @@ type Commit struct {
 }
 
 type FileCommit struct {
-	File string `json:"file"`
+	File   string `json:"file"`
 	Commit string `json:"commit"`
 }
 
 type ResourceCommit struct {
 	ResourceId string `json:"resourceId"`
-	File string `json:"file"`
-	Commit string `json:"commit"`
+	File       string `json:"file"`
+	Commit     string `json:"commit"`
 }
-
-
 
 // SyncEventMetadata is the metadata for when new a commit is synced to the cluster
 type SyncEventMetadata struct {
 	Commit string `json:"commit,omitempty"`
 	// Per-resource errors
-	Errors []ResourceError `json:"errors,omitempty"`
-	FileCommits []FileCommit `json:"filesCommit,omitempty"`
+	Errors          []ResourceError  `json:"errors,omitempty"`
+	FileCommits     []FileCommit     `json:"filesCommit,omitempty"`
 	ResourceCommits []ResourceCommit `json:"resourceCommits,omitempty"`
 }
 

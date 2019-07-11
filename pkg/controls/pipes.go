@@ -3,8 +3,8 @@ package controls
 import (
 	"io"
 
-	"github.com/choerodon/choerodon-cluster-agent/ws"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/common"
+	"github.com/choerodon/choerodon-cluster-agent/ws"
 )
 
 type pipe struct {

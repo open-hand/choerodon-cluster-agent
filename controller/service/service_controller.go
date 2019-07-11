@@ -35,9 +35,9 @@ type controller struct {
 	namespaces       *manager.Namespaces
 }
 
-func (c *controller) resourceSync()  {
+func (c *controller) resourceSync() {
 	namespaces := c.namespaces.GetAll()
-	for  _,ns := range namespaces {
+	for _, ns := range namespaces {
 		pods, err := c.lister.Services(ns).List(labels.NewSelector())
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")

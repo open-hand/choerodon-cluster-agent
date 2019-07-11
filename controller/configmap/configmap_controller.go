@@ -33,14 +33,14 @@ type controller struct {
 	namespaces       *manager.Namespaces
 }
 
-func NewconfigMapController(configMapInformer v1_informer.ConfigMapInformer, responseChan chan<- *model.Packet, namespaces  *manager.Namespaces) *controller {
+func NewconfigMapController(configMapInformer v1_informer.ConfigMapInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "cofigmap"),
 		workerLoopPeriod: time.Second,
 		responseChan:     responseChan,
 		lister:           configMapInformer.Lister(),
-		namespaces:        namespaces,
+		namespaces:       namespaces,
 	}
 
 	configMapInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -136,7 +136,7 @@ func (c *controller) syncHandler(key string) (bool, error) {
 		c.responseChan <- newconfigMapRep(configMap)
 	} else if configMap.Annotations[model.MicroServiceConfig] != "" {
 		c.responseChan <- newConfigConfigMapRep(configMap)
-	} else if configMap.Labels[model.AgentVersionLabel] != ""{
+	} else if configMap.Labels[model.AgentVersionLabel] != "" {
 		glog.V(2).Info(configMap.Labels[model.ReleaseLabel], ":", configMap)
 		c.responseChan <- newRepoConfigMapRep(configMap)
 	}

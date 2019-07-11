@@ -43,9 +43,7 @@ type Spec struct {
 	Spec  interface{} `json:"spec"`
 }
 
-
-
-func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRepo  <-chan struct{}, done *sync.WaitGroup) {
+func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-chan struct{}, done *sync.WaitGroup) {
 	defer done.Done()
 
 	// We want to sync at least every `SyncInterval`. Being told to
@@ -62,7 +60,7 @@ func (w *workerManager) syncLoop(stop <-chan struct{}, namespace string, stopRep
 	w.AskForSync(namespace)
 	for {
 		select {
-		case <- stopRepo:
+		case <-stopRepo:
 			glog.Infof("env %s sync loop stopping", namespace)
 			return
 		case <-stop:
@@ -105,7 +103,8 @@ func (w *workerManager) AskForSync(namespace string) {
 	}
 }
 
-func (w *workerManager) doSync(namespace string) error {started := time.Now().UTC()
+func (w *workerManager) doSync(namespace string) error {
+	started := time.Now().UTC()
 
 	// We don't care how long this takes overall, only about not
 	// getting bogged down in certain operations, so use an
@@ -139,14 +138,12 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 	}
 
 	// Get a map of all resources defined in  therepo
-	allResources,files, err := w.manifests.LoadManifests(namespace, working.Dir(), working.ManifestDir())
+	allResources, files, err := w.manifests.LoadManifests(namespace, working.Dir(), working.ManifestDir())
 	if err != nil {
 		return errors.Wrap(err, "loading resources from repo")
 	}
 
 	var syncErrors []event.ResourceError
-
-
 
 	var initialSync bool
 
@@ -159,38 +156,36 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 	filesCommits := make([]event.FileCommit, 0)
 	fileCommitMap := map[string]string{}
 
-
-
 	if initialSync || w.syncAll {
 		// no synctag, We are syncing everything from scratch
 		changedResources = allResources
-		for _,file := range files {
+		for _, file := range files {
 			commit, err := working.FileLastCommit(ctx, file)
 			if err != nil {
 				glog.Errorf("get file commit error : v%", err)
 				continue
 			}
-			filesCommits = append(filesCommits, event.FileCommit{File:file, Commit: commit})
+			filesCommits = append(filesCommits, event.FileCommit{File: file, Commit: commit})
 			fileCommitMap[file] = commit
 		}
 
 	} else {
 
 		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
-		changedFiles,fileList, err := working.ChangedFiles(ctx, oldTagRev)
+		changedFiles, fileList, err := working.ChangedFiles(ctx, oldTagRev)
 		if err == nil && len(changedFiles) > 0 {
 
-			for _,file := range fileList {
+			for _, file := range fileList {
 				commit, err := working.FileLastCommit(ctx, file)
 				if err != nil {
 					glog.Errorf("get file commit error : v%", err)
 					continue
 				}
-				filesCommits = append(filesCommits, event.FileCommit{File:file, Commit: commit})
+				filesCommits = append(filesCommits, event.FileCommit{File: file, Commit: commit})
 				fileCommitMap[file] = commit
 			}
 			// We had some changed files, we're syncing a diff
-			changedResources,_, err = w.manifests.LoadManifests(namespace, working.Dir(), changedFiles[0], changedFiles[1:]...)
+			changedResources, _, err = w.manifests.LoadManifests(namespace, working.Dir(), changedFiles[0], changedFiles[1:]...)
 		}
 		cancel()
 		if err != nil {
@@ -198,43 +193,41 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 		}
 	}
 
-
-
 	if w.syncAll {
-		for key,k8sResource := range allResources{
-			k8sResourceBuff,err := w.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
+		for key, k8sResource := range allResources {
+			k8sResourceBuff, err := w.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
 			if err != nil {
-				glog.Errorf("label of object error ",err)
+				glog.Errorf("label of object error ", err)
 			} else if k8sResourceBuff != nil {
 				obj := resource2.BaseObject{
-					SourceName :k8sResource.Source(),
+					SourceName: k8sResource.Source(),
 					BytesArray: k8sResourceBuff.Bytes(),
-					Meta: k8sResource.Metas(),
-					Kind: k8sResource.SourceKind(),
+					Meta:       k8sResource.Metas(),
+					Kind:       k8sResource.SourceKind(),
 				}
 				allResources[key] = obj
 			}
 		}
 		err = c7n_sync.SyncAll(namespace, w.manifests, allResources, w.cluster)
 	} else {
-		for key,k8sResource := range changedResources{
+		for key, k8sResource := range changedResources {
 
-			k8sResourceBuff,err := w.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
+			k8sResourceBuff, err := w.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
 			if err != nil {
-				glog.Errorf("label of object error ",err)
+				glog.Errorf("label of object error ", err)
 			} else if k8sResourceBuff != nil {
 				obj := resource2.BaseObject{
-					SourceName :k8sResource.Source(),
+					SourceName: k8sResource.Source(),
 					BytesArray: k8sResourceBuff.Bytes(),
-					Meta: k8sResource.Metas(),
-					Kind: k8sResource.SourceKind(),
+					Meta:       k8sResource.Metas(),
+					Kind:       k8sResource.SourceKind(),
 				}
 				changedResources[key] = obj
 			}
 		}
 		err = c7n_sync.Sync(namespace, w.manifests, allResources, changedResources, w.cluster)
 	}
-	if  err != nil {
+	if err != nil {
 		glog.Errorf("sync: %v", err)
 		switch syncerr := err.(type) {
 		case cluster.SyncError:
@@ -252,13 +245,12 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 
 	// update notes and emit events for applied commits
 
-
-	for i,_ := range syncErrors {
+	for i, _ := range syncErrors {
 		if fileCommitMap[syncErrors[i].Path] != "" {
 			syncErrors[i].Commit = fileCommitMap[syncErrors[i].Path]
-		}else {
+		} else {
 			ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
-			commit,err := working.FileLastCommit(ctx, syncErrors[i].Path)
+			commit, err := working.FileLastCommit(ctx, syncErrors[i].Path)
 			if err != nil {
 				glog.Errorf("get file commit error : v%", err)
 			} else {
@@ -276,16 +268,14 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 
 	resourceIdList := resourceIDs.ToSlice()
 
-	for _,resourceId := range resourceIdList{
+	for _, resourceId := range resourceIdList {
 		resourceCommit := event.ResourceCommit{
 			ResourceId: resourceId.String(),
-			File: changedResources[resourceId.String()].Source(),
-			Commit: fileCommitMap[changedResources[resourceId.String()].Source()],
-
+			File:       changedResources[resourceId.String()].Source(),
+			Commit:     fileCommitMap[changedResources[resourceId.String()].Source()],
 		}
 		resourceCommits = append(resourceCommits, resourceCommit)
 	}
-
 
 	if err := w.LogEvent(event.Event{
 		ResourceIDs: resourceIDs.ToSlice(),
@@ -293,15 +283,14 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 		StartedAt:   started,
 		EndedAt:     started,
 		Metadata: &event.SyncEventMetadata{
-			Commit: newTagRev,
-			Errors:  syncErrors,
-			FileCommits: filesCommits,
+			Commit:          newTagRev,
+			Errors:          syncErrors,
+			FileCommits:     filesCommits,
 			ResourceCommits: resourceCommits,
 		},
 	}, namespace); err != nil {
 		glog.Errorf("sync log event: %v", err)
 	}
-
 
 	if oldTagRev == newTagRev {
 		return nil
@@ -318,7 +307,7 @@ func (w *workerManager) doSync(namespace string) error {started := time.Now().UT
 	}
 	// repo refresh
 	{
-		glog.Infof("%s tag: %s, old: %s, new: %s",namespace, w.gitConfig.SyncTag, oldTagRev, newTagRev)
+		glog.Infof("%s tag: %s, old: %s, new: %s", namespace, w.gitConfig.SyncTag, oldTagRev, newTagRev)
 		ctx, cancel := context.WithTimeout(ctx, w.gitTimeout)
 		err := w.gitRepos[namespace].Refresh(ctx)
 		cancel()
@@ -347,19 +336,19 @@ func isUnknownRevision(err error) bool {
 			strings.Contains(err.Error(), "bad revision"))
 }
 
-func (w *workerManager)syncStatus(stop <-chan struct{}, done *sync.WaitGroup)  {
+func (w *workerManager) syncStatus(stop <-chan struct{}, done *sync.WaitGroup) {
 	defer done.Done()
 
 	// We want to sync at least every `SyncInterval`. Being told to
 	// sync, or completing a job, may intervene (in which case,
 	// reschedule the next sync).
 	syncTimer := time.NewTimer(10 * time.Second)
-	for{
+	for {
 		select {
-		case <- stop:
+		case <-stop:
 			glog.Info("sync loop stopping")
 			return
-		case <- syncTimer.C:
+		case <-syncTimer.C:
 			for _, envPara := range w.agentInitOps.Envs {
 				w.chans.ResponseChan <- newSyncRep(envPara.Namespace)
 			}
@@ -371,7 +360,7 @@ func (w *workerManager)syncStatus(stop <-chan struct{}, done *sync.WaitGroup)  {
 
 func newSyncRep(ns string) *model.Packet {
 	return &model.Packet{
-		Key:     fmt.Sprintf("env:%s", ns),
-		Type:    model.StatusSyncEvent,
+		Key:  fmt.Sprintf("env:%s", ns),
+		Type: model.StatusSyncEvent,
 	}
 }

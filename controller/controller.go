@@ -33,24 +33,24 @@ import (
 )
 
 type InitFunc func(ctx *ControllerContext) (bool, error)
+
 var controllers = map[string]InitFunc{}
 
-const workers int  = 1
-
+const workers int = 1
 
 type ControllerContext struct {
-	kubeInformer  kubeinformers.SharedInformerFactory
-	kubeClientset clientset.Interface
-	c7nClientset  chrclientset.Interface
-	c7nInformer   c7ninformers.SharedInformerFactory
-	kubeClient    kube.Client
-	helmClient    helm.Client
-	stop          chan struct{}
-	stopController  <-chan struct{}
-	chans         *manager.CRChan
-	Namespaces    *manager.Namespaces
-	informers []cache.SharedIndexInformer
-	PlatformCode string
+	kubeInformer   kubeinformers.SharedInformerFactory
+	kubeClientset  clientset.Interface
+	c7nClientset   chrclientset.Interface
+	c7nInformer    c7ninformers.SharedInformerFactory
+	kubeClient     kube.Client
+	helmClient     helm.Client
+	stop           chan struct{}
+	stopController <-chan struct{}
+	chans          *manager.CRChan
+	Namespaces     *manager.Namespaces
+	informers      []cache.SharedIndexInformer
+	PlatformCode   string
 }
 
 func init() {
@@ -85,23 +85,21 @@ func CreateControllerContext(
 	c7nInformer := c7ninformers.NewSharedInformerFactory(c7nClientset, time.Second*30)
 
 	ctx := &ControllerContext{
-		kubeInformer:  kubeInformer,
-		kubeClientset: kubeClientset,
-		c7nClientset:  c7nClientset,
-		c7nInformer:   c7nInformer,
-		kubeClient:    kubeClient,
-		helmClient:    helmClient,
-		stopController:     stop,
-		stop:   make(chan struct{}, 1),
-		Namespaces:    Namespaces,
-		chans:         chans,
-		informers: []cache.SharedIndexInformer{},
-		PlatformCode: platformCode,
+		kubeInformer:   kubeInformer,
+		kubeClientset:  kubeClientset,
+		c7nClientset:   c7nClientset,
+		c7nInformer:    c7nInformer,
+		kubeClient:     kubeClient,
+		helmClient:     helmClient,
+		stopController: stop,
+		stop:           make(chan struct{}, 1),
+		Namespaces:     Namespaces,
+		chans:          chans,
+		informers:      []cache.SharedIndexInformer{},
+		PlatformCode:   platformCode,
 	}
 	return ctx
 }
-
-
 
 func (ctx *ControllerContext) StartControllers() error {
 
@@ -113,7 +111,7 @@ func (ctx *ControllerContext) StartControllers() error {
 			for controllerName, initFn := range controllers {
 				started, err := initFn(ctx)
 				if err != nil {
-					glog.Errorf("Error starting %q :%v", controllerName,err)
+					glog.Errorf("Error starting %q :%v", controllerName, err)
 				}
 				if !started {
 					glog.Warningf("Skipping %q", controllerName)
@@ -123,11 +121,11 @@ func (ctx *ControllerContext) StartControllers() error {
 			ctx.kubeInformer.Start(ctx.stop)
 			ctx.c7nInformer.Start(ctx.stop)
 			select {
-			case <- ctx.stopController:
+			case <-ctx.stopController:
 				glog.Infof("Stopping controllers")
 				close(ctx.stop)
 				return
-			case <- ctx.stop :
+			case <-ctx.stop:
 				return
 
 			}
@@ -136,12 +134,12 @@ func (ctx *ControllerContext) StartControllers() error {
 	return nil
 }
 
-func (ctx *ControllerContext) ReSync()  {
-    close(ctx.stop)
-    ctx.stop = make(chan struct{}, 1)
+func (ctx *ControllerContext) ReSync() {
+	close(ctx.stop)
+	ctx.stop = make(chan struct{}, 1)
 	ctx.kubeInformer = kubeinformers.NewSharedInformerFactory(ctx.kubeClientset, time.Second*30)
 	ctx.c7nInformer = c7ninformers.NewSharedInformerFactory(ctx.c7nClientset, time.Second*30)
-    ctx.StartControllers()
+	ctx.StartControllers()
 }
 
 func startEndpointController(ctx *ControllerContext) (bool, error) {
@@ -158,11 +156,9 @@ func startNamespaceController(ctx *ControllerContext) (bool, error) {
 	go namespace.NewNamespaceController(
 		ctx.kubeInformer.Core().V1().Namespaces(),
 		ctx.chans.ResponseChan,
-		).Run(workers, ctx.stop)
+	).Run(workers, ctx.stop)
 	return true, nil
 }
-
-
 
 func startDeploymentController(ctx *ControllerContext) (bool, error) {
 
@@ -185,12 +181,12 @@ func startDaemonSetController(ctx *ControllerContext) (bool, error) {
 }
 
 func startStatefulSetController(ctx *ControllerContext) (bool, error) {
-	resp,err := ctx.kubeClientset.Discovery().ServerResourcesForGroupVersion("apps/v1beta2")
+	resp, err := ctx.kubeClientset.Discovery().ServerResourcesForGroupVersion("apps/v1beta2")
 	if err != nil {
-		 return false, fmt.Errorf("start statefulsets error: %v", err)
+		return false, fmt.Errorf("start statefulsets error: %v", err)
 	}
 	apiList := resp.APIResources
-	for _,resource := range apiList  {
+	for _, resource := range apiList {
 		if resource.Name == "statefulsets" {
 			go statefulset.NewBeta2StatefulSetController(ctx.kubeInformer.Apps().V1beta2().StatefulSets(),
 				ctx.chans.ResponseChan,
@@ -200,12 +196,12 @@ func startStatefulSetController(ctx *ControllerContext) (bool, error) {
 		}
 
 	}
-	resp,err = ctx.kubeClientset.Discovery().ServerResourcesForGroupVersion("apps/v1")
+	resp, err = ctx.kubeClientset.Discovery().ServerResourcesForGroupVersion("apps/v1")
 	if err != nil {
 		return false, fmt.Errorf("start statefulsets error: %v", err)
 	}
 	apiList = resp.APIResources
-	for _,resource := range apiList  {
+	for _, resource := range apiList {
 		if resource.Name == "statefulsets" {
 			go statefulset.NewStatefulSetController(
 				ctx.kubeInformer.Apps().V1().StatefulSets(),
@@ -236,10 +232,10 @@ func startReplicaSetController(ctx *ControllerContext) (bool, error) {
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
 	).Run(workers, ctx.stop)
-	return true,  nil
+	return true, nil
 }
 
-func startJobController(ctx *ControllerContext) (bool,  error) {
+func startJobController(ctx *ControllerContext) (bool, error) {
 	go job.NewJobController(
 		ctx.kubeInformer.Batch().V1().Jobs(),
 		ctx.kubeClient,
@@ -256,7 +252,7 @@ func startServiceController(ctx *ControllerContext) (bool, error) {
 		ctx.kubeInformer.Core().V1().Services(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
-	).Run(workers,  ctx.stop)
+	).Run(workers, ctx.stop)
 	return true, nil
 }
 
@@ -265,7 +261,7 @@ func startSecretController(ctx *ControllerContext) (bool, error) {
 		ctx.kubeInformer.Core().V1().Secrets(),
 		ctx.chans.ResponseChan,
 		ctx.Namespaces,
-	).Run(workers,  ctx.stop)
+	).Run(workers, ctx.stop)
 	return true, nil
 }
 
@@ -308,7 +304,7 @@ func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
 		ctx.Namespaces,
 		ctx.chans.ResponseChan,
 	).Run(workers, ctx.stop)
-	return true,  nil
+	return true, nil
 }
 
 func startEventController(ctx *ControllerContext) (bool, error) {

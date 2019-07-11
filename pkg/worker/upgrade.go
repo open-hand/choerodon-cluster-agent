@@ -6,9 +6,8 @@ import (
 	"github.com/golang/glog"
 )
 
-
 func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	upgradeInfo,certInfo,err := w.helmClient.ListAgent(cmd.Payload)
+	upgradeInfo, certInfo, err := w.helmClient.ListAgent(cmd.Payload)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.UpgradeClusterFailed, err)
 	}
@@ -20,7 +19,6 @@ func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packe
 		return nil, NewResponseError(cmd.Key, model.UpgradeClusterFailed, err)
 	}
 
-
 	glog.Infof("cluster agent upgrade: %s", string(rsp))
 	resp := &model.Packet{
 		Key:     cmd.Key,
@@ -28,9 +26,9 @@ func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packe
 		Payload: string(rsp),
 	}
 
-	if certInfo != nil{
+	if certInfo != nil {
 		certRsp, err := json.Marshal(certInfo)
-		if err != nil{
+		if err != nil {
 			glog.Errorf("check cert manager error while marshal cert rsp")
 		} else {
 			certInfoResp := &model.Packet{
@@ -43,8 +41,8 @@ func upgrade(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packe
 
 	} else {
 		certInfoResp := &model.Packet{
-			Key:     cmd.Key,
-			Type:    model.CertManagerInfo,
+			Key:  cmd.Key,
+			Type: model.CertManagerInfo,
 		}
 		w.chans.ResponseChan <- certInfoResp
 	}

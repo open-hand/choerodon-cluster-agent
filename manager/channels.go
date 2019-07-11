@@ -9,11 +9,11 @@ type CRChan struct {
 
 func NewCRChannel(commandSize, RespSize int) *CRChan {
 	return &CRChan{
-		CommandChan : make(chan *model.Packet, commandSize),
-		ResponseChan : make(chan *model.Packet, RespSize),
+		CommandChan:  make(chan *model.Packet, commandSize),
+		ResponseChan: make(chan *model.Packet, RespSize),
 	}
 }
 
-func (crChannel *CRChan) CurrentQueueSize() (int,int) {
+func (crChannel *CRChan) CurrentQueueSize() (int, int) {
 	return len(crChannel.CommandChan), len(crChannel.ResponseChan)
 }

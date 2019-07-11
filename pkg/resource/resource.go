@@ -14,7 +14,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-type Meta struct{
+type Meta struct {
 	Namespace   string            `yaml:"namespace"`
 	Name        string            `yaml:"name"`
 	Annotations map[string]string `yaml:"annotations,omitempty"`
