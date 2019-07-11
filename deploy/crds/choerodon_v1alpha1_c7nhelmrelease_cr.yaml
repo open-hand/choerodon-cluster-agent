@@ -1,0 +1,7 @@
+apiVersion: choerodon.io/v1alpha1
+kind: C7NHelmRelease
+metadata:
+  name: example-c7nhelmrelease
+spec:
+  # Add fields here
+  size: 3

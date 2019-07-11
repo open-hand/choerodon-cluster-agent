@@ -1,9 +1,11 @@
 package kubernetes
 
 import (
+	"context"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
 	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
@@ -102,14 +104,20 @@ type c7nHelmReleaseKind struct {
 }
 
 func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	chrs, err := c.client.ChoerodonV1alpha1().C7NHelmReleases(namespace).List(meta_v1.ListOptions{})
-	if err != nil {
+
+	client := c.mgr.GetClient()
+
+	instances := &c7nv1alpha1.C7NHelmReleaseList{}
+
+	if err := client.List(context.TODO(), &client2.ListOptions{
+		Namespace: namespace,
+	}, instances); err != nil {
 		return nil, err
 	}
 
 	var k8sResources []k8sResource
-	for i := range chrs.Items {
-		k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&chrs.Items[i]))
+	for i := range instances.Items {
+		k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
 	}
 
 	return k8sResources, nil

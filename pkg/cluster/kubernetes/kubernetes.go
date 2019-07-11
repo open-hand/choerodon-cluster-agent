@@ -6,6 +6,7 @@ package kubernetes
 
 import (
 	"bytes"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sync"
 
 	k8syaml "github.com/ghodss/yaml"
@@ -16,7 +17,6 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	v1beta1extensions "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 
-	chrclientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
 )
@@ -24,13 +24,13 @@ import (
 type extendedClient struct {
 	v1core.CoreV1Interface
 	v1beta1extensions.ExtensionsV1beta1Interface
-	chrclientset.Interface
 }
 
 // Cluster is a handle to a Kubernetes API server.
 // (Typically, this code is deployed into the same cluster.)
 type Cluster struct {
 	client  extendedClient
+	mgr     manager.Manager
 	applier Applier
 	mu      sync.Mutex
 }
@@ -38,15 +38,15 @@ type Cluster struct {
 // NewCluster returns a usable cluster.
 func NewCluster(
 	clientset k8sclient.Interface,
-	chrClientset chrclientset.Interface,
+	mgr manager.Manager,
 	applier Applier) *Cluster {
 
 	c := &Cluster{
 		client: extendedClient{
 			clientset.CoreV1(),
 			clientset.ExtensionsV1beta1(),
-			chrClientset,
 		},
+		mgr:     mgr,
 		applier: applier,
 	}
 

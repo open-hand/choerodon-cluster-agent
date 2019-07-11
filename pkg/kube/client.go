@@ -2,10 +2,9 @@ package kube
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	chrclientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned/scheme"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"io"
@@ -21,10 +20,11 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
@@ -32,6 +32,7 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"strings"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
@@ -65,7 +66,6 @@ type Client interface {
 	GetSecret(namespace string, secretName string) (string, error)
 	GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error)
 	GetKubeClient() *kubernetes.Clientset
-	GetC7NClient() *chrclientset.Clientset
 	IsReleaseJobRun(namespace, releaseName string) bool
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
 }
@@ -76,40 +76,38 @@ var AgentVersion string
 
 type client struct {
 	cmdutil.Factory
-	client    *kubernetes.Clientset
-	c7nClient *chrclientset.Clientset
+	client *kubernetes.Clientset
+	mgr    manager.Manager
 }
 
-func NewForConfig(c *rest.Config) (Client, error) {
-	c7nClient, err := chrclientset.NewForConfig(c)
-	if err != nil {
-		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
-	}
-	k8sClientSet, err := kubernetes.NewForConfig(c)
-	return &client{
-		Factory:   nil,
-		client:    k8sClientSet,
-		c7nClient: c7nClient,
-	}, nil
-}
+//todo: remove
+//func NewForConfig(c *rest.Config, mgr manager.Manager) (Client, error) {
+//	k8sClientSet, err := kubernetes.NewForConfig(c)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return &client{
+//		Factory: nil,
+//		client:  k8sClientSet,
+//		mgr:     mgr,
+//	}, nil
+//}
 
-func NewClient(f cmdutil.Factory) (Client, error) {
+func NewClient(f cmdutil.Factory, mgr manager.Manager) (Client, error) {
 	kubeClient, err := f.KubernetesClientSet()
 	if err != nil {
 		return nil, fmt.Errorf("get kubernetes client: %v", err)
 	}
-	clientConfig, err := f.ToRESTConfig()
 	if err != nil {
 		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
 	}
-	c7nClient, err := chrclientset.NewForConfig(clientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error building c7n clientset: %v", err)
 	}
 	return &client{
-		Factory:   f,
-		client:    kubeClient,
-		c7nClient: c7nClient,
+		Factory: f,
+		client:  kubeClient,
+		mgr:     mgr,
 	}, nil
 }
 
@@ -142,10 +140,6 @@ func (c *client) GetDiscoveryClient() (discovery.DiscoveryInterface, error) {
 
 func (c *client) GetKubeClient() *kubernetes.Clientset {
 	return c.client
-}
-
-func (c *client) GetC7NClient() *chrclientset.Clientset {
-	return c.c7nClient
 }
 
 func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.ReleaseResource, error) {
@@ -346,15 +340,22 @@ func (c *client) GetSecret(namespace string, secretName string) (string, error) 
 }
 
 func (c *client) GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error) {
-	release, err := c.c7nClient.ChoerodonV1alpha1().C7NHelmReleases(namespace).Get(releaseName, meta_v1.GetOptions{})
-	if err != nil {
+
+	client := c.mgr.GetClient()
+
+	instance := &v1alpha1.C7NHelmRelease{}
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      releaseName,
+	}
+	if err := client.Get(context.TODO(), namespacedName, instance); err != nil {
 		if errors.IsNotFound(err) {
 			return nil, err
 		}
 		return nil, nil
 	}
-	if release.Annotations != nil && release.Annotations[model.CommitLabel] != "" {
-		return release, nil
+	if instance.Annotations != nil && instance.Annotations[model.CommitLabel] != "" {
+		return instance, nil
 	}
 	return nil, nil
 }

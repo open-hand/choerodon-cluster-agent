@@ -24,10 +24,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/controller/secret"
 	"github.com/choerodon/choerodon-cluster-agent/controller/service"
 
-	"github.com/choerodon/choerodon-cluster-agent/controller/c7nhelmrelease"
 	"github.com/choerodon/choerodon-cluster-agent/controller/event"
-	chrclientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
-	c7ninformers "github.com/choerodon/choerodon-cluster-agent/pkg/client/informers/externalversions"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 )
@@ -41,8 +38,6 @@ const workers int = 1
 type ControllerContext struct {
 	kubeInformer   kubeinformers.SharedInformerFactory
 	kubeClientset  clientset.Interface
-	c7nClientset   chrclientset.Interface
-	c7nInformer    c7ninformers.SharedInformerFactory
 	kubeClient     kube.Client
 	helmClient     helm.Client
 	stop           chan struct{}
@@ -73,7 +68,6 @@ func init() {
 
 func CreateControllerContext(
 	kubeClientset clientset.Interface,
-	c7nClientset chrclientset.Interface,
 	kubeClient kube.Client,
 	helmClient helm.Client,
 	stop <-chan struct{},
@@ -82,13 +76,10 @@ func CreateControllerContext(
 	platformCode string) *ControllerContext {
 
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClientset, time.Second*30)
-	c7nInformer := c7ninformers.NewSharedInformerFactory(c7nClientset, time.Second*30)
 
 	ctx := &ControllerContext{
 		kubeInformer:   kubeInformer,
 		kubeClientset:  kubeClientset,
-		c7nClientset:   c7nClientset,
-		c7nInformer:    c7nInformer,
 		kubeClient:     kubeClient,
 		helmClient:     helmClient,
 		stopController: stop,
@@ -119,7 +110,6 @@ func (ctx *ControllerContext) StartControllers() error {
 				}
 			}
 			ctx.kubeInformer.Start(ctx.stop)
-			ctx.c7nInformer.Start(ctx.stop)
 			select {
 			case <-ctx.stopController:
 				glog.Infof("Stopping controllers")
@@ -138,7 +128,6 @@ func (ctx *ControllerContext) ReSync() {
 	close(ctx.stop)
 	ctx.stop = make(chan struct{}, 1)
 	ctx.kubeInformer = kubeinformers.NewSharedInformerFactory(ctx.kubeClientset, time.Second*30)
-	ctx.c7nInformer = c7ninformers.NewSharedInformerFactory(ctx.c7nClientset, time.Second*30)
 	ctx.StartControllers()
 }
 
@@ -295,15 +284,7 @@ func startNodeController(ctx *ControllerContext) (bool, error) {
 }
 
 func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
-	go c7nhelmrelease.NewController(
-		ctx.kubeClientset,
-		ctx.c7nClientset,
-		ctx.c7nInformer.Choerodon().V1alpha1().C7NHelmReleases(),
-		ctx.helmClient,
-		ctx.chans.CommandChan,
-		ctx.Namespaces,
-		ctx.chans.ResponseChan,
-	).Run(workers, ctx.stop)
+	go fmt.Println("start c7n helm release has moved")
 	return true, nil
 }
 
