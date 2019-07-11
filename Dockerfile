@@ -1,7 +1,7 @@
 FROM dockerhub.azk8s.cn/library/golang:1.12.6 as builder
 WORKDIR /go/src/github.com/choerodon/choerodon-cluster-agent
 COPY . .
-RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -mod=vendor -v .
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -mod=vendor -v ./cmd/manager
 
 FROM alpine:3.7
 ARG KUBECTL_VRESION=v1.14.1
