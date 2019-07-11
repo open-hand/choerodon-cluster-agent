@@ -26,6 +26,8 @@ spec:
         env:
           - name: ACME_EMAIL
             value: {{ .Values.config.email }}
+          - name: WATCH_NAMESPACE
+            value: ""
         args:
         - /choerodon-cluster-agent
         - --v={{ .Values.config.logLevel }}
