@@ -655,6 +655,10 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *model_hel
 	if err != nil {
 		return nil, nil, err
 	}
+	if listReleasesRsp == nil {
+		return upgradeInfo, nil, err
+	}
+	// just what check cert-manager ?
 	for _, rls := range listReleasesRsp.Releases {
 		if rls.Chart.Metadata.Name == "choerodon-agent" {
 			if c.kubeClient.GetNamespace(rls.Namespace) == nil {
@@ -714,11 +718,13 @@ func (c *client) renderManifests(
 		IsInstall: true,
 	}
 	valuesConfig := &chart.Config{Raw: values}
-	clientSet, err := c.kubeClient.GetClientSet()
+
+	discoveryInterface, err := c.kubeClient.GetDiscoveryClient()
 	if err != nil {
 		return nil, nil, err
 	}
-	caps, err := capabilities(clientSet.Discovery())
+
+	caps, err := capabilities(discoveryInterface)
 
 	valuesToRender, err := chartutil.ToRenderValuesCaps(chartRequested, valuesConfig, options, caps)
 	if err != nil {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"flag"
 	"github.com/choerodon/choerodon-cluster-agent/agent"
 	"github.com/spf13/cobra"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
@@ -19,8 +20,10 @@ func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 		},
 	}
 	options.BindFlags(cmd.Flags())
-	f.BindFlags(cmd.PersistentFlags())
-	f.BindExternalFlags(cmd.PersistentFlags())
+	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+
+	//f.BindFlags(cmd.PersistentFlags())
+	//f.BindExternalFlags(cmd.PersistentFlags())
 
 	return cmd
 }

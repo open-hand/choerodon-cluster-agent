@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/scale"
+	"k8s.io/client-go/scale/scheme"
 	"k8s.io/kubernetes/pkg/kubectl"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/common"
@@ -61,7 +62,6 @@ func ExecByKubernetes(w *workerManager, cmd *model.Packet) ([]*model.Packet, *mo
 	return nil, nil
 }
 
-
 func ScalePod(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req *model_kubernetes.ScalePodRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
@@ -69,22 +69,25 @@ func ScalePod(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 		return nil, NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
 	}
 
-	clientSet,err := w.kubeClient.GetClientSet()
+	clientSet := w.kubeClient.GetKubeClient()
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
 	}
-    scaler,err :=	kubectl.ScalerFor(schema.GroupKind{Group: "extensions",Kind: "Deployment"}, clientSet)
-	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
-	}
+
+	scaleClient := scale.New(clientSet.RESTClient(), nil, nil, nil)
+
+	scaler := kubectl.NewScaler(scaleClient)
+
+	gr := scheme.Resource("deployment")
+
 	precondition := &kubectl.ScalePrecondition{Size: -1, ResourceVersion: ""}
-    _,err = scaler.ScaleSimple(req.Namespace,req.DeploymentName,precondition,uint(req.Count))
+	_, err = scaler.ScaleSimple(req.Namespace, req.DeploymentName, precondition, uint(req.Count), gr)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
 	}
 	resp := &model.Packet{
-		Key:     cmd.Key,
-		Type:    model.OperatePodCountSuccess,
+		Key:  cmd.Key,
+		Type: model.OperatePodCountSuccess,
 	}
 	return nil, resp
 }

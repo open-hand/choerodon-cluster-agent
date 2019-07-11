@@ -6,8 +6,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/manager"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
-	k8sclient "k8s.io/client-go/kubernetes"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
@@ -17,11 +15,12 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/ws"
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sclient "k8s.io/client-go/kubernetes"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
 	"os"
 	"os/exec"
-
 	//"os/exec"
 	"os/signal"
 	"sync"
@@ -41,7 +40,7 @@ type AgentOptions struct {
 	Token        string
 	PrintVersion bool
 	// kubernetes controller
-	PlatformCode string
+	PlatformCode                  string
 	ConcurrentEndpointSyncs       int32
 	ConcurrentServiceSyncs        int32
 	ConcurrentRSSyncs             int32
@@ -114,20 +113,24 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	chans := manager.NewCRChannel(100, 1000)
 
 	helm.InitEnvSettings()
-	// new kubernetes client
+
+	//cfg := config.GetConfigOrDie()
+
+	// new kubernetes clientf
 	kubeClient, err := kube.NewClient(f)
 	if err != nil {
 		errChan <- err
 		return
 	}
+
 	glog.Infof("KubeClient init success.")
-	config,_ := f.ClientConfig()
+	cfg, _ := f.ToRESTConfig()
+
 	glog.Infof("Starting connect to tiller...")
-	helmClient := helm.NewClient(kubeClient, config)
+	helmClient := helm.NewClient(kubeClient, cfg)
 	glog.Infof("Tiller connect success")
 
 	checkKube(kubeClient.GetKubeClient())
-
 
 	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, chans)
 	if err != nil {
@@ -138,14 +141,14 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	//gitRemote := git.Remote{URL: o.gitURL}
 	gitConfig := git.Config{
-		Branch:    o.gitBranch,
-		Path:      o.gitPath,
-		UserName:  o.gitUser,
-		GitUrl:    o.gitURL,
-		UserEmail: o.gitEmail,
-		SyncTag:   o.gitSyncTag,
-		DevOpsTag: o.gitDevOpsSyncTag,
-		NotesRef:  o.gitNotesRef,
+		Branch:          o.gitBranch,
+		Path:            o.gitPath,
+		UserName:        o.gitUser,
+		GitUrl:          o.gitURL,
+		UserEmail:       o.gitEmail,
+		SyncTag:         o.gitSyncTag,
+		DevOpsTag:       o.gitDevOpsSyncTag,
+		NotesRef:        o.gitNotesRef,
 		GitPollInterval: o.gitPollInterval,
 	}
 	//gitRepo := git.NewRepo(gitRemote, git.PollInterval(o.gitPollInterval))
@@ -179,7 +182,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	//	k8sManifests = &kubernetes.Manifests{Namespace: o.Namespace}
 	//}
 
-
 	namespaces := manager.NewNamespaces()
 
 	ctx := controller.CreateControllerContext(
@@ -206,11 +208,11 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			glog.Fatal(err)
 		}
 		glog.Infof("kubectl %s", kubectl)
-		cfg,_ := f.ClientConfig()
+		cfg, _ := f.ToRESTConfig()
 		kubectlApplier := kubernetes.NewKubectl(kubectl, cfg)
 		kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML)
 
-		k8s = kubernetes.NewCluster( kubeClient.GetKubeClient(), kubeClient.GetC7NClient(), kubectlApplier)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetC7NClient(), kubectlApplier)
 		k8sManifests = &kubernetes.Manifests{}
 	}
 	workerManager := worker.NewWorkerManager(
@@ -236,14 +238,11 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	go workerManager.Start()
 	shutdownWg.Add(1)
 
-
-
 	go func() {
 		errChan <- http.ListenAndServe(o.Listen, nil)
 	}()
 
 }
-
 
 func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
@@ -283,13 +282,12 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.syncAll, "sync-all", false, "sync all or change")
 }
 
-func checkKube(client *k8sclient.Clientset)  {
+func checkKube(client *k8sclient.Clientset) {
 	glog.Infof("check k8s role binding...")
 	_, err := client.CoreV1().Pods("").List(meta_v1.ListOptions{})
 	if err != nil {
-		glog.Errorf("check role binding failed %v", err)
-		os.Exit(0	)
+		glog.Errorf("check role binding failed, %v", err)
+		os.Exit(0)
 	}
 	glog.Infof(" k8s role binding succeed.")
 }
-

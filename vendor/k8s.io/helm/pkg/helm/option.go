@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright The Helm Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -51,6 +51,8 @@ type options struct {
 	force bool
 	// if set, skip running hooks
 	disableHooks bool
+	// if set, skip CRD hook only
+	disableCRDHook bool
 	// name of release
 	releaseName string
 	// tls.Config to use for rpc if tls enabled
@@ -225,6 +227,13 @@ func ReleaseTestCleanup(cleanup bool) ReleaseTestOption {
 	}
 }
 
+// ReleaseTestParallel is a boolean value representing whether to run test pods in parallel
+func ReleaseTestParallel(parallel bool) ReleaseTestOption {
+	return func(opts *options) {
+		opts.testReq.Parallel = parallel
+	}
+}
+
 // RollbackTimeout specifies the number of seconds before kubernetes calls timeout
 func RollbackTimeout(timeout int64) RollbackOption {
 	return func(opts *options) {
@@ -257,6 +266,34 @@ func RollbackWait(wait bool) RollbackOption {
 func UpdateValueOverrides(raw []byte) UpdateOption {
 	return func(opts *options) {
 		opts.updateReq.Values = &cpb.Config{Raw: string(raw)}
+	}
+}
+
+// InstallDescription specifies the description for the release
+func InstallDescription(description string) InstallOption {
+	return func(opts *options) {
+		opts.instReq.Description = description
+	}
+}
+
+// UpgradeDescription specifies the description for the update
+func UpgradeDescription(description string) UpdateOption {
+	return func(opts *options) {
+		opts.updateReq.Description = description
+	}
+}
+
+// RollbackDescription specifies the description for the release
+func RollbackDescription(description string) RollbackOption {
+	return func(opts *options) {
+		opts.rollbackReq.Description = description
+	}
+}
+
+// DeleteDescription specifies the description for the release
+func DeleteDescription(description string) DeleteOption {
+	return func(opts *options) {
+		opts.uninstallReq.Description = description
 	}
 }
 
@@ -295,10 +332,31 @@ func InstallDisableHooks(disable bool) InstallOption {
 	}
 }
 
+// InstallDisableCRDHook disables CRD hook during installation.
+func InstallDisableCRDHook(disable bool) InstallOption {
+	return func(opts *options) {
+		opts.disableCRDHook = disable
+	}
+}
+
 // InstallReuseName will (if true) instruct Tiller to re-use an existing name.
 func InstallReuseName(reuse bool) InstallOption {
 	return func(opts *options) {
 		opts.reuseName = reuse
+	}
+}
+
+// InstallSubNotes will (if true) instruct Tiller to render SubChart Notes
+func InstallSubNotes(enable bool) InstallOption {
+	return func(opts *options) {
+		opts.instReq.SubNotes = enable
+	}
+}
+
+// UpgradeSubNotes will (if true) instruct Tiller to render SubChart Notes
+func UpgradeSubNotes(enable bool) UpdateOption {
+	return func(opts *options) {
+		opts.updateReq.SubNotes = enable
 	}
 }
 
@@ -385,7 +443,7 @@ func UpgradeForce(force bool) UpdateOption {
 type ContentOption func(*options)
 
 // ContentReleaseVersion will instruct Tiller to retrieve the content
-// of a paritcular version of a release.
+// of a particular version of a release.
 func ContentReleaseVersion(version int32) ContentOption {
 	return func(opts *options) {
 		opts.contentReq.Version = version
@@ -416,7 +474,7 @@ type VersionOption func(*options)
 // the defaults used when running the `helm upgrade` command.
 type UpdateOption func(*options)
 
-// RollbackOption allows specififying various settings configurable
+// RollbackOption allows specifying various settings configurable
 // by the helm client user for overriding the defaults used when
 // running the `helm rollback` command.
 type RollbackOption func(*options)

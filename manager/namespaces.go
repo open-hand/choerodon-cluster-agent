@@ -11,6 +11,7 @@ func NewNamespaces() *Namespaces {
 	ns := &Namespaces{
 		m: map[string]bool{},
 	}
+	// for test-manager auto test
 	ns.Add("choerodon-test")
 	return ns
 }

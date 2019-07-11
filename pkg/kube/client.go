@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	chrclientset "github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/client/clientset/versioned/scheme"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"io"
@@ -20,13 +21,16 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	"k8s.io/kubernetes/pkg/kubectl"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
-	"k8s.io/kubernetes/pkg/kubectl/resource"
 	"net/http"
 	"strings"
 
@@ -41,7 +45,10 @@ type Client interface {
 	GetResources(namespace string, manifest string) ([]*model_helm.ReleaseResource, error)
 	CreateOrUpdateService(namespace string, serviceStr string) (*core_v1.Service, error)
 	CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error)
+	//todo:remove
 	GetClientSet() (internalclientset.Interface, error)
+	//---
+	GetDiscoveryClient() (discovery.DiscoveryInterface, error)
 	DeleteService(namespace string, name string) error
 	DeleteIngress(namespace string, name string) error
 	StartResources(namespace string, manifest string) error
@@ -73,12 +80,25 @@ type client struct {
 	c7nClient *chrclientset.Clientset
 }
 
+func NewForConfig(c *rest.Config) (Client, error) {
+	c7nClient, err := chrclientset.NewForConfig(c)
+	if err != nil {
+		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
+	}
+	k8sClientSet, err := kubernetes.NewForConfig(c)
+	return &client{
+		Factory:   nil,
+		client:    k8sClientSet,
+		c7nClient: c7nClient,
+	}, nil
+}
+
 func NewClient(f cmdutil.Factory) (Client, error) {
 	kubeClient, err := f.KubernetesClientSet()
 	if err != nil {
 		return nil, fmt.Errorf("get kubernetes client: %v", err)
 	}
-	clientConfig, err := f.ClientConfig()
+	clientConfig, err := f.ToRESTConfig()
 	if err != nil {
 		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
 	}
@@ -111,8 +131,13 @@ func (c *client) DeleteJob(namespace string, name string) error {
 	})
 }
 
+//todo:remove
 func (c *client) GetClientSet() (internalclientset.Interface, error) {
-	return c.ClientSet()
+	return nil, nil
+}
+
+func (c *client) GetDiscoveryClient() (discovery.DiscoveryInterface, error) {
+	return c.client.Discovery(), nil
 }
 
 func (c *client) GetKubeClient() (*kubernetes.Clientset) {
@@ -200,8 +225,9 @@ func (c *client) AsVersionedObject(obj runtime.Object) (runtime.Object, error) {
 	if err != nil {
 		return nil, err
 	}
+	decoder := scheme.Codecs.UniversalDecoder()
 	versions := &runtime.VersionedObjects{}
-	err = runtime.DecodeInto(c.Decoder(true), json, versions)
+	err = runtime.DecodeInto(decoder, json, versions)
 	return versions.First(), err
 }
 
@@ -422,15 +448,22 @@ func (c *client) StopResources(namespace string, manifest string) error {
 	if err != nil {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
+
+	clientSet := c.GetKubeClient()
 	for _, info := range result {
 		mapping := info.ResourceMapping()
-		scaler, err := c.Scaler(mapping)
+		gr := mapping.Resource.GroupResource()
+		scaleClient := scale.New(clientSet.RESTClient(), nil, nil, nil)
+
+		scaler := kubectl.NewScaler(scaleClient)
+
+		//scaler, err := c.Scaler(mapping)
 		if err != nil {
 			glog.V(2).Infof("get scaler: %v", err)
 			continue
 		}
 		precondition := &kubectl.ScalePrecondition{Size: -1, ResourceVersion: ""}
-		if _, err := scaler.ScaleSimple(info.Namespace, info.Name, precondition, 0); err != nil {
+		if _, err := scaler.ScaleSimple(info.Namespace, info.Name, precondition, 0, gr); err != nil {
 			glog.V(2).Infof("scale to 0: %v", err)
 		}
 	}
@@ -469,7 +502,7 @@ func (c *client) GetLogs(namespace string, pod string, containerName string) (io
 }
 
 func (c *client) Exec(namespace string, podName string, containerName string, local io.ReadWriter) error {
-	config, err := c.ClientConfig()
+	config, err := c.ToRESTConfig()
 	if err != nil {
 		return err
 	}
@@ -521,7 +554,8 @@ func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]
 	if info == nil {
 		return objPods, nil
 	}
-	versioned, err := info.Versioned()
+
+	versioned, err := c.AsVersionedObject(info.Object)
 	switch {
 	case runtime.IsNotRegisteredError(err):
 		return objPods, nil
@@ -649,53 +683,168 @@ func (c *client) LabelObjects(namespace string,
 	return newManifestBuf, nil
 }
 
+// todo: what this do for ??
 func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
-	versioned, err := info.Versioned()
-	switch {
-	case runtime.IsNotRegisteredError(err):
-		return nil, nil
 
-	case err != nil:
-		return nil, err
+	obj := info.Object.(*unstructured.Unstructured)
+
+	l := obj.GetLabels()
+
+	if l == nil {
+		l = make(map[string]string)
 	}
-	obj := versioned.DeepCopyObject()
+	defer obj.SetLabels(l)
 
-	switch typed := obj.(type) {
-	// ReplicationController
-	// Deployment
+	switch info.Mapping.GroupVersionKind.Kind {
 
-	// Service
-	case *core_v1.Service:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.NetworkLabel] = "service"
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		// Ingress
-	case *ext_v1beta1.Ingress:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.NetworkLabel] = "ingress"
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-	case *core_v1.ConfigMap:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		//typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-	case *core_v1.Secret:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
+	case "Service":
+		l[model.NetworkLabel] = "service"
+	case "Ingress":
+		l[model.NetworkLabel] = "ingress"
+	case "ConfigMap", "Secret":
+	case "C7NHelmRelease":
 	default:
-		glog.Warningf("label object not matched: %v", obj)
+		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
 	}
+	l[model.AgentVersionLabel] = AgentVersion
+
 	return obj, nil
+}
+
+func nestedLocalObjectReferences(obj map[string]interface{}, fields ...string) ([]core_v1.LocalObjectReference, bool, error) {
+	val, found, err := unstructured.NestedFieldNoCopy(obj, fields...)
+	if !found || err != nil {
+		return nil, found, err
+	}
+	m, ok := val.([]core_v1.LocalObjectReference)
+	if !ok {
+		return nil, false, fmt.Errorf("%v accessor error: %v is of the type %T, expected []core_v1.LocalObjectReference", strings.Join(fields, "."), val, val)
+	}
+	return m, true, nil
+}
+
+func getTemplateLabels(obj map[string]interface{}) map[string]string {
+	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "template", "metadata", "labels")
+	if err != nil {
+		glog.Warningf("Get Template Labels failed, %v", err)
+	}
+	if tplLabels == nil {
+		tplLabels = make(map[string]string)
+	}
+	return tplLabels
+}
+
+func setTemplateLabels(obj map[string]interface{}, templateLabels map[string]string) error {
+	return unstructured.SetNestedStringMap(obj, templateLabels, "spec", "template", "metadata", "labels")
+}
+
+// Provide a common method for adding labels
+func addLabel(imagePullSecret []core_v1.LocalObjectReference,
+	info *resource.Info, version, releaseName, app, testLabel string, isTest bool) (runtime.Object, error) {
+	t := info.Object.(*unstructured.Unstructured)
+
+	l := t.GetLabels()
+	defer t.SetLabels(l)
+
+	var addBaseLabels = func() {
+		l[model.ReleaseLabel] = releaseName
+		l[model.AgentVersionLabel] = AgentVersion
+	}
+	var addAppLabels = func() {
+		l[model.AppLabel] = app
+		l[model.AppVersionLabel] = version
+	}
+
+	var addTemplateAppLabels = func() {
+		tplLabels := getTemplateLabels(t.Object)
+		tplLabels[model.ReleaseLabel] = releaseName
+		tplLabels[model.AgentVersionLabel] = AgentVersion
+		tplLabels[model.AppLabel] = app
+		tplLabels[model.AppVersionLabel] = version
+		if err := setTemplateLabels(t.Object, tplLabels); err != nil {
+			glog.Warningf("Set Template Labels failed, %v", err)
+		}
+	}
+	var addSelectorAppLabels = func() {
+		selectorLabels, _, err := unstructured.NestedStringMap(t.Object, "spec", "selector", "matchLabels")
+		if err != nil {
+			glog.Warningf("Get Selector Labels failed, %v", err)
+		}
+		if selectorLabels == nil {
+			selectorLabels = make(map[string]string)
+		}
+		selectorLabels[model.ReleaseLabel] = releaseName
+		if err := unstructured.SetNestedStringMap(t.Object, selectorLabels, "spec", "selector", "matchLabels"); err != nil {
+			glog.Warningf("Set Selector label failed, %v", err)
+		}
+	}
+
+	// add private image pull secrets
+	var addImagePullSecrets = func() {
+		secrets, _, err := nestedLocalObjectReferences(t.Object, "spec", "template", "spec", "imagePullSecrets")
+		if err != nil {
+			glog.Warningf("Get ImagePullSecrets failed, %v", err)
+		}
+		if secrets == nil {
+			secrets = make([]core_v1.LocalObjectReference, 0)
+		}
+
+		secrets = append(secrets, imagePullSecret...)
+
+		// SetNestedField method just support a few types
+		s := make([]interface{}, 0)
+		for _, secret := range secrets {
+			m := make(map[string]interface{})
+			m["name"] = secret.Name
+			s = append(s, m)
+		}
+		if err := unstructured.SetNestedField(t.Object, s, "spec", "template", "spec", "imagePullSecrets"); err != nil {
+			glog.Warningf("Set ImagePullSecrets failed, %v", err)
+		}
+	}
+
+	kind := info.Mapping.GroupVersionKind.Kind
+	switch kind {
+	case "ReplicationController", "ReplicaSet", "Deployment":
+		addAppLabels()
+		addTemplateAppLabels()
+		addSelectorAppLabels()
+		addImagePullSecrets()
+	case "ConfigMap":
+	case "Service":
+		l[model.NetworkLabel] = "service"
+		l[model.NetworkNoDelLabel] = "true"
+	case "Ingress":
+		l[model.NetworkLabel] = "ingress"
+		l[model.NetworkNoDelLabel] = "true"
+	case "Job":
+		addImagePullSecrets()
+		if isTest {
+			l[model.TestLabel] = testLabel
+			tplLabels := getTemplateLabels(t.Object)
+			tplLabels[model.TestLabel] = testLabel
+			tplLabels[model.ReleaseLabel] = releaseName
+			if err := setTemplateLabels(t.Object, tplLabels); err != nil {
+				glog.Warningf("Set Test-Template Labels failed, %v", err)
+			}
+		}
+	case "DaemonSet", "StatefulSet":
+		addAppLabels()
+		addTemplateAppLabels()
+		addImagePullSecrets()
+	case "Secret":
+		addAppLabels()
+	case "RoleBinding", "ClusterRoleBinding", "Role", "ClusterRole", "PodSecurityPolicy", "ServiceAccount":
+	case "Pod":
+		addAppLabels()
+	default:
+		glog.Warningf("Add Choerodon label failed, unsupported object: Kind %s of Release %s", kind, releaseName)
+		return t, nil
+	}
+	// add base labels
+	addBaseLabels()
+	return t, nil
 }
 
 func labelObject(imagePullSecret []core_v1.LocalObjectReference,
@@ -703,384 +852,8 @@ func labelObject(imagePullSecret []core_v1.LocalObjectReference,
 	releaseName string,
 	app string,
 	version string) (runtime.Object, error) {
-	versioned, err := info.Versioned()
-	switch {
-	case runtime.IsNotRegisteredError(err):
-		return nil, nil
-	case err != nil:
-		return nil, err
-	}
 
-	obj := versioned.DeepCopyObject()
-	switch typed := obj.(type) {
-	// ReplicationController
-	case *core_v1.ReplicationController:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-		// ReplicaSet
-	case *ext_v1beta1.ReplicaSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1.ReplicaSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	// Deployment
-	case *ext_v1beta1.Deployment:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1beta1.Deployment:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1beta2.Deployment:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1.Deployment:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	// ConfigMap
-	case *core_v1.ConfigMap:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-	// Service
-	case *core_v1.Service:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.NetworkLabel] = "service"
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Labels[model.NetworkNoDelLabel] = "true"
-
-	// Ingress
-	case *ext_v1beta1.Ingress:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.NetworkLabel] = "ingress"
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Labels[model.NetworkNoDelLabel] = "true"
-
-	// Job
-	case *batch.Job:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	// DaemonSet
-	case *ext_v1beta1.DaemonSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1beta2.DaemonSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1.DaemonSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	// StatefulSet
-	case *appsv1beta1.StatefulSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1beta2.StatefulSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1.StatefulSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	// Secret
-	case *core_v1.Secret:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-	default:
-		glog.Warningf("label object not matched: %v", obj)
-	}
-
-	return obj, nil
+	return addLabel(imagePullSecret, info, version, releaseName, app, "", false)
 }
 
 func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
@@ -1172,390 +945,8 @@ func labelTestObject(info *resource.Info,
 	app string,
 	version string,
 	label string) (runtime.Object, error) {
-	versioned, err := info.Versioned()
-	switch {
-	case runtime.IsNotRegisteredError(err):
-		return nil, nil
-	case err != nil:
-		return nil, err
-	}
 
-	obj := versioned.DeepCopyObject()
-	switch typed := obj.(type) {
-	// ReplicationController
-	case *core_v1.ReplicationController:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-		// ReplicaSet
-	case *ext_v1beta1.ReplicaSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1.ReplicaSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-		// Deployment
-	case *ext_v1beta1.Deployment:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1beta1.Deployment:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1beta2.Deployment:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1.Deployment:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		if typed.Spec.Selector == nil {
-			typed.Spec.Selector = &meta_v1.LabelSelector{}
-		}
-		if typed.Spec.Selector.MatchLabels == nil {
-			typed.Spec.Selector.MatchLabels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.AppVersionLabel] = version
-		typed.Spec.Template.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.AppLabel] = app
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Spec.Selector.MatchLabels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-		// ConfigMap
-	case *core_v1.ConfigMap:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-
-		// Service
-	case *core_v1.Service:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.NetworkLabel] = "service"
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Labels[model.NetworkNoDelLabel] = "true"
-
-		// Ingress
-	case *ext_v1beta1.Ingress:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.NetworkLabel] = "ingress"
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Labels[model.NetworkNoDelLabel] = "true"
-
-		// Job
-	case *batch.Job:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Labels[model.TestLabel] = label
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-		typed.Spec.Template.Labels[model.TestLabel] = label
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-		// DaemonSet
-	case *ext_v1beta1.DaemonSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1beta2.DaemonSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1.DaemonSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-		// StatefulSet
-	case *appsv1beta1.StatefulSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1beta2.StatefulSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-	case *appsv1.StatefulSet:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		if typed.Spec.Template.Labels == nil {
-			typed.Spec.Template.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-		typed.Spec.Template.Labels[model.ReleaseLabel] = releaseName
-
-		if typed.Spec.Template.Spec.ImagePullSecrets != nil {
-			typed.Spec.Template.Spec.ImagePullSecrets = append(typed.Spec.Template.Spec.ImagePullSecrets, imagePullSecret...)
-		} else {
-			typed.Spec.Template.Spec.ImagePullSecrets = imagePullSecret
-		}
-
-		// Secret
-	case *core_v1.Secret:
-		if typed.Labels == nil {
-			typed.Labels = make(map[string]string)
-		}
-		typed.Labels[model.ReleaseLabel] = releaseName
-		typed.Labels[model.AppLabel] = app
-		typed.Labels[model.AppVersionLabel] = version
-		typed.Labels[model.AgentVersionLabel] = AgentVersion
-	default:
-		glog.Warningf("label object not matched: %v", obj)
-	}
-
-	return obj, nil
+	return addLabel(imagePullSecret, info, version, releaseName, app, label, true)
 }
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {

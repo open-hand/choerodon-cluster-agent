@@ -1,5 +1,5 @@
 /*
-Copyright 2016 The Kubernetes Authors All rights reserved.
+Copyright The Helm Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ package tiller
 
 import (
 	"fmt"
+	"k8s.io/helm/pkg/storage"
+	"strings"
 
 	ctx "golang.org/x/net/context"
 
@@ -86,6 +88,11 @@ func (s *ReleaseServer) prepareRollback(req *services.RollbackReleaseRequest) (*
 		return nil, nil, err
 	}
 
+	description := req.Description
+	if req.Description == "" {
+		description = fmt.Sprintf("Rollback to %d", previousVersion)
+	}
+
 	// Store a new release object with previous release's configuration
 	targetRelease := &release.Release{
 		Name:      req.Name,
@@ -101,7 +108,7 @@ func (s *ReleaseServer) prepareRollback(req *services.RollbackReleaseRequest) (*
 			},
 			// Because we lose the reference to previous version elsewhere, we set the
 			// message here, and only override it later if we experience failure.
-			Description: fmt.Sprintf("Rollback to %d", previousVersion),
+			Description: description,
 		},
 		Version:  currentRelease.Version + 1,
 		Manifest: previousRelease.Manifest,
@@ -135,7 +142,7 @@ func (s *ReleaseServer) performRollback(currentRelease, targetRelease *release.R
 		targetRelease.Info.Status.Code = release.Status_FAILED
 		targetRelease.Info.Description = msg
 		s.recordRelease(currentRelease, true)
-		s.recordRelease(targetRelease, false)
+		s.recordRelease(targetRelease, true)
 		return res, err
 	}
 
@@ -146,11 +153,16 @@ func (s *ReleaseServer) performRollback(currentRelease, targetRelease *release.R
 		}
 	}
 
+	// update the current release
+	s.Log("superseding previous deployment %d", currentRelease.Version)
+	currentRelease.Info.Status.Code = release.Status_SUPERSEDED
+	s.recordRelease(currentRelease, true)
+
+	// Supersede all previous deployments, see issue #2941.
 	deployed, err := s.env.Releases.DeployedAll(currentRelease.Name)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), storage.NoReleasesErr) {
 		return nil, err
 	}
-	// Supersede all previous deployments, see issue #2941.
 	for _, r := range deployed {
 		s.Log("superseding previous deployment %d", r.Version)
 		r.Info.Status.Code = release.Status_SUPERSEDED

@@ -46,7 +46,7 @@ func getKubeClient(context string) (*rest.Config, kubernetes.Interface, error) {
 }
 
 func configForContext(context string) (*rest.Config, error) {
-	config, err := kube.GetConfig(context).ClientConfig()
+	config, err := kube.GetConfig(context, "").ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("could not get Kubernetes config for context %q: %s", context, err)
 	}

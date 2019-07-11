@@ -13,20 +13,17 @@ func init() {
 	registerCmdFunc(model.ReSyncAgent, reSync)
 	registerCmdFunc(model.UpgradeCluster, upgrade)
 	registerCmdFunc(model.EnvDelete, deleteEnv)
-	registerCmdFunc(model.CreateEnv,addEnv)
-
-
+	registerCmdFunc(model.CreateEnv, addEnv)
 }
 
-
+const sshKeyPath = "/ssh-keys"
 
 func writeSSHkey(fileName, key string) error {
 
-	filename := "/rsa-" + fileName
+	filename := sshKeyPath + "/rsa-" + fileName
 	//filename := "/Users/setzero/" + fileName
 	//home, _:= homedir.Dir()
 	//filename := home +"\\" + fileName
-
 
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
@@ -49,7 +46,7 @@ func config(host, namespace string) string {
 	var result string
 	result = result + fmt.Sprintf("Host %s\n", namespace)
 	if strings.Contains(host, ":") {
-		hostnamePort := strings.Split(host,":")
+		hostnamePort := strings.Split(host, ":")
 		hostname := hostnamePort[0]
 		port := hostnamePort[1]
 		result = result + fmt.Sprintf("  HostName %s\n", hostname)
@@ -59,7 +56,7 @@ func config(host, namespace string) string {
 	}
 	result = result + fmt.Sprintf("  StrictHostKeyChecking no\n")
 	result = result + fmt.Sprintf("  UserKnownHostsFile /dev/null\n")
-	result = result + fmt.Sprintf("  IdentityFile /rsa-%s\n", namespace)
+	result = result + fmt.Sprintf("  IdentityFile %s/rsa-%s\n", sshKeyPath, namespace)
 	//result = result + fmt.Sprintf("  IdentityFile /Users/setzero/%s\n", namespace)
 	//home,_:= homedir.Dir()
 	//result = result + fmt.Sprintf("  IdentityFile %s/%s\n", home,namespace)

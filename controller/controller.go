@@ -106,6 +106,7 @@ func CreateControllerContext(
 func (ctx *ControllerContext) StartControllers() error {
 
 	glog.Infof("Starting controllers for envs %v", ctx.Namespaces.GetAll())
+	// for choerodon test-manager auto test
 	ctx.Namespaces.Add("choerodon-test")
 	go func() {
 		for {

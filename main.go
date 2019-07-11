@@ -3,6 +3,7 @@ package main
 import (
 	goflag "flag"
 	"fmt"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"os"
 
 	"github.com/golang/glog"
@@ -17,7 +18,8 @@ func init() {
 }
 
 func main() {
-	command := cmd.NewAgentCommand(cmdutil.NewFactory(nil))
+	getter := genericclioptions.NewConfigFlags()
+	command := cmd.NewAgentCommand(cmdutil.NewFactory(getter))
 
 	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
 	goflag.CommandLine.Parse([]string{})
