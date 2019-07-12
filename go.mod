@@ -33,11 +33,9 @@ require (
 	github.com/go-logr/zapr v0.1.1 // indirect
 	github.com/go-openapi/spec v0.19.2
 	github.com/gobwas/glob v0.2.3 // indirect
-	github.com/gogo/protobuf v1.2.1 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/golang/groupcache v0.0.0-20180203143532-66deaeb636df // indirect
 	github.com/google/btree v0.0.0-20180124185431-e89373fe6b4a // indirect
-	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/google/uuid v1.1.1 // indirect
 	github.com/googleapis/gnostic v0.1.0 // indirect
 	github.com/gorilla/websocket v1.4.0
@@ -82,7 +80,6 @@ require (
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
 	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 	gopkg.in/go-playground/validator.v8 v8.18.2 // indirect
-	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/square/go-jose.v2 v2.3.1 // indirect
 	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0-20190703205437-39734b2a72fe
@@ -91,13 +88,15 @@ require (
 	k8s.io/apiserver v0.0.0-20181213151703-3ccfe8365421 // indirect
 	k8s.io/cli-runtime v0.0.0-20181213153952-835b10687cb6
 	k8s.io/client-go v2.0.0-alpha.0.0.20181126152608-d082d5923d3c+incompatible
+	k8s.io/code-generator v0.0.0-20180823001027-3dcf91f64f63
+	k8s.io/gengo v0.0.0-20190327210449-e17681d19d3a
 	k8s.io/helm v2.13.1+incompatible
 	k8s.io/kube-openapi v0.0.0-20190228160746-b3a7cee44a30
 	k8s.io/kubernetes v1.13.1
 	k8s.io/utils v0.0.0-20190607212802-c55fbcfc754a // indirect
 	sigs.k8s.io/controller-runtime v0.1.10
+	sigs.k8s.io/controller-tools v0.0.0-00010101000000-000000000000
 	sigs.k8s.io/testing_frameworks v0.1.1 // indirect
-	sigs.k8s.io/yaml v1.1.0 // indirect
 	vbom.ml/util v0.0.0-20180919145318-efcd4e0f9787 // indirect
 )
 
@@ -116,4 +115,5 @@ replace (
 	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20180711000925-0cf8f7e6ed1d
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.1.10
 	sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.1.11-0.20190411181648-9d55346c2bde
+
 )

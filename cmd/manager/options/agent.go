@@ -18,8 +18,8 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/worker"
-	"github.com/choerodon/choerodon-cluster-agent/ws"
 	"github.com/golang/glog"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -258,7 +258,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		shutdownWg.Wait()
 	}()
 
-	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, crChan)
+	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan)
 	if err != nil {
 		errChan <- err
 		return

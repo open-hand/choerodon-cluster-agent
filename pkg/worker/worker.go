@@ -20,7 +20,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	"github.com/choerodon/choerodon-cluster-agent/ws"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 )
 
 var (
@@ -34,7 +34,7 @@ type workerManager struct {
 	clusterId          int
 	helmClient         helm.Client
 	kubeClient         kube.Client
-	appClient          ws.WebSocketClient
+	appClient          websocket.WebSocketClient
 	agentInitOps       *model.AgentInitOptions
 	gitConfig          git.Config
 	gitRepos           map[string]*git.Repo
@@ -57,7 +57,7 @@ func NewWorkerManager(
 	chans *manager.CRChan,
 	kubeClient kube.Client,
 	helmClient helm.Client,
-	appClient ws.WebSocketClient,
+	appClient websocket.WebSocketClient,
 	manifests cluster.Manifests,
 	cluster cluster.Cluster,
 	agentInitOps *model.AgentInitOptions,

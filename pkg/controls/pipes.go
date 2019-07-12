@@ -4,16 +4,16 @@ import (
 	"io"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/common"
-	"github.com/choerodon/choerodon-cluster-agent/ws"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 )
 
 type pipe struct {
 	common.Pipe
 	id     string
-	client ws.WebSocketClient
+	client websocket.WebSocketClient
 }
 
-func newPipe(p common.Pipe, c ws.WebSocketClient, id string) (common.Pipe, error) {
+func newPipe(p common.Pipe, c websocket.WebSocketClient, id string) (common.Pipe, error) {
 	pipe := &pipe{
 		Pipe:   p,
 		id:     id,
@@ -25,11 +25,11 @@ func newPipe(p common.Pipe, c ws.WebSocketClient, id string) (common.Pipe, error
 	return pipe, nil
 }
 
-var NewPipe = func(c ws.WebSocketClient, id string, pipeType string) (common.Pipe, error) {
+var NewPipe = func(c websocket.WebSocketClient, id string, pipeType string) (common.Pipe, error) {
 	return newPipe(common.NewPipe(pipeType), c, id)
 }
 
-func NewPipeFromEnds(local, remote io.ReadWriter, c ws.WebSocketClient, id string, pipeType string) (common.Pipe, error) {
+func NewPipeFromEnds(local, remote io.ReadWriter, c websocket.WebSocketClient, id string, pipeType string) (common.Pipe, error) {
 	return newPipe(common.NewPipeFromEnds(local, remote, pipeType), c, id)
 }
 
