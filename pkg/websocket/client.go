@@ -27,7 +27,7 @@ const (
 
 var connectFlag = false
 
-type WebSocketClient interface {
+type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
 	PipeConnection(pipeID string, pipe common.Pipe) error
 	PipeClose(pipeID string, pipe common.Pipe) error
@@ -49,7 +49,7 @@ type appClient struct {
 func NewClient(
 	t Token,
 	endpoint string,
-	crChannel *manager.CRChan) (WebSocketClient, error) {
+	crChannel *manager.CRChan) (Client, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("no upstream URL given")
 	}

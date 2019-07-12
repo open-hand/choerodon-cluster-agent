@@ -34,7 +34,7 @@ type workerManager struct {
 	clusterId          int
 	helmClient         helm.Client
 	kubeClient         kube.Client
-	appClient          websocket.WebSocketClient
+	appClient          websocket.Client
 	agentInitOps       *model.AgentInitOptions
 	gitConfig          git.Config
 	gitRepos           map[string]*git.Repo
@@ -57,7 +57,7 @@ func NewWorkerManager(
 	chans *manager.CRChan,
 	kubeClient kube.Client,
 	helmClient helm.Client,
-	appClient websocket.WebSocketClient,
+	appClient websocket.Client,
 	manifests cluster.Manifests,
 	cluster cluster.Cluster,
 	agentInitOps *model.AgentInitOptions,

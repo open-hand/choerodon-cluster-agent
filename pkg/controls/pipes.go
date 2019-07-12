@@ -10,10 +10,10 @@ import (
 type pipe struct {
 	common.Pipe
 	id     string
-	client websocket.WebSocketClient
+	client websocket.Client
 }
 
-func newPipe(p common.Pipe, c websocket.WebSocketClient, id string) (common.Pipe, error) {
+func newPipe(p common.Pipe, c websocket.Client, id string) (common.Pipe, error) {
 	pipe := &pipe{
 		Pipe:   p,
 		id:     id,
@@ -25,11 +25,11 @@ func newPipe(p common.Pipe, c websocket.WebSocketClient, id string) (common.Pipe
 	return pipe, nil
 }
 
-var NewPipe = func(c websocket.WebSocketClient, id string, pipeType string) (common.Pipe, error) {
+var NewPipe = func(c websocket.Client, id string, pipeType string) (common.Pipe, error) {
 	return newPipe(common.NewPipe(pipeType), c, id)
 }
 
-func NewPipeFromEnds(local, remote io.ReadWriter, c websocket.WebSocketClient, id string, pipeType string) (common.Pipe, error) {
+func NewPipeFromEnds(local, remote io.ReadWriter, c websocket.Client, id string, pipeType string) (common.Pipe, error) {
 	return newPipe(common.NewPipeFromEnds(local, remote, pipeType), c, id)
 }
 
