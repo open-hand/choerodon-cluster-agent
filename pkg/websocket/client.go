@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
 	"net/http"
 	"net/url"
 	"sync"
@@ -13,7 +14,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-cleanhttp"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/common"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	util_url "github.com/choerodon/choerodon-cluster-agent/pkg/util/url"
 )
@@ -29,8 +29,8 @@ var connectFlag = false
 
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
-	PipeConnection(pipeID string, pipe common.Pipe) error
-	PipeClose(pipeID string, pipe common.Pipe) error
+	PipeConnection(pipeID string, pipe pipeutil.Pipe) error
+	PipeClose(pipeID string, pipe pipeutil.Pipe) error
 }
 
 type appClient struct {
@@ -211,7 +211,7 @@ func (c *appClient) stop() {
 	c.backgroundWait.Wait()
 }
 
-func (c *appClient) PipeConnection(id string, pipe common.Pipe) error {
+func (c *appClient) PipeConnection(id string, pipe pipeutil.Pipe) error {
 	go func() {
 		glog.Infof("Pipe %s connection to %s starting", id, c.url)
 		defer glog.Infof("Pipe %s connection to %s exiting", id, c.url)
@@ -222,22 +222,8 @@ func (c *appClient) PipeConnection(id string, pipe common.Pipe) error {
 	return nil
 }
 
-func (c *appClient) PipeClose(id string, pipe common.Pipe) error {
-	//newURL, err := util_url.ParseURL(c.url, pipe.PipeType())
-	//if err != nil {
-	//	return err
-	//}
-	//newURL.Scheme = "http"
-	//newURLStr := fmt.Sprintf("%s.%s:%s", newURL.String(), pipe.PipeType(), id)
-	//req, err := http.NewRequest(http.MethodDelete, newURLStr, nil)
-	//if err != nil {
-	//	return err
-	//}
-	//resp, err := c.client.Do(req)
-	//if err != nil {
-	//	return err
-	//}
-	//resp.Body.Close()
+func (c *appClient) PipeClose(id string, pipe pipeutil.Pipe) error {
+	//todo imp close func
 	return nil
 }
 
@@ -290,7 +276,7 @@ func (c *appClient) closePipeConn(id string) {
 	}
 }
 
-func (c *appClient) pipeConnection(id string, pipe common.Pipe) (bool, error) {
+func (c *appClient) pipeConnection(id string, pipe pipeutil.Pipe) (bool, error) {
 	newURL, err := util_url.ParseURL(c.url, pipe.PipeType())
 	if err != nil {
 		return false, err

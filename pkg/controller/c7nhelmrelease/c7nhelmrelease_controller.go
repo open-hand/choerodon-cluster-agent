@@ -8,7 +8,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controllerutils"
+	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -36,12 +36,12 @@ var log = logf.Log.WithName("controller_c7nhelmrelease")
 
 // Add creates a new C7NHelmRelease Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager, args *controllerutils.Args) error {
+func Add(mgr manager.Manager, args *controllerutil.Args) error {
 	return add(mgr, newReconciler(mgr, args))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, args *controllerutils.Args) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, args *controllerutil.Args) reconcile.Reconciler {
 	return &ReconcileC7NHelmRelease{client: mgr.GetClient(), scheme: mgr.GetScheme(), args: args}
 }
 
@@ -71,7 +71,7 @@ type ReconcileC7NHelmRelease struct {
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
-	args   *controllerutils.Args
+	args   *controllerutil.Args
 }
 
 // Reconcile reads that state of the cluster for a C7NHelmRelease object and makes changes based on the state read

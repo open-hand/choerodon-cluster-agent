@@ -9,7 +9,7 @@ import (
 	apis "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controllerutils"
+	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 
 	//todo : remove another controller
 	controller2 "github.com/choerodon/choerodon-cluster-agent/pkg/controller"
@@ -215,7 +215,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		os.Exit(1)
 	}
 
-	args := &controllerutils.Args{
+	args := &controllerutil.Args{
 		CrChan:     crChan,
 		HelmClient: helmClient,
 	}

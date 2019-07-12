@@ -1,4 +1,4 @@
-package controllerutils
+package controller
 
 import (
 	"github.com/choerodon/choerodon-cluster-agent/manager"

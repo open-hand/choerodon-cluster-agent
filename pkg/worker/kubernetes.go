@@ -8,10 +8,10 @@ import (
 	"k8s.io/client-go/scale/scheme"
 	"k8s.io/kubernetes/pkg/kubectl"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/common"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/controls"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	model_kubernetes "github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
+	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 )
 
 func init() {
@@ -37,7 +37,7 @@ func GetLogsByKubernetes(w *workerManager, cmd *model.Packet) ([]*model.Packet, 
 		readCloser,
 		ioutil.Discard,
 	}
-	pipe, err := controls.NewPipeFromEnds(nil, readWriter, w.appClient, req.PipeID, common.Log)
+	pipe, err := websocket.NewPipeFromEnds(nil, readWriter, w.appClient, req.PipeID, pipeutil.Log)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
@@ -53,7 +53,7 @@ func ExecByKubernetes(w *workerManager, cmd *model.Packet) ([]*model.Packet, *mo
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
 	}
-	pipe, err := controls.NewPipe(w.appClient, req.PipeID, common.Exec)
+	pipe, err := websocket.NewPipe(w.appClient, req.PipeID, pipeutil.Exec)
 	if err != nil {
 		return nil, NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
 	}
