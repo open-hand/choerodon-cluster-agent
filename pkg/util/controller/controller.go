@@ -8,4 +8,5 @@ import (
 type Args struct {
 	CrChan     *manager.CRChan
 	HelmClient helm.Client
+	Namespaces *manager.Namespaces
 }

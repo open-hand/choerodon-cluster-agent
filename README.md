@@ -1,5 +1,7 @@
 # Choerodon cluster Agent
 
+[![GoDoc Widget]][GoDoc]
+
 `Choerodon Agent` is a environment client which connects to the choerodon platform through websocket, And it is a relay station for other services and k8s interaction. The interactioninteract through `command/response` to provide these features to other service,such as management of helm release, network management, k8s object monitoring, and container log and shell. We can use che choerodon agent to operate the k8s like using kubectl client.
 
 ![](image/design.png)
@@ -48,3 +50,6 @@ If you find any shortcomings or bugs, please describe them in the [issue](https:
 
 ## How to Contribute
 Pull requests are welcome! [Follow](https://github.com/choerodon/choerodon/blob/master/CONTRIBUTING.md) to know for more information on how to contribute.
+
+[GoDoc]: https://godoc.org/github.com/choerodon/choerodon-cluster-agent
+[GoDoc Widget]: https://godoc.org/github.com/choerodon/choerodon-cluster-agent?status.svg

@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/controller/daemonset"
 	"github.com/choerodon/choerodon-cluster-agent/controller/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/controller/node"
 	"github.com/choerodon/choerodon-cluster-agent/controller/statefulset"
@@ -14,8 +13,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	clientset "k8s.io/client-go/kubernetes"
 
-	"github.com/choerodon/choerodon-cluster-agent/controller/configmap"
-	"github.com/choerodon/choerodon-cluster-agent/controller/deployment"
 	"github.com/choerodon/choerodon-cluster-agent/controller/endpoint"
 	"github.com/choerodon/choerodon-cluster-agent/controller/ingress"
 	"github.com/choerodon/choerodon-cluster-agent/controller/job"
@@ -151,21 +148,12 @@ func startNamespaceController(ctx *ControllerContext) (bool, error) {
 
 func startDeploymentController(ctx *ControllerContext) (bool, error) {
 
-	go deployment.NewDeploymentController(
-		ctx.kubeInformer.Extensions().V1beta1().Deployments(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-	).Run(workers, ctx.stop)
+	fmt.Println("start deployment has moved ")
 	return true, nil
 }
 
 func startDaemonSetController(ctx *ControllerContext) (bool, error) {
-
-	go daemonset.NewDaemonSetController(
-		ctx.kubeInformer.Extensions().V1beta1().DaemonSets(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-	).Run(workers, ctx.stop)
+	fmt.Println("start daemonset has moved ")
 	return true, nil
 }
 
@@ -255,11 +243,7 @@ func startSecretController(ctx *ControllerContext) (bool, error) {
 }
 
 func startConfigMapController(ctx *ControllerContext) (bool, error) {
-	go configMap.NewconfigMapController(
-		ctx.kubeInformer.Core().V1().ConfigMaps(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-	).Run(workers, ctx.stop)
+	fmt.Println("start configmap has moved")
 	return true, nil
 }
 

@@ -215,9 +215,13 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		os.Exit(1)
 	}
 
+	// 需要listen de namespaces
+	namespaces := manager.NewNamespaces()
+
 	args := &controllerutil.Args{
 		CrChan:     crChan,
 		HelmClient: helmClient,
+		Namespaces: namespaces,
 	}
 
 	// Setup all Controllers
@@ -277,8 +281,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		NotesRef:        o.gitNotesRef,
 		GitPollInterval: o.gitPollInterval,
 	}
-
-	namespaces := manager.NewNamespaces()
 
 	ctx2 := controller.CreateControllerContext(
 		kubeClient.GetKubeClient(),

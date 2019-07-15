@@ -361,12 +361,12 @@ k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/features
 # k8s.io/apimachinery v0.0.0-2019022213512-86fb29eff628 => k8s.io/apimachinery v0.0.0-20181127025237-2b1284ed4c93
 k8s.io/apimachinery/pkg/apis/meta/v1
-k8s.io/apimachinery/pkg/api/errors
-k8s.io/apimachinery/pkg/util/runtime
-k8s.io/apimachinery/pkg/util/wait
-k8s.io/apimachinery/pkg/labels
 k8s.io/apimachinery/pkg/api/equality
+k8s.io/apimachinery/pkg/api/errors
+k8s.io/apimachinery/pkg/labels
+k8s.io/apimachinery/pkg/util/runtime
 k8s.io/apimachinery/pkg/util/sets
+k8s.io/apimachinery/pkg/util/wait
 k8s.io/apimachinery/pkg/api/resource
 k8s.io/apimachinery/pkg/fields
 k8s.io/apimachinery/pkg/runtime
@@ -429,10 +429,10 @@ k8s.io/client-go/informers
 k8s.io/client-go/tools/cache
 k8s.io/client-go/informers/core/v1
 k8s.io/client-go/listers/core/v1
+k8s.io/client-go/tools/leaderelection/resourcelock
 k8s.io/client-go/util/workqueue
 k8s.io/client-go/informers/extensions/v1beta1
 k8s.io/client-go/listers/extensions/v1beta1
-k8s.io/client-go/tools/leaderelection/resourcelock
 k8s.io/client-go/informers/batch/v1
 k8s.io/client-go/listers/batch/v1
 k8s.io/client-go/informers/apps/v1
