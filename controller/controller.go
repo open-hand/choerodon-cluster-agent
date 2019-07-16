@@ -1,11 +1,15 @@
 package controller
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/controller/node"
 	"github.com/choerodon/choerodon-cluster-agent/controller/statefulset"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 	"time"
 
@@ -14,14 +18,12 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 
 	"github.com/choerodon/choerodon-cluster-agent/controller/endpoint"
+	"github.com/choerodon/choerodon-cluster-agent/controller/event"
 	"github.com/choerodon/choerodon-cluster-agent/controller/ingress"
 	"github.com/choerodon/choerodon-cluster-agent/controller/job"
 	"github.com/choerodon/choerodon-cluster-agent/controller/pod"
 	"github.com/choerodon/choerodon-cluster-agent/controller/replicaset"
 	"github.com/choerodon/choerodon-cluster-agent/controller/secret"
-	"github.com/choerodon/choerodon-cluster-agent/controller/service"
-
-	"github.com/choerodon/choerodon-cluster-agent/controller/event"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 )
@@ -225,11 +227,37 @@ func startJobController(ctx *ControllerContext) (bool, error) {
 }
 
 func startServiceController(ctx *ControllerContext) (bool, error) {
-	go service.NewserviceController(
-		ctx.kubeInformer.Core().V1().Services(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-	).Run(workers, ctx.stop)
+
+	namespaces := ctx.Namespaces.GetAll()
+
+	for _, ns := range namespaces {
+		instances, err := ctx.kubeClientset.CoreV1().Services(ns).List(v1.ListOptions{})
+		if err != nil {
+			glog.Fatal(err)
+		} else {
+			var serviceList []string
+			for _, instance := range instances.Items {
+				if instance.Labels[model.ReleaseLabel] != "" {
+					serviceList = append(serviceList, instance.GetName())
+				}
+			}
+			resourceList := &kubernetes.ResourceList{
+				Resources:    serviceList,
+				ResourceType: "Service",
+			}
+			content, err := json.Marshal(resourceList)
+			if err != nil {
+				glog.Fatal("marshal service list error")
+			} else {
+				response := &model.Packet{
+					Key:     fmt.Sprintf("env:%s", ns),
+					Type:    model.ResourceSync,
+					Payload: string(content),
+				}
+				ctx.chans.ResponseChan <- response
+			}
+		}
+	}
 	return true, nil
 }
 
