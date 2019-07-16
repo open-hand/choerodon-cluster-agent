@@ -219,9 +219,11 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	namespaces := manager.NewNamespaces()
 
 	args := &controllerutil.Args{
-		CrChan:     crChan,
-		HelmClient: helmClient,
-		Namespaces: namespaces,
+		CrChan:       crChan,
+		HelmClient:   helmClient,
+		Namespaces:   namespaces,
+		KubeClient:   kubeClient,
+		PlatformCode: o.PlatformCode,
 	}
 
 	// Setup all Controllers

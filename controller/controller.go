@@ -20,7 +20,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/controller/endpoint"
 	"github.com/choerodon/choerodon-cluster-agent/controller/event"
 	"github.com/choerodon/choerodon-cluster-agent/controller/ingress"
-	"github.com/choerodon/choerodon-cluster-agent/controller/job"
 	"github.com/choerodon/choerodon-cluster-agent/controller/pod"
 	"github.com/choerodon/choerodon-cluster-agent/controller/replicaset"
 	"github.com/choerodon/choerodon-cluster-agent/controller/secret"
@@ -215,14 +214,7 @@ func startReplicaSetController(ctx *ControllerContext) (bool, error) {
 }
 
 func startJobController(ctx *ControllerContext) (bool, error) {
-	go job.NewJobController(
-		ctx.kubeInformer.Batch().V1().Jobs(),
-		ctx.kubeClient,
-		ctx.helmClient,
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-		ctx.PlatformCode,
-	).Run(workers, ctx.stop)
+	fmt.Println("start job has moved")
 	return true, nil
 }
 
