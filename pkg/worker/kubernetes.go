@@ -2,6 +2,7 @@ package worker
 
 import (
 	"encoding/json"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"io"
 	"io/ioutil"
 	"k8s.io/client-go/scale"
@@ -24,11 +25,11 @@ func GetLogsByKubernetes(w *workerManager, cmd *model.Packet) ([]*model.Packet, 
 	var req *model_kubernetes.GetLogsByKubernetesRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
+		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
 	readCloser, err := w.kubeClient.GetLogs(req.Namespace, req.PodName, req.ContainerName)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
+		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
 	readWriter := struct {
 		io.Reader
@@ -39,7 +40,7 @@ func GetLogsByKubernetes(w *workerManager, cmd *model.Packet) ([]*model.Packet, 
 	}
 	pipe, err := websocket.NewPipeFromEnds(nil, readWriter, w.appClient, req.PipeID, pipeutil.Log)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
+		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
 	pipe.OnClose(func() {
 		readCloser.Close()
@@ -51,11 +52,11 @@ func ExecByKubernetes(w *workerManager, cmd *model.Packet) ([]*model.Packet, *mo
 	var req *model_kubernetes.ExecByKubernetesRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
+		return nil, command.NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
 	}
 	pipe, err := websocket.NewPipe(w.appClient, req.PipeID, pipeutil.Exec)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
+		return nil, command.NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
 	}
 	local, _ := pipe.Ends()
 	w.kubeClient.Exec(req.Namespace, req.PodName, req.ContainerName, local)
@@ -66,12 +67,12 @@ func ScalePod(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 	var req *model_kubernetes.ScalePodRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
+		return nil, command.NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
 	}
 
 	clientSet := w.kubeClient.GetKubeClient()
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
+		return nil, command.NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
 	}
 
 	scaleClient := scale.New(clientSet.RESTClient(), nil, nil, nil)
@@ -83,7 +84,7 @@ func ScalePod(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 	precondition := &kubectl.ScalePrecondition{Size: -1, ResourceVersion: ""}
 	_, err = scaler.ScaleSimple(req.Namespace, req.DeploymentName, precondition, uint(req.Count), gr)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
+		return nil, command.NewResponseError(cmd.Key, model.OperatePodCountFailed, err)
 	}
 	resp := &model.Packet{
 		Key:  cmd.Key,

@@ -432,7 +432,6 @@ k8s.io/client-go/listers/core/v1
 k8s.io/client-go/tools/leaderelection/resourcelock
 k8s.io/client-go/util/workqueue
 k8s.io/client-go/informers/extensions/v1beta1
-k8s.io/client-go/listers/extensions/v1beta1
 k8s.io/client-go/informers/apps/v1
 k8s.io/client-go/informers/apps/v1beta2
 k8s.io/client-go/listers/apps/v1
@@ -505,6 +504,7 @@ k8s.io/client-go/util/buffer
 k8s.io/client-go/util/retry
 k8s.io/client-go/tools/watch
 k8s.io/client-go/util/integer
+k8s.io/client-go/listers/extensions/v1beta1
 k8s.io/client-go/tools/reference
 k8s.io/client-go/pkg/version
 k8s.io/client-go/plugin/pkg/client/auth/exec

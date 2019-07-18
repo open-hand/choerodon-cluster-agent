@@ -336,8 +336,8 @@ func isUnknownRevision(err error) bool {
 			strings.Contains(err.Error(), "bad revision"))
 }
 
-func (w *workerManager) syncStatus(stop <-chan struct{}, done *sync.WaitGroup) {
-	defer done.Done()
+func (w *workerManager) syncStatus() {
+	defer w.wg.Done()
 
 	// We want to sync at least every `SyncInterval`. Being told to
 	// sync, or completing a job, may intervene (in which case,
@@ -345,7 +345,7 @@ func (w *workerManager) syncStatus(stop <-chan struct{}, done *sync.WaitGroup) {
 	syncTimer := time.NewTimer(10 * time.Second)
 	for {
 		select {
-		case <-stop:
+		case <-w.stop:
 			glog.Info("sync loop stopping")
 			return
 		case <-syncTimer.C:

@@ -1,4 +1,4 @@
-package worker
+package command
 
 import (
 	"github.com/golang/glog"

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/command"
+	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"k8s.io/api/core/v1"
 	"strings"
 	"sync"
@@ -28,6 +30,8 @@ var (
 )
 
 type processCmdFunc func(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet)
+
+type WorkerManager workerManager
 
 type workerManager struct {
 	chans              *manager.CRChan
@@ -97,38 +101,10 @@ func NewWorkerManager(
 
 func (w *workerManager) Start() {
 	w.wg.Add(1)
-	go w.syncStatus(w.stop, w.wg)
-
-	//gitconfigChan := make(chan model.GitInitConfig, 1)
+	go w.syncStatus()
 
 	w.wg.Add(1)
 	go w.runWorker()
-
-	//if w.gitConfig.GitUrl == "" {
-	//	for {
-	//		gitConfig := <-gitconfigChan
-	//		gitRemote := git.Remote{URL: gitConfig.GitUrl}
-	//		glog.Infof("receive manager git url %s and git ssh key :\n%s", gitConfig.GitUrl, gitConfig.SshKey)
-	//		if err := writeSSHkey(gitConfig.SshKey); err != nil {
-	//			glog.Errorf("write git ssh key error", err)
-	//		} else {
-	//			glog.Info("Init Git Config Success")
-	//			w.gitRepo = git.NewRepo(gitRemote, git.PollInterval(w.gitConfig.GitPollInterval))
-	//
-	//			{
-	//				wg.Add(1)
-	//				go func() {
-	//					err := w.gitRepo.Start(stop, wg)
-	//					if err != nil {
-	//						glog.Errorf("git repo start failed", err)
-	//					}
-	//				}()
-	//			}
-	//			break
-	//		}
-	//	}
-	//}
-
 }
 
 func (w *workerManager) runWorker() {
@@ -144,7 +120,15 @@ func (w *workerManager) runWorker() {
 				var newCmds []*model.Packet = nil
 				var resp *model.Packet = nil
 
-				if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
+				if processCmdFunc, ok := command.Funcs[cmd.Type]; ok {
+					opts := &commandutil.Opts{
+						GitTimeout: w.gitTimeout,
+						Namespaces: w.controllerContext.Namespaces,
+						GitRepos:   w.gitRepos,
+					}
+					newCmds, resp = processCmdFunc(opts, cmd)
+					// todo: remove else when all command moved
+				} else if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
 					err := fmt.Errorf("type %s not exist", cmd.Type)
 					glog.V(1).Info(err.Error())
 				} else {
@@ -177,11 +161,11 @@ func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet
 	err := json.Unmarshal([]byte(cmd.Payload), &newAgentInitOps)
 
 	if err != nil || len(newAgentInitOps.Envs) < 1 {
-		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
+		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, err)
 	}
 
 	if err = w.kubeClient.GetNamespace(newAgentInitOps.Envs[0].Namespace); err == nil {
-		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, errors.New("env already exist"))
+		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, errors.New("env already exist"))
 	}
 
 	w.agentInitOps.Envs = append(w.agentInitOps.Envs, newAgentInitOps.Envs[0])
@@ -197,7 +181,7 @@ func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet
 		//写入deploy key
 		err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
 		if err != nil {
-			return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
+			return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, err)
 		}
 		sshConfig = sshConfig + config(newAgentInitOps.GitHost, envPara.Namespace)
 
@@ -205,7 +189,7 @@ func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet
 	// 写入ssh config
 	err = writeSshConfig(sshConfig)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.EnvCreateFailed, err)
+		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, err)
 	}
 
 	w.addEnv(&newAgentInitOps)
@@ -223,11 +207,11 @@ func deleteEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pac
 	err := json.Unmarshal([]byte(cmd.Payload), &env)
 
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.EnvDelete, err)
+		return nil, commandutil.NewResponseError(cmd.Key, model.EnvDelete, err)
 	}
 
 	if !w.controllerContext.Namespaces.Contain(env.Namespace) {
-		return nil, NewResponseError(cmd.Key, model.EnvDelete, err)
+		return nil, commandutil.NewResponseError(cmd.Key, model.EnvDelete, err)
 	}
 
 	w.controllerContext.Namespaces.Remove(env.Namespace)
@@ -260,7 +244,7 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 	var newAgentInitOps model.AgentInitOptions
 	err := json.Unmarshal([]byte(cmd.Payload), &newAgentInitOps)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
+		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
 	namespaces := w.controllerContext.Namespaces
@@ -278,7 +262,7 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 		//写入deploy key
 		err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
 		if err != nil {
-			return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
+			return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 		}
 		sshConfig = sshConfig + config(newAgentInitOps.GitHost, envPara.Namespace)
 
@@ -291,7 +275,7 @@ func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pack
 	// 写入ssh config
 	err = writeSshConfig(sshConfig)
 	if err != nil {
-		return nil, NewResponseError(cmd.Key, model.InitAgentFailed, err)
+		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
 	nsList := []string{}

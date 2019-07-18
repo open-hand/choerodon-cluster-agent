@@ -25,7 +25,7 @@ const (
 	maxBackOff     = 60 * time.Second
 )
 
-var connectFlag = false
+var reconnectFlag = false
 
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
@@ -77,7 +77,7 @@ func NewClient(
 func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 	defer done.Done()
 
-	glog.Info("Started agent")
+	glog.Info("Started websocket listening")
 
 	backOff := 5 * time.Second
 	errCh := make(chan error, 1)
@@ -89,7 +89,7 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 		case err := <-errCh:
 			if err != nil {
 				glog.Error(err)
-				connectFlag = true
+				reconnectFlag = true
 			}
 			time.Sleep(backOff)
 		case <-stop:
@@ -110,14 +110,14 @@ func (c *appClient) connect() error {
 	glog.V(1).Info("Connect to DevOps service success")
 
 	// 建立连接，同步资源对象
-	if connectFlag {
+	if reconnectFlag {
 		c.crChannel.CommandChan <- newReConnectCommand()
 	} else {
 		c.crChannel.CommandChan <- newUpgradeInfoCommand(c.url.String())
 	}
 
 	defer func() {
-		glog.V(1).Info("exit connect")
+		glog.V(1).Info("stop websocket connect")
 		c.conn.Close()
 	}()
 

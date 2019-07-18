@@ -19,7 +19,6 @@ import (
 
 	"github.com/choerodon/choerodon-cluster-agent/controller/endpoint"
 	"github.com/choerodon/choerodon-cluster-agent/controller/event"
-	"github.com/choerodon/choerodon-cluster-agent/controller/ingress"
 	"github.com/choerodon/choerodon-cluster-agent/controller/pod"
 	"github.com/choerodon/choerodon-cluster-agent/controller/replicaset"
 	"github.com/choerodon/choerodon-cluster-agent/controller/secret"
@@ -195,12 +194,7 @@ func startStatefulSetController(ctx *ControllerContext) (bool, error) {
 }
 
 func startIngressController(ctx *ControllerContext) (bool, error) {
-	go ingress.NewIngressController(
-		ctx.kubeInformer.Extensions().V1beta1().Ingresses(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-	).Run(workers, ctx.stop)
-
+	fmt.Println("start ingress has moved ")
 	return true, nil
 }
 
