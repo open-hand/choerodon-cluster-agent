@@ -125,7 +125,7 @@ func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8s
 
 func makeC7nHelmReleaseK8sResource(chr *c7nv1alpha1.C7NHelmRelease) k8sResource {
 	return k8sResource{
-		apiVersion: "v1alpha1",
+		apiVersion: "choerodon.io/v1alpha1",
 		kind:       "C7NHelmRelease",
 		name:       chr.Name,
 		k8sObject:  chr,

@@ -58,9 +58,9 @@ github.com/ghodss/yaml
 # github.com/gin-contrib/sse v0.0.0-20170109093832-22d885f9ecc7
 github.com/gin-contrib/sse
 # github.com/gin-gonic/gin v0.0.0-20180512030042-bf7803815b0b
-github.com/gin-gonic/gin/json
 github.com/gin-gonic/gin
 github.com/gin-gonic/gin/binding
+github.com/gin-gonic/gin/json
 github.com/gin-gonic/gin/render
 # github.com/go-logr/logr v0.1.0
 github.com/go-logr/logr

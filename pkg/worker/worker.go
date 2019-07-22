@@ -2,19 +2,14 @@ package worker
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
-	"k8s.io/api/core/v1"
-	"strings"
 	"sync"
 
 	"github.com/golang/glog"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"time"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
@@ -122,9 +117,17 @@ func (w *workerManager) runWorker() {
 
 				if processCmdFunc, ok := command.Funcs[cmd.Type]; ok {
 					opts := &commandutil.Opts{
-						GitTimeout: w.gitTimeout,
-						Namespaces: w.controllerContext.Namespaces,
-						GitRepos:   w.gitRepos,
+						GitTimeout:        w.gitTimeout,
+						Namespaces:        w.controllerContext.Namespaces,
+						GitRepos:          w.gitRepos,
+						KubeClient:        w.kubeClient,
+						ControllerContext: w.controllerContext,
+						StopCh:            w.stop,
+						Cluster:           w.cluster,
+						Wg:                w.wg,
+						CrChan:            w.chans,
+						GitConfig:         w.gitConfig,
+						Envs:              w.agentInitOps.Envs,
 					}
 					newCmds, resp = processCmdFunc(opts, cmd)
 					// todo: remove else when all command moved
@@ -154,52 +157,6 @@ func (w *workerManager) runWorker() {
 
 func registerCmdFunc(funcType string, f processCmdFunc) {
 	processCmdFuncs[funcType] = f
-}
-
-func addEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	var newAgentInitOps model.AgentInitOptions
-	err := json.Unmarshal([]byte(cmd.Payload), &newAgentInitOps)
-
-	if err != nil || len(newAgentInitOps.Envs) < 1 {
-		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, err)
-	}
-
-	if err = w.kubeClient.GetNamespace(newAgentInitOps.Envs[0].Namespace); err == nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, errors.New("env already exist"))
-	}
-
-	w.agentInitOps.Envs = append(w.agentInitOps.Envs, newAgentInitOps.Envs[0])
-
-	w.controllerContext.Namespaces.Add(newAgentInitOps.Envs[0].Namespace)
-	w.createNamespace(newAgentInitOps.Envs[0].Namespace)
-	w.controllerContext.ReSync()
-
-	// 往文件中写入各个git库deploy key
-	var sshConfig string
-	for _, envPara := range w.agentInitOps.Envs {
-
-		//写入deploy key
-		err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
-		if err != nil {
-			return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, err)
-		}
-		sshConfig = sshConfig + config(newAgentInitOps.GitHost, envPara.Namespace)
-
-	}
-	// 写入ssh config
-	err = writeSshConfig(sshConfig)
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, err)
-	}
-
-	w.addEnv(&newAgentInitOps)
-
-	return nil, &model.Packet{
-		Key:     cmd.Key,
-		Type:    model.EnvCreateSucceed,
-		Payload: cmd.Payload,
-	}
-
 }
 
 func deleteEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
@@ -239,116 +196,8 @@ func deleteEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Pac
 
 }
 
-func setRepos(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-
-	var newAgentInitOps model.AgentInitOptions
-	err := json.Unmarshal([]byte(cmd.Payload), &newAgentInitOps)
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
-	}
-
-	namespaces := w.controllerContext.Namespaces
-
-	var sshConfig string
-
-	toAddEnv := &model.AgentInitOptions{
-		Envs: []model.EnvParas{},
-	}
-	toAddEnv.GitHost = newAgentInitOps.GitHost
-
-	// 往文件中写入各个git库deploy key
-	for _, envPara := range newAgentInitOps.Envs {
-
-		//写入deploy key
-		err = writeSSHkey(envPara.Namespace, envPara.GitRsaKey)
-		if err != nil {
-			return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
-		}
-		sshConfig = sshConfig + config(newAgentInitOps.GitHost, envPara.Namespace)
-
-		if !namespaces.Contain(envPara.Namespace) {
-			toAddEnv.Envs = append(toAddEnv.Envs, envPara)
-		}
-
-	}
-
-	// 写入ssh config
-	err = writeSshConfig(sshConfig)
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
-	}
-
-	nsList := []string{}
-	for _, envPara := range newAgentInitOps.Envs {
-		nsList = append(nsList, envPara.Namespace)
-		w.createNamespace(envPara.Namespace)
-	}
-	namespaces.Set(nsList)
-
-	//第一次是启动，后面不再依靠
-	w.controllerContext.ReSync()
-
-	//启动repo、
-	w.addEnv(toAddEnv)
-
-	// 删除要删除的Env
-	w.removeEnvs(newAgentInitOps)
-	w.agentInitOps = &newAgentInitOps
-	return nil, &model.Packet{
-		Key:     cmd.Key,
-		Type:    model.InitAgentSucceed,
-		Payload: cmd.Payload,
-	}
-
-}
-
-func (w *workerManager) addEnv(agentInitOps *model.AgentInitOptions) {
-	for _, envPara := range agentInitOps.Envs {
-		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, agentInitOps.GitHost, envPara.Namespace, 1)}
-		repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(w.gitConfig.GitPollInterval))
-		w.wg.Add(1)
-		repoStopChan := make(chan struct{}, 1)
-		// to wait create env git repo
-		time.Sleep(10 * time.Second)
-		go func() {
-			err := repo.Start(w.stop, repoStopChan, w.wg)
-			if err != nil {
-				glog.Errorf("git repo start failed", err)
-			}
-		}()
-		w.syncSoon[envPara.Namespace] = make(chan struct{}, 1)
-		w.gitRepos[envPara.Namespace] = repo
-		w.repoStopChans[envPara.Namespace] = repoStopChan
-		w.wg.Add(1)
-		go w.syncLoop(w.stop, envPara.Namespace, repoStopChan, w.wg)
-	}
-}
-
-//移除旧的
-func (w *workerManager) removeEnvs(newOpt model.AgentInitOptions) {
-	for _, oldEnvPara := range w.agentInitOps.Envs {
-		var exist bool
-		for _, newEnvPara := range newOpt.Envs {
-			if newEnvPara.Namespace == oldEnvPara.Namespace {
-				exist = true
-			}
-		}
-		if !exist {
-			glog.Infof("stop env %s ...", oldEnvPara.Namespace)
-			close(w.repoStopChans[oldEnvPara.Namespace])
-		}
-	}
-}
-
-func (w *workerManager) createNamespace(namespace string) {
-	w.kubeClient.GetKubeClient().CoreV1().Namespaces().Create(&v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespace,
-		},
-	})
-}
-
 func reSync(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	fmt.Println("get command re_sync")
 	w.controllerContext.ReSync()
 	return nil, nil
 }
