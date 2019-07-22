@@ -128,6 +128,9 @@ func (w *workerManager) runWorker() {
 						CrChan:            w.chans,
 						GitConfig:         w.gitConfig,
 						Envs:              w.agentInitOps.Envs,
+						HelmClient:        w.helmClient,
+						PlatformCode:      w.platformCode,
+						WsClient:          w.appClient,
 					}
 					newCmds, resp = processCmdFunc(opts, cmd)
 					// todo: remove else when all command moved

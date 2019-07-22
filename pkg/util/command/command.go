@@ -5,8 +5,10 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/manager"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"sync"
 	"time"
 )
@@ -23,4 +25,7 @@ type Opts struct {
 	CrChan            *manager.CRChan
 	GitConfig         git.Config
 	Envs              []model.EnvParas `json:"envs,omitempty"`
+	HelmClient        helm.Client
+	PlatformCode      string
+	WsClient          websocket.Client
 }

@@ -13,10 +13,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 )
 
-type note struct {
-	Spec Spec `json:"spec"`
-}
-
 // How did this update get triggered?
 type Cause struct {
 	Message string
