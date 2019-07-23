@@ -28,4 +28,5 @@ type Opts struct {
 	HelmClient        helm.Client
 	PlatformCode      string
 	WsClient          websocket.Client
+	Token             string
 }

@@ -5,12 +5,12 @@
 package git
 
 import (
-	c7n_error "github.com/choerodon/choerodon-cluster-agent/pkg/errors"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
 )
 
 func PushError(url string, actual error) error {
-	return &c7n_error.Error{
-		Type: c7n_error.User,
+	return &errors.Error{
+		Type: errors.User,
 		Err:  actual,
 		Help: `Problem committing and pushing to git repository.
 

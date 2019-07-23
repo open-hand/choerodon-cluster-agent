@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
@@ -51,6 +52,57 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		Payload: cmd.Payload,
 	}
 
+}
+
+func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	upgradeInfo, certInfo, err := opts.HelmClient.ListAgent(cmd.Payload)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.UpgradeClusterFailed, err)
+	}
+	upgradeInfo.Token = opts.Token
+	upgradeInfo.PlatformCode = opts.PlatformCode
+
+	rsp, err := json.Marshal(upgradeInfo)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.UpgradeClusterFailed, err)
+	}
+
+	glog.Infof("cluster agent upgrade: %s", string(rsp))
+	resp := &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.Upgrade,
+		Payload: string(rsp),
+	}
+
+	crChan := opts.CrChan
+
+	if certInfo != nil {
+		certRsp, err := json.Marshal(certInfo)
+		if err != nil {
+			glog.Errorf("check cert manager error while marshal cert rsp")
+		} else {
+			certInfoResp := &model.Packet{
+				Key:     cmd.Key,
+				Type:    model.CertManagerInfo,
+				Payload: string(certRsp),
+			}
+			crChan.ResponseChan <- certInfoResp
+		}
+
+	} else {
+		certInfoResp := &model.Packet{
+			Key:  cmd.Key,
+			Type: model.CertManagerInfo,
+		}
+		crChan.ResponseChan <- certInfoResp
+	}
+	return nil, resp
+}
+
+func ReSyncAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	fmt.Println("get command re_sync")
+	opts.ControllerContext.ReSync()
+	return nil, nil
 }
 
 func createNamespace(kubeClient kube.Client, namespace string) (*v1.Namespace, error) {

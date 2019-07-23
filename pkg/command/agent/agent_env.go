@@ -50,3 +50,44 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		Payload: cmd.Payload,
 	}
 }
+
+func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var env model.EnvParas
+	err := json.Unmarshal([]byte(cmd.Payload), &env)
+
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.EnvDelete, err)
+	}
+
+	controllerContext := opts.ControllerContext
+
+	if !controllerContext.Namespaces.Contain(env.Namespace) {
+		return nil, commandutil.NewResponseError(cmd.Key, model.EnvDelete, err)
+	}
+
+	controllerContext.Namespaces.Remove(env.Namespace)
+
+	newEnvs := []model.EnvParas{}
+
+	for index, envPara := range opts.Envs {
+
+		if envPara.Namespace == env.Namespace {
+			newEnvs = append(opts.Envs[0:index], opts.Envs[index+1:]...)
+		}
+
+	}
+	opts.Envs = newEnvs
+
+	if err := opts.HelmClient.DeleteNamespaceReleases(env.Namespace); err != nil {
+		glog.V(1).Info(err)
+	}
+	if err := opts.KubeClient.DeleteNamespace(env.Namespace); err != nil {
+		glog.V(1).Info(err)
+	}
+
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.EnvDeleteSucceed,
+		Payload: cmd.Payload,
+	}
+}

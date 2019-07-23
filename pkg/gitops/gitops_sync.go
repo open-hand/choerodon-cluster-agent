@@ -8,8 +8,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/event"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
-	c7n_sync "github.com/choerodon/choerodon-cluster-agent/pkg/sync"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"strings"
@@ -177,7 +176,7 @@ func (g *GitOps) doSync(namespace string) error {
 			changedResources[key] = obj
 		}
 	}
-	err = c7n_sync.Sync(namespace, manifests, allResources, changedResources, g.cluster)
+	err = Sync(namespace, manifests, allResources, changedResources, g.cluster)
 
 	if err != nil {
 		glog.Errorf("sync: %v", err)
@@ -264,6 +263,83 @@ func (g *GitOps) doSync(namespace string) error {
 		err := g.gitRepos[namespace].Refresh(ctx)
 		cancel()
 		return err
+	}
+}
+
+// Sync synchronises the cluster to the files in a directory
+func Sync(namespace string, m cluster.Manifests, repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, clus cluster.Cluster) error {
+	// Get a map of resources defined in the cluster
+	clusterBytes, err := clus.Export(namespace)
+
+	if err != nil {
+		return errors.Wrap(err, "exporting resource defs from cluster")
+	}
+	clusterResources, err := m.ParseManifests(namespace, clusterBytes)
+	if err != nil {
+		return errors.Wrap(err, "parsing exported resources")
+	}
+
+	// Everything that's in the cluster but not in the repo, delete;
+	// everything that's in the repo, apply. This is an approximation
+	// to figuring out what's changed, and applying that. We're
+	// relying on Kubernetes to decide for each application if it is a
+	// no-op.
+	sync := cluster.SyncDef{}
+
+	for id, res := range clusterResources {
+		prepareSyncDelete(repoResources, id, res, &sync)
+	}
+
+	for _, res := range changedResources {
+		prepareSyncApply(res, &sync)
+	}
+	return clus.Sync(namespace, sync)
+}
+
+// todo: remove
+func SyncAll(namespace string, m cluster.Manifests, repoResources map[string]resource.Resource, clus cluster.Cluster) error {
+	// Get a map of resources defined in the cluster
+	clusterBytes, err := clus.Export(namespace)
+
+	if err != nil {
+		return errors.Wrap(err, "exporting resource defs from cluster")
+	}
+	clusterResources, err := m.ParseManifests(namespace, clusterBytes)
+	if err != nil {
+		return errors.Wrap(err, "parsing exported resources")
+	}
+
+	// Everything that's in the cluster but not in the repo, delete;
+	// everything that's in the repo, apply. This is an approximation
+	// to figuring out what's changed, and applying that. We're
+	// relying on Kubernetes to decide for each application if it is a
+	// no-op.
+	sync := cluster.SyncDef{}
+
+	for id, res := range clusterResources {
+		prepareSyncDelete(repoResources, id, res, &sync)
+	}
+
+	for _, res := range repoResources {
+		prepareSyncApply(res, &sync)
+	}
+	return clus.Sync(namespace, sync)
+}
+
+func prepareSyncApply(res resource.Resource, sync *cluster.SyncDef) {
+	sync.Actions = append(sync.Actions, cluster.SyncAction{
+		Apply: res,
+	})
+}
+
+func prepareSyncDelete(repoResources map[string]resource.Resource, id string, res resource.Resource, sync *cluster.SyncDef) {
+	//if len(repoResources) == 0 {
+	//	return
+	//}
+	if _, ok := repoResources[id]; !ok {
+		sync.Actions = append(sync.Actions, cluster.SyncAction{
+			Delete: res,
+		})
 	}
 }
 

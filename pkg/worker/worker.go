@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/manager"
@@ -20,12 +19,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 )
 
-var (
-	processCmdFuncs = make(map[string]processCmdFunc)
-)
-
-type processCmdFunc func(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet)
-
 type WorkerManager workerManager
 
 type workerManager struct {
@@ -38,7 +31,6 @@ type workerManager struct {
 	gitConfig          git.Config
 	gitRepos           map[string]*git.Repo
 	syncSoon           map[string]chan struct{}
-	repoStopChans      map[string]chan struct{}
 	syncInterval       time.Duration
 	manifests          cluster.Manifests
 	cluster            cluster.Cluster
@@ -82,7 +74,6 @@ func NewWorkerManager(
 		gitRepos:           map[string]*git.Repo{},
 		gitConfig:          gitConfig,
 		syncSoon:           map[string]chan struct{}{},
-		repoStopChans:      map[string]chan struct{}{},
 		wg:                 wg,
 		stop:               stop,
 		controllerContext:  controllerContext,
@@ -131,14 +122,12 @@ func (w *workerManager) runWorker() {
 						HelmClient:        w.helmClient,
 						PlatformCode:      w.platformCode,
 						WsClient:          w.appClient,
+						Token:             w.token,
 					}
 					newCmds, resp = processCmdFunc(opts, cmd)
-					// todo: remove else when all command moved
-				} else if processCmdFunc, ok := processCmdFuncs[cmd.Type]; !ok {
+				} else {
 					err := fmt.Errorf("type %s not exist", cmd.Type)
 					glog.V(1).Info(err.Error())
-				} else {
-					newCmds, resp = processCmdFunc(w, cmd)
 				}
 
 				if newCmds != nil {
@@ -156,51 +145,4 @@ func (w *workerManager) runWorker() {
 			}(cmd)
 		}
 	}
-}
-
-func registerCmdFunc(funcType string, f processCmdFunc) {
-	processCmdFuncs[funcType] = f
-}
-
-func deleteEnv(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	var env model.EnvParas
-	err := json.Unmarshal([]byte(cmd.Payload), &env)
-
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.EnvDelete, err)
-	}
-
-	if !w.controllerContext.Namespaces.Contain(env.Namespace) {
-		return nil, commandutil.NewResponseError(cmd.Key, model.EnvDelete, err)
-	}
-
-	w.controllerContext.Namespaces.Remove(env.Namespace)
-
-	newEnvs := []model.EnvParas{}
-
-	for index, envPara := range w.agentInitOps.Envs {
-
-		if envPara.Namespace == env.Namespace {
-			newEnvs = append(w.agentInitOps.Envs[0:index], w.agentInitOps.Envs[index+1:]...)
-		}
-
-	}
-	w.agentInitOps.Envs = newEnvs
-
-	w.helmClient.DeleteNamespaceReleases(env.Namespace)
-	w.kubeClient.DeleteNamespace(env.Namespace)
-	close(w.repoStopChans[env.Namespace])
-
-	return nil, &model.Packet{
-		Key:     cmd.Key,
-		Type:    model.EnvDeleteSucceed,
-		Payload: cmd.Payload,
-	}
-
-}
-
-func reSync(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	fmt.Println("get command re_sync")
-	w.controllerContext.ReSync()
-	return nil, nil
 }

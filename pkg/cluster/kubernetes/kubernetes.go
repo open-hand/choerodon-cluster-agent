@@ -18,7 +18,7 @@ import (
 	v1beta1extensions "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 )
 
 type extendedClient struct {

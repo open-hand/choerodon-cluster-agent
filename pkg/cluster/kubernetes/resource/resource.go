@@ -5,10 +5,10 @@
 package resource
 
 import (
-	yaml "gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v2"
 
-	c7n_error "github.com/choerodon/choerodon-cluster-agent/pkg/errors"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 )
 
 // -- unmarshaling code for specific object and field types
@@ -81,9 +81,9 @@ func unmarshalList(namespace string, base BaseObject, raw *rawList, list *List) 
 	return nil
 }
 
-func makeUnmarshalObjectErr(source string, err error) *c7n_error.Error {
-	return &c7n_error.Error{
-		Type: c7n_error.User,
+func makeUnmarshalObjectErr(source string, err error) *errors.Error {
+	return &errors.Error{
+		Type: errors.User,
 		Err:  err,
 		Help: `Could not parse "` + source + `".
 

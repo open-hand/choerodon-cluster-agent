@@ -7,7 +7,7 @@ package cluster
 import (
 	"fmt"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 )
 
 type ManifestError struct {

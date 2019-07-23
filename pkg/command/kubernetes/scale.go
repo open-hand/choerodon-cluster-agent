@@ -3,15 +3,20 @@ package kubernetes
 import (
 	"encoding/json"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"k8s.io/client-go/scale"
 	"k8s.io/client-go/scale/scheme"
 	"k8s.io/kubernetes/pkg/kubectl"
 )
 
+type ScalePodRequest struct {
+	DeploymentName string `json:"deploymentName,omitempty"`
+	Count          int    `json:"count,omitempty"`
+	Namespace      string `json:"namespace,omitempty"`
+}
+
 func ScalePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	var req *kubernetes.ScalePodRequest
+	var req *ScalePodRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.OperatePodCountFailed, err)

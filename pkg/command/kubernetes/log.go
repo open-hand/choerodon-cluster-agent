@@ -3,7 +3,6 @@ package kubernetes
 import (
 	"encoding/json"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
@@ -11,8 +10,15 @@ import (
 	"io/ioutil"
 )
 
+type GetLogsByKubernetesRequest struct {
+	PodName       string `json:"podName,omitempty"`
+	ContainerName string `json:"containerName,omitempty"`
+	PipeID        string `json:"pipeID,omitempty"`
+	Namespace     string `json:"namespace,omitempty"`
+}
+
 func LogsByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	var req *kubernetes.GetLogsByKubernetesRequest
+	var req *GetLogsByKubernetesRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)

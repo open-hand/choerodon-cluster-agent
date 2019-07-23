@@ -7,7 +7,7 @@ package cluster
 import (
 	"strings"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 )
 
 // Definitions for use in synchronising a cluster with a git repo.
