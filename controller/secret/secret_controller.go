@@ -3,7 +3,7 @@ package secret
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"time"
 
 	"github.com/golang/glog"
@@ -30,10 +30,10 @@ type controller struct {
 	lister           v1_listers.SecretLister
 	responseChan     chan<- *model.Packet
 	secretsSynced    cache.InformerSynced
-	namespaces       *manager.Namespaces
+	namespaces       *namespace.Namespaces
 }
 
-func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
+func NewSecretController(secretInformer v1_informer.SecretInformer, responseChan chan<- *model.Packet, namespaces *namespace.Namespaces) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "endpoint"),

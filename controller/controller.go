@@ -6,7 +6,8 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/controller/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/controller/node"
 	"github.com/choerodon/choerodon-cluster-agent/controller/statefulset"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,8 +40,8 @@ type ControllerContext struct {
 	helmClient     helm.Client
 	stop           chan struct{}
 	stopController <-chan struct{}
-	chans          *manager.CRChan
-	Namespaces     *manager.Namespaces
+	chans          *channel.CRChan
+	Namespaces     *agentnamespace.Namespaces
 	informers      []cache.SharedIndexInformer
 	PlatformCode   string
 }
@@ -68,8 +69,8 @@ func CreateControllerContext(
 	kubeClient kube.Client,
 	helmClient helm.Client,
 	stop <-chan struct{},
-	chans *manager.CRChan,
-	Namespaces *manager.Namespaces,
+	chans *channel.CRChan,
+	Namespaces *agentnamespace.Namespaces,
 	platformCode string) *ControllerContext {
 
 	kubeInformer := kubeinformers.NewSharedInformerFactory(kubeClientset, time.Second*30)

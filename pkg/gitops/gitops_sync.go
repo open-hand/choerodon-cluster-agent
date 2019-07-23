@@ -2,12 +2,10 @@ package gitops
 
 import (
 	"context"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
-	resource2 "github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes/resource"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/event"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	resource2 "github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes/resource"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -111,7 +109,7 @@ func (g *GitOps) doSync(namespace string) error {
 		return errors.Wrap(err, "loading resources from repo")
 	}
 
-	var syncErrors []event.ResourceError
+	var syncErrors []ResourceError
 
 	var initialSync bool
 
@@ -121,7 +119,7 @@ func (g *GitOps) doSync(namespace string) error {
 
 	// Figure out which service IDs changed in this release
 	changedResources := map[string]resource.Resource{}
-	filesCommits := make([]event.FileCommit, 0)
+	filesCommits := make([]FileCommit, 0)
 	fileCommitMap := map[string]string{}
 
 	if initialSync {
@@ -133,7 +131,7 @@ func (g *GitOps) doSync(namespace string) error {
 				glog.Errorf("get file commit error : v%", err)
 				continue
 			}
-			filesCommits = append(filesCommits, event.FileCommit{File: file, Commit: commit})
+			filesCommits = append(filesCommits, FileCommit{File: file, Commit: commit})
 			fileCommitMap[file] = commit
 		}
 
@@ -149,7 +147,7 @@ func (g *GitOps) doSync(namespace string) error {
 					glog.Errorf("get file commit error : v%", err)
 					continue
 				}
-				filesCommits = append(filesCommits, event.FileCommit{File: file, Commit: commit})
+				filesCommits = append(filesCommits, FileCommit{File: file, Commit: commit})
 				fileCommitMap[file] = commit
 			}
 			// We had some changed files, we're syncing a diff
@@ -181,9 +179,9 @@ func (g *GitOps) doSync(namespace string) error {
 	if err != nil {
 		glog.Errorf("sync: %v", err)
 		switch syncerr := err.(type) {
-		case cluster.SyncError:
+		case kubernetes.SyncError:
 			for _, e := range syncerr {
-				syncErrors = append(syncErrors, event.ResourceError{
+				syncErrors = append(syncErrors, ResourceError{
 					ID:    e.ResourceID(),
 					Path:  e.Source(),
 					Error: e.Error.Error(),
@@ -215,12 +213,12 @@ func (g *GitOps) doSync(namespace string) error {
 	for _, r := range changedResources {
 		resourceIDs.Add([]resource.ResourceID{r.ResourceID()})
 	}
-	resourceCommits := make([]event.ResourceCommit, 0)
+	resourceCommits := make([]ResourceCommit, 0)
 
 	resourceIdList := resourceIDs.ToSlice()
 
 	for _, resourceId := range resourceIdList {
-		resourceCommit := event.ResourceCommit{
+		resourceCommit := ResourceCommit{
 			ResourceId: resourceId.String(),
 			File:       changedResources[resourceId.String()].Source(),
 			Commit:     fileCommitMap[changedResources[resourceId.String()].Source()],
@@ -228,12 +226,12 @@ func (g *GitOps) doSync(namespace string) error {
 		resourceCommits = append(resourceCommits, resourceCommit)
 	}
 
-	if err := g.LogEvent(event.Event{
+	if err := g.LogEvent(Event{
 		ResourceIDs: resourceIDs.ToSlice(),
-		Type:        event.EventSync,
+		Type:        EventSync,
 		StartedAt:   started,
 		EndedAt:     started,
-		Metadata: &event.SyncEventMetadata{
+		Metadata: &SyncEventMetadata{
 			Commit:          newTagRev,
 			Errors:          syncErrors,
 			FileCommits:     filesCommits,
@@ -267,7 +265,7 @@ func (g *GitOps) doSync(namespace string) error {
 }
 
 // Sync synchronises the cluster to the files in a directory
-func Sync(namespace string, m cluster.Manifests, repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, clus cluster.Cluster) error {
+func Sync(namespace string, m *kubernetes.Manifests, repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, clus *kubernetes.Cluster) error {
 	// Get a map of resources defined in the cluster
 	clusterBytes, err := clus.Export(namespace)
 
@@ -284,7 +282,7 @@ func Sync(namespace string, m cluster.Manifests, repoResources map[string]resour
 	// to figuring out what's changed, and applying that. We're
 	// relying on Kubernetes to decide for each application if it is a
 	// no-op.
-	sync := cluster.SyncDef{}
+	sync := kubernetes.SyncDef{}
 
 	for id, res := range clusterResources {
 		prepareSyncDelete(repoResources, id, res, &sync)
@@ -297,7 +295,7 @@ func Sync(namespace string, m cluster.Manifests, repoResources map[string]resour
 }
 
 // todo: remove
-func SyncAll(namespace string, m cluster.Manifests, repoResources map[string]resource.Resource, clus cluster.Cluster) error {
+func SyncAll(namespace string, m *kubernetes.Manifests, repoResources map[string]resource.Resource, clus kubernetes.Cluster) error {
 	// Get a map of resources defined in the cluster
 	clusterBytes, err := clus.Export(namespace)
 
@@ -314,7 +312,7 @@ func SyncAll(namespace string, m cluster.Manifests, repoResources map[string]res
 	// to figuring out what's changed, and applying that. We're
 	// relying on Kubernetes to decide for each application if it is a
 	// no-op.
-	sync := cluster.SyncDef{}
+	sync := kubernetes.SyncDef{}
 
 	for id, res := range clusterResources {
 		prepareSyncDelete(repoResources, id, res, &sync)
@@ -326,18 +324,18 @@ func SyncAll(namespace string, m cluster.Manifests, repoResources map[string]res
 	return clus.Sync(namespace, sync)
 }
 
-func prepareSyncApply(res resource.Resource, sync *cluster.SyncDef) {
-	sync.Actions = append(sync.Actions, cluster.SyncAction{
+func prepareSyncApply(res resource.Resource, sync *kubernetes.SyncDef) {
+	sync.Actions = append(sync.Actions, kubernetes.SyncAction{
 		Apply: res,
 	})
 }
 
-func prepareSyncDelete(repoResources map[string]resource.Resource, id string, res resource.Resource, sync *cluster.SyncDef) {
+func prepareSyncDelete(repoResources map[string]resource.Resource, id string, res resource.Resource, sync *kubernetes.SyncDef) {
 	//if len(repoResources) == 0 {
 	//	return
 	//}
 	if _, ok := repoResources[id]; !ok {
-		sync.Actions = append(sync.Actions, cluster.SyncAction{
+		sync.Actions = append(sync.Actions, kubernetes.SyncAction{
 			Delete: res,
 		})
 	}

@@ -3,7 +3,7 @@ package websocket
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -69,7 +69,7 @@ func TestClient(t *testing.T) {
 	server := httptest.NewServer(clientTestRouter(t))
 	defer server.Close()
 
-	crChan := &manager.CRChan{
+	crChan := &channel.CRChan{
 		ResponseChan: responseChan,
 		CommandChan:  commandChan,
 	}

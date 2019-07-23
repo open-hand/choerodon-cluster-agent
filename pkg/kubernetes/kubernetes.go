@@ -17,13 +17,37 @@ import (
 	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
 	v1beta1extensions "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 )
 
 type extendedClient struct {
 	v1core.CoreV1Interface
 	v1beta1extensions.ExtensionsV1beta1Interface
+}
+
+type ChangeSet struct {
+	objs map[string][]*ApiObject
+}
+
+func (cs *ChangeSet) DeleteObj() []*ApiObject {
+	return cs.objs["delete"]
+}
+
+func (cs *ChangeSet) ApplyObj() []*ApiObject {
+	return cs.objs["apply"]
+}
+
+func makeChangeSet() ChangeSet {
+	return ChangeSet{objs: make(map[string][]*ApiObject)}
+}
+
+func (cs *ChangeSet) stage(cmd string, o *ApiObject) {
+	cs.objs[cmd] = append(cs.objs[cmd], o)
+}
+
+// Applier is something that will apply a changeset to the cluster.
+type Applier interface {
+	Apply(namespace string, cs ChangeSet) SyncError
 }
 
 // Cluster is a handle to a Kubernetes API server.
@@ -81,9 +105,9 @@ func (c *Cluster) Export(namespace string) ([]byte, error) {
 
 // Sync performs the given actions on resources. Operations are
 // asynchronous, but serialised.
-func (c *Cluster) Sync(namespace string, spec cluster.SyncDef) error {
+func (c *Cluster) Sync(namespace string, spec SyncDef) error {
 	cs := makeChangeSet()
-	var errs cluster.SyncError
+	var errs SyncError
 	for _, action := range spec.Actions {
 		stages := []struct {
 			res resource.Resource
@@ -101,7 +125,7 @@ func (c *Cluster) Sync(namespace string, spec cluster.SyncDef) error {
 				obj.Resource = stage.res
 				cs.stage(stage.cmd, obj)
 			} else {
-				errs = append(errs, cluster.ResourceError{Resource: stage.res, Error: err})
+				errs = append(errs, ResourceError{Resource: stage.res, Error: err})
 				break
 			}
 		}
@@ -109,7 +133,7 @@ func (c *Cluster) Sync(namespace string, spec cluster.SyncDef) error {
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if applyErrs := c.applier.apply(namespace, cs); len(applyErrs) > 0 {
+	if applyErrs := c.applier.Apply(namespace, cs); len(applyErrs) > 0 {
 		errs = append(errs, applyErrs...)
 	}
 
@@ -127,19 +151,19 @@ type metadata struct {
 	Namespace string `yaml:"namespace"`
 }
 
-type apiObject struct {
+type ApiObject struct {
 	resource.Resource
 	Kind     string   `yaml:"kind"`
 	Metadata metadata `yaml:"metadata"`
 }
 
 // A convenience for getting an minimal object from some bytes.
-func parseObj(def []byte) (*apiObject, error) {
-	obj := apiObject{}
+func parseObj(def []byte) (*ApiObject, error) {
+	obj := ApiObject{}
 	return &obj, yaml.Unmarshal(def, &obj)
 }
 
-func (o *apiObject) hasNamespace() bool {
+func (o *ApiObject) hasNamespace() bool {
 	return o.Metadata.Namespace != ""
 }
 

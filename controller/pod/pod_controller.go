@@ -3,7 +3,7 @@ package pod
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"github.com/golang/glog"
@@ -31,11 +31,11 @@ type controller struct {
 	lister           v1_lister.PodLister
 	responseChan     chan<- *model.Packet
 	podsSynced       cache.InformerSynced
-	namespaces       *manager.Namespaces
+	namespaces       *namespace.Namespaces
 	platformCode     string
 }
 
-func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces, platformCode string) *controller {
+func NewpodController(podInformer v1_informer.PodInformer, responseChan chan<- *model.Packet, namespaces *namespace.Namespaces, platformCode string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pod"),

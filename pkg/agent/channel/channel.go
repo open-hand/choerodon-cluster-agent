@@ -1,4 +1,4 @@
-package manager
+package channel
 
 import "github.com/choerodon/choerodon-cluster-agent/pkg/model"
 

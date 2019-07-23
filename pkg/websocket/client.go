@@ -3,7 +3,7 @@ package websocket
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
 	"net/http"
 	"net/url"
@@ -36,7 +36,7 @@ type Client interface {
 type appClient struct {
 	url            *url.URL
 	token          Token
-	crChannel      *manager.CRChan
+	crChannel      *channel.CRChan
 	conn           *websocket.Conn
 	quit           chan struct{}
 	mtx            sync.Mutex
@@ -49,7 +49,7 @@ type appClient struct {
 func NewClient(
 	t Token,
 	endpoint string,
-	crChannel *manager.CRChan) (Client, error) {
+	crChannel *channel.CRChan) (Client, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("no upstream URL given")
 	}

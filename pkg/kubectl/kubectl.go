@@ -1,41 +1,18 @@
-// Copyright 2016 Weaveworks Ltd.
-// Use of this source code is governed by a Apache License Version 2.0 license
-// that can be found at https://github.com/weaveworks/flux/blob/master/LICENSE
-
-package kubernetes
+package kubectl
 
 import (
 	"bytes"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/golang/glog"
+	"github.com/pkg/errors"
 	"io"
+	"k8s.io/client-go/rest"
 	"os/exec"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/golang/glog"
-	"github.com/pkg/errors"
-	"k8s.io/client-go/rest"
-
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 )
-
-type changeSet struct {
-	objs map[string][]*apiObject
-}
-
-func makeChangeSet() changeSet {
-	return changeSet{objs: make(map[string][]*apiObject)}
-}
-
-func (c *changeSet) stage(cmd string, o *apiObject) {
-	c.objs[cmd] = append(c.objs[cmd], o)
-}
-
-// Applier is something that will apply a changeset to the cluster.
-type Applier interface {
-	apply(namespace string, cs changeSet) cluster.SyncError
-}
 
 type Kubectl struct {
 	exe    string
@@ -75,50 +52,12 @@ func (c *Kubectl) connectArgs() []string {
 	return args
 }
 
-// rankOfKind returns an int denoting the position of the given kind
-// in the partial ordering of Kubernetes resources, according to which
-// kinds depend on which (derived by hand).
-func rankOfKind(kind string) int {
-	switch kind {
-	// Namespaces answer to NOONE
-	case "Namespace":
-		return 0
-		// These don't go in namespaces; or do, but don't depend on anything else
-	case "ServiceAccount", "ClusterRole", "Role", "PersistentVolume", "Service":
-		return 1
-		// These depend on something above, but not each other
-	case "ResourceQuota", "LimitRange", "Secret", "ConfigMap", "RoleBinding", "ClusterRoleBinding", "PersistentVolumeClaim", "Ingress":
-		return 2
-		// Same deal, next layer
-	case "DaemonSet", "Deployment", "ReplicationController", "ReplicaSet", "Job", "CronJob", "StatefulSet":
-		return 3
-		// Assumption: anything not mentioned isn't depended _upon_, so
-		// can come last.
-	default:
-		return 4
-	}
+func (c *Kubectl) Apply(namespace string, cs kubernetes.ChangeSet) (errs kubernetes.SyncError) {
+	return c.apply(namespace, cs)
 }
 
-type applyOrder []*apiObject
-
-func (objs applyOrder) Len() int {
-	return len(objs)
-}
-
-func (objs applyOrder) Swap(i, j int) {
-	objs[i], objs[j] = objs[j], objs[i]
-}
-
-func (objs applyOrder) Less(i, j int) bool {
-	ranki, rankj := rankOfKind(objs[i].Kind), rankOfKind(objs[j].Kind)
-	if ranki == rankj {
-		return objs[i].Metadata.Name < objs[j].Metadata.Name
-	}
-	return ranki < rankj
-}
-
-func (c *Kubectl) apply(namespace string, cs changeSet) (errs cluster.SyncError) {
-	f := func(objs []*apiObject, cmd string, args ...string) {
+func (c *Kubectl) apply(namespace string, cs kubernetes.ChangeSet) (errs kubernetes.SyncError) {
+	f := func(objs []*kubernetes.ApiObject, cmd string, args ...string) {
 		if len(objs) == 0 {
 			return
 		}
@@ -128,7 +67,7 @@ func (c *Kubectl) apply(namespace string, cs changeSet) (errs cluster.SyncError)
 			for _, obj := range objs {
 				r := bytes.NewReader(obj.Bytes())
 				if err := c.doCommand(r, args...); err != nil {
-					errs = append(errs, cluster.ResourceError{obj.Resource, err})
+					errs = append(errs, kubernetes.ResourceError{obj.Resource, err})
 				}
 			}
 		}
@@ -140,11 +79,11 @@ func (c *Kubectl) apply(namespace string, cs changeSet) (errs cluster.SyncError)
 	// is also being deleted. GC does not have the dependency ranking,
 	// but we can use it as a shortcut to avoid the above problem at
 	// least.
-	objs := cs.objs["delete"]
+	objs := cs.DeleteObj()
 	sort.Sort(sort.Reverse(applyOrder(objs)))
 	f(objs, "delete")
 
-	objs = cs.objs["apply"]
+	objs = cs.ApplyObj()
 	sort.Sort(applyOrder(objs))
 	f(objs, "apply")
 	return errs
@@ -179,15 +118,57 @@ func (c *Kubectl) doCommand(r io.Reader, args ...string) error {
 	return err
 }
 
-func makeMultidoc(objs []*apiObject) *bytes.Buffer {
+func (c *Kubectl) kubectlCommand(args ...string) *exec.Cmd {
+	return exec.Command(c.exe, append(c.connectArgs(), args...)...)
+}
+
+type applyOrder []*kubernetes.ApiObject
+
+func (objs applyOrder) Len() int {
+	return len(objs)
+}
+
+func (objs applyOrder) Swap(i, j int) {
+	objs[i], objs[j] = objs[j], objs[i]
+}
+
+func (objs applyOrder) Less(i, j int) bool {
+	ranki, rankj := rankOfKind(objs[i].Kind), rankOfKind(objs[j].Kind)
+	if ranki == rankj {
+		return objs[i].Metadata.Name < objs[j].Metadata.Name
+	}
+	return ranki < rankj
+}
+
+// rankOfKind returns an int denoting the position of the given kind
+// in the partial ordering of Kubernetes resources, according to which
+// kinds depend on which (derived by hand).
+func rankOfKind(kind string) int {
+	switch kind {
+	// Namespaces answer to NOONE
+	case "Namespace":
+		return 0
+		// These don't go in namespaces; or do, but don't depend on anything else
+	case "ServiceAccount", "ClusterRole", "Role", "PersistentVolume", "Service":
+		return 1
+		// These depend on something above, but not each other
+	case "ResourceQuota", "LimitRange", "Secret", "ConfigMap", "RoleBinding", "ClusterRoleBinding", "PersistentVolumeClaim", "Ingress":
+		return 2
+		// Same deal, next layer
+	case "DaemonSet", "Deployment", "ReplicationController", "ReplicaSet", "Job", "CronJob", "StatefulSet":
+		return 3
+		// Assumption: anything not mentioned isn't depended _upon_, so
+		// can come last.
+	default:
+		return 4
+	}
+}
+
+func makeMultidoc(objs []*kubernetes.ApiObject) *bytes.Buffer {
 	buf := &bytes.Buffer{}
 	for _, obj := range objs {
 		buf.WriteString("\n---\n")
 		buf.Write(obj.Bytes())
 	}
 	return buf
-}
-
-func (c *Kubectl) kubectlCommand(args ...string) *exec.Cmd {
-	return exec.Command(c.exe, append(c.connectArgs(), args...)...)
 }

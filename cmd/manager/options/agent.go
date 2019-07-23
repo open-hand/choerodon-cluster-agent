@@ -5,12 +5,14 @@ import (
 	"flag"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	apis "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent"
 	//todo : remove another controller
 	controller2 "github.com/choerodon/choerodon-cluster-agent/pkg/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
@@ -19,7 +21,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/worker"
 	"github.com/golang/glog"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -146,7 +147,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	}
 
 	// init a channel to receive commands
-	crChan := manager.NewCRChannel(100, 1000)
+	crChan := channel.NewCRChannel(100, 1000)
 
 	errChan := make(chan error)
 	shutdown := make(chan struct{})
@@ -216,7 +217,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	}
 
 	// 需要listen de namespaces
-	namespaces := manager.NewNamespaces()
+	namespaces := agentnamespace.NewNamespaces()
 
 	args := &controllerutil.Args{
 		CrChan:       crChan,
@@ -294,32 +295,31 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.PlatformCode,
 	)
 	//ctx.StartControllers()
-	var k8sManifests cluster.Manifests
-	var k8s cluster.Cluster
+	var k8s *kubernetes.Cluster
 	{
-		kubectl := o.kubernetesKubectl
-		if kubectl == "" {
-			kubectl, err = exec.LookPath("kubectl")
+		kubectlPath := o.kubernetesKubectl
+		if kubectlPath == "" {
+			kubectlPath, err = exec.LookPath("kubectl")
 		} else {
-			_, err = os.Stat(kubectl)
+			_, err = os.Stat(kubectlPath)
 		}
 		if err != nil {
 			glog.Fatal(err)
 		}
-		glog.Infof("kubectl %s", kubectl)
+		glog.Infof("kubectl %s", kubectlPath)
 		cfg, _ := f.ToRESTConfig()
-		kubectlApplier := kubernetes.NewKubectl(kubectl, cfg)
-		kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML)
+		kubectlApplier := kubectl.NewKubectl(kubectlPath, cfg)
+		if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML); err != nil {
+			glog.V(1).Info(err)
+		}
 
 		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), mgr, kubectlApplier)
-		k8sManifests = &kubernetes.Manifests{}
 	}
-	workerManager := worker.NewWorkerManager(
+	workerManager := agent.NewWorkerManager(
 		crChan,
 		kubeClient,
 		helmClient,
 		appClient,
-		k8sManifests,
 		k8s,
 		&model.AgentInitOptions{},
 		o.syncInterval,

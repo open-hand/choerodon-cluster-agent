@@ -2,7 +2,7 @@ package event
 
 import (
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"time"
 
 	"encoding/json"
@@ -33,11 +33,11 @@ type controller struct {
 	responseChan     chan<- *model.Packet
 	eventsSynced     cache.InformerSynced
 	client           clientset.Interface
-	namespaces       *manager.Namespaces
+	namespaces       *namespace.Namespaces
 	platformCode     string
 }
 
-func NewEventController(eventInformer event_informer.EventInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces, client clientset.Interface, platformCode string) *controller {
+func NewEventController(eventInformer event_informer.EventInformer, responseChan chan<- *model.Packet, namespaces *namespace.Namespaces, client clientset.Interface, platformCode string) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "pod"),

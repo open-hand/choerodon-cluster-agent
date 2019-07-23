@@ -3,7 +3,7 @@ package replicaset
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"k8s.io/apimachinery/pkg/labels"
 	"time"
@@ -32,7 +32,7 @@ type controller struct {
 
 	responseChan      chan<- *model.Packet
 	replicasetsSynced cache.InformerSynced
-	namespaces        *manager.Namespaces
+	namespaces        *namespace.Namespaces
 }
 
 func (c *controller) resourceSync() {
@@ -68,7 +68,7 @@ func (c *controller) resourceSync() {
 	}
 }
 
-func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
+func NewReplicaSetController(replicasetInformer appv1.ReplicaSetInformer, responseChan chan<- *model.Packet, namespaces *namespace.Namespaces) *controller {
 
 	c := &controller{
 		queue:             workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "replicaset"),

@@ -3,11 +3,10 @@ package gitops
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/event"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/golang/glog"
 	"strings"
@@ -26,11 +25,11 @@ type GitOps struct {
 	gitTimeout   time.Duration
 	gitConfig    git.Config
 	kubeClient   kube.Client
-	cluster      cluster.Cluster
-	chans        *manager.CRChan
+	cluster      *kubernetes.Cluster
+	chans        *channel.CRChan
 }
 
-func New(wg *sync.WaitGroup, gitConfig git.Config, gitRepos map[string]*git.Repo, kubeClient kube.Client, cluster cluster.Cluster, chans *manager.CRChan) *GitOps {
+func New(wg *sync.WaitGroup, gitConfig git.Config, gitRepos map[string]*git.Repo, kubeClient kube.Client, cluster *kubernetes.Cluster, chans *channel.CRChan) *GitOps {
 	return &GitOps{
 		Wg:         wg,
 		cluster:    cluster,
@@ -75,7 +74,7 @@ func (g *GitOps) listenEnvs() {
 	}
 }
 
-func (g *GitOps) LogEvent(ev event.Event, namespace string) error {
+func (g *GitOps) LogEvent(ev Event, namespace string) error {
 	evBytes, err := json.Marshal(ev)
 	if err != nil {
 		return err

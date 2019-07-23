@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
@@ -277,12 +277,12 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		return nil, err
 	}
 	if rls.Name == "choerodon-cert-manager" {
-		kubectl, err := exec.LookPath("kubectl")
+		kubectlPath, err := exec.LookPath("kubectl")
 		if err != nil {
 			glog.Fatal(err)
 		}
-		glog.Infof("kubectl %s", kubectl)
-		kubectlApplier := kubernetes.NewKubectl(kubectl, c.config)
+		glog.Infof("kubectl %s", kubectlPath)
+		kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
 
 		err = kubectlApplier.ApplySingleObj("kube-system", getCertManagerIssuerData())
 	}

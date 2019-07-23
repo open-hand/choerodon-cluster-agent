@@ -2,11 +2,12 @@ package command
 
 import (
 	"github.com/choerodon/choerodon-cluster-agent/controller"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"sync"
@@ -15,14 +16,14 @@ import (
 
 type Opts struct {
 	GitTimeout        time.Duration
-	Namespaces        *manager.Namespaces
+	Namespaces        *namespace.Namespaces
 	GitRepos          map[string]*git.Repo
 	KubeClient        kube.Client
 	ControllerContext *controller.ControllerContext
 	StopCh            <-chan struct{}
-	Cluster           cluster.Cluster
+	Cluster           *kubernetes.Cluster
 	Wg                *sync.WaitGroup
-	CrChan            *manager.CRChan
+	CrChan            *channel.CRChan
 	GitConfig         git.Config
 	Envs              []model.EnvParas `json:"envs,omitempty"`
 	HelmClient        helm.Client

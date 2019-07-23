@@ -1,17 +1,17 @@
-package worker
+package agent
 
 import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/controller"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"sync"
 
 	"github.com/golang/glog"
 	"time"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
@@ -22,7 +22,7 @@ import (
 type WorkerManager workerManager
 
 type workerManager struct {
-	chans              *manager.CRChan
+	chans              *channel.CRChan
 	clusterId          int
 	helmClient         helm.Client
 	kubeClient         kube.Client
@@ -32,8 +32,7 @@ type workerManager struct {
 	gitRepos           map[string]*git.Repo
 	syncSoon           map[string]chan struct{}
 	syncInterval       time.Duration
-	manifests          cluster.Manifests
-	cluster            cluster.Cluster
+	cluster            *kubernetes.Cluster
 	statusSyncInterval time.Duration
 	gitTimeout         time.Duration
 	controllerContext  *controller.ControllerContext
@@ -45,12 +44,11 @@ type workerManager struct {
 }
 
 func NewWorkerManager(
-	chans *manager.CRChan,
+	chans *channel.CRChan,
 	kubeClient kube.Client,
 	helmClient helm.Client,
 	appClient websocket.Client,
-	manifests cluster.Manifests,
-	cluster cluster.Cluster,
+	cluster *kubernetes.Cluster,
 	agentInitOps *model.AgentInitOptions,
 	syncInterval time.Duration,
 	statusSyncInterval time.Duration,
@@ -77,7 +75,6 @@ func NewWorkerManager(
 		wg:                 wg,
 		stop:               stop,
 		controllerContext:  controllerContext,
-		manifests:          manifests,
 		cluster:            cluster,
 		token:              token,
 		platformCode:       platformCode,

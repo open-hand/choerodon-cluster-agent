@@ -3,7 +3,7 @@ package statefulset
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"github.com/golang/glog"
@@ -34,10 +34,10 @@ type controller struct {
 	lister           v1_lister.StatefulSetLister
 	responseChan     chan<- *model.Packet
 	synced           cache.InformerSynced
-	namespaces       *manager.Namespaces
+	namespaces       *namespace.Namespaces
 }
 
-func NewStatefulSetController(statefulSetInformer v1_informer.StatefulSetInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *controller {
+func NewStatefulSetController(statefulSetInformer v1_informer.StatefulSetInformer, responseChan chan<- *model.Packet, namespaces *namespace.Namespaces) *controller {
 
 	c := &controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "statefulSet"),
@@ -200,10 +200,10 @@ type beta2Controller struct {
 	lister           beta2_lister.StatefulSetLister
 	responseChan     chan<- *model.Packet
 	synced           cache.InformerSynced
-	namespaces       *manager.Namespaces
+	namespaces       *namespace.Namespaces
 }
 
-func NewBeta2StatefulSetController(statefulSetInformer beta2_informer.StatefulSetInformer, responseChan chan<- *model.Packet, namespaces *manager.Namespaces) *beta2Controller {
+func NewBeta2StatefulSetController(statefulSetInformer beta2_informer.StatefulSetInformer, responseChan chan<- *model.Packet, namespaces *namespace.Namespaces) *beta2Controller {
 
 	c := &beta2Controller{
 		queue:            workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "statefulSet"),

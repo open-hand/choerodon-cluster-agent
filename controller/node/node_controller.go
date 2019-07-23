@@ -3,7 +3,7 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/manager"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"github.com/golang/glog"
@@ -28,12 +28,12 @@ var (
 
 type controller struct {
 	responseChan  chan<- *model.Packet
-	namespaces    *manager.Namespaces
+	namespaces    *namespace.Namespaces
 	platformCode  string
 	kubeClientset clientset.Interface
 }
 
-func NewNodeController(kubeClientset clientset.Interface, responseChan chan<- *model.Packet, namespaces *manager.Namespaces, platformCode string) *controller {
+func NewNodeController(kubeClientset clientset.Interface, responseChan chan<- *model.Packet, namespaces *namespace.Namespaces, platformCode string) *controller {
 
 	c := &controller{
 		kubeClientset: kubeClientset,
