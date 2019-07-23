@@ -2,11 +2,13 @@ package helm
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"io/ioutil"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"os"
 	"os/exec"
@@ -27,7 +29,6 @@ import (
 	"k8s.io/helm/pkg/timeconv"
 
 	envkube "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
-	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 	"gopkg.in/yaml.v2"
 	"strconv"
 )
@@ -61,19 +62,19 @@ var (
 )
 
 type Client interface {
-	ListRelease(namespace string) ([]*model_helm.Release, error)
-	ExecuteTest(request *model_helm.TestReleaseRequest) (*model_helm.TestReleaseResponse, error)
-	InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.Release, error)
-	PreInstallRelease(request *model_helm.InstallReleaseRequest) ([]*model_helm.ReleaseHook, error)
-	PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([]*model_helm.ReleaseHook, error)
-	UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*model_helm.Release, error)
-	RollbackRelease(request *model_helm.RollbackReleaseRequest) (*model_helm.Release, error)
-	DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.Release, error)
-	StartRelease(request *model_helm.StartReleaseRequest) (*model_helm.StartReleaseResponse, error)
-	StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error)
-	GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
-	GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error)
-	ListAgent(devConnectUrl string) (*model.UpgradeInfo, *model_helm.CertManagerInfo, error)
+	ListRelease(namespace string) ([]*Release, error)
+	ExecuteTest(request *TestReleaseRequest) (*TestReleaseResponse, error)
+	InstallRelease(request *InstallReleaseRequest) (*Release, error)
+	PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHook, error)
+	PreUpgradeRelease(request *UpgradeReleaseRequest) ([]*ReleaseHook, error)
+	UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error)
+	RollbackRelease(request *RollbackReleaseRequest) (*Release, error)
+	DeleteRelease(request *DeleteReleaseRequest) (*Release, error)
+	StartRelease(request *StartReleaseRequest) (*StartReleaseResponse, error)
+	StopRelease(request *StopReleaseRequest) (*StopReleaseResponse, error)
+	GetReleaseContent(request *GetReleaseContentRequest) (*Release, error)
+	GetRelease(request *GetReleaseContentRequest) (*Release, error)
+	ListAgent(devConnectUrl string) (*model.UpgradeInfo, *CertManagerInfo, error)
 	DeleteNamespaceReleases(namespaces string) error
 }
 
@@ -108,15 +109,15 @@ func NewClient(kubeClient envkube.Client, config *rest.Config) Client {
 	}
 }
 
-func (c *client) ListRelease(namespace string) ([]*model_helm.Release, error) {
-	releases := make([]*model_helm.Release, 0)
+func (c *client) ListRelease(namespace string) ([]*Release, error) {
+	releases := make([]*Release, 0)
 	hlr, err := c.helmClient.ListReleases(helm.ReleaseListNamespace(namespace))
 	if err != nil {
 		glog.Error("helm client list release error", err)
 	}
 
 	for _, hr := range hlr.Releases {
-		re := &model_helm.Release{
+		re := &Release{
 			Namespace:    namespace,
 			Name:         hr.Name,
 			Revision:     hr.Version,
@@ -130,8 +131,8 @@ func (c *client) ListRelease(namespace string) ([]*model_helm.Release, error) {
 	return releases, nil
 }
 
-func (c *client) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([]*model_helm.ReleaseHook, error) {
-	var releaseHooks []*model_helm.ReleaseHook
+func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHook, error) {
+	var releaseHooks []*ReleaseHook
 
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
@@ -158,7 +159,7 @@ func (c *client) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([
 	}
 
 	for _, hook := range rlsHooks {
-		releaseHook := &model_helm.ReleaseHook{
+		releaseHook := &ReleaseHook{
 			Name:        hook.Name,
 			Manifest:    hook.Manifest,
 			Weight:      hook.Weight,
@@ -171,7 +172,7 @@ func (c *client) PreInstallRelease(request *model_helm.InstallReleaseRequest) ([
 	return releaseHooks, nil
 }
 
-func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*model_helm.Release, error) {
+func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -262,12 +263,12 @@ func (c *client) InstallRelease(request *model_helm.InstallReleaseRequest) (*mod
 		if installReleaseResp != nil {
 			rls, err := c.getHelmRelease(installReleaseResp.GetRelease())
 			if err != nil {
-				c.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: request.ReleaseName})
+				c.DeleteRelease(&DeleteReleaseRequest{ReleaseName: request.ReleaseName})
 				return nil, err
 			}
 			return rls, newError
 		}
-		c.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: request.ReleaseName})
+		c.DeleteRelease(&DeleteReleaseRequest{ReleaseName: request.ReleaseName})
 		return nil, newError
 	}
 	rls, err := c.getHelmRelease(installReleaseResp.GetRelease())
@@ -308,7 +309,7 @@ func getCertManagerIssuerData() string {
 	return data.String()
 }
 
-func (c *client) ExecuteTest(request *model_helm.TestReleaseRequest) (*model_helm.TestReleaseResponse, error) {
+func (c *client) ExecuteTest(request *TestReleaseRequest) (*TestReleaseResponse, error) {
 
 	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
 	if err != nil {
@@ -361,19 +362,19 @@ func (c *client) ExecuteTest(request *model_helm.TestReleaseRequest) (*model_hel
 		helm.ReleaseName(request.ReleaseName),
 	)
 
-	resp := &model_helm.TestReleaseResponse{ReleaseName: request.ReleaseName}
+	resp := &TestReleaseResponse{ReleaseName: request.ReleaseName}
 	if err != nil {
 		newError := fmt.Errorf("execute test release %s: %v", request.ReleaseName, err)
 		if installReleaseResp != nil {
 			_, err := c.getHelmRelease(installReleaseResp.GetRelease())
 			if err != nil {
-				c.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: request.ReleaseName})
+				c.DeleteRelease(&DeleteReleaseRequest{ReleaseName: request.ReleaseName})
 				return nil, err
 			}
 
 			return resp, newError
 		}
-		c.DeleteRelease(&model_helm.DeleteReleaseRequest{ReleaseName: request.ReleaseName})
+		c.DeleteRelease(&DeleteReleaseRequest{ReleaseName: request.ReleaseName})
 		return nil, newError
 	}
 	_, err = c.getHelmRelease(installReleaseResp.GetRelease())
@@ -383,20 +384,77 @@ func (c *client) ExecuteTest(request *model_helm.TestReleaseRequest) (*model_hel
 	return resp, err
 }
 
-func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, error) {
-	resources, err := c.kubeClient.GetResources(release.Namespace, release.Manifest)
+func (c *client) GetResources(namespace string, manifest string) ([]*ReleaseResource, error) {
+	resources := make([]*ReleaseResource, 0, 10)
+	result, err := c.kubeClient.BuildUnstructured(namespace, manifest)
+	if err != nil {
+		return nil, fmt.Errorf("build unstructured: %v", err)
+	}
+
+	var objPods = make(map[string][]v1.Pod)
+	for _, info := range result {
+		if err := info.Get(); err != nil {
+			continue
+		}
+		hrr := &ReleaseResource{
+			Group:           info.Object.GetObjectKind().GroupVersionKind().Group,
+			Version:         info.Object.GetObjectKind().GroupVersionKind().Version,
+			Kind:            info.Object.GetObjectKind().GroupVersionKind().Kind,
+			Name:            info.Name,
+			ResourceVersion: info.ResourceVersion,
+		}
+
+		if err != nil {
+			glog.Error("Warning: get the relation pod is failed, err:%s", err.Error())
+		}
+		objB, err := json.Marshal(info.Object)
+
+		if err == nil {
+			hrr.Object = string(objB)
+		} else {
+			glog.Error(err)
+		}
+
+		resources = append(resources, hrr)
+		objPods, err = c.kubeClient.GetSelectRelationPod(info, objPods)
+		//here, we will add the objPods to the objs
+		for _, podItems := range objPods {
+			for i := range podItems {
+				hrr := &ReleaseResource{
+					Group:           podItems[i].GroupVersionKind().Group,
+					Version:         podItems[i].GroupVersionKind().Version,
+					Kind:            podItems[i].GroupVersionKind().Kind,
+					Name:            podItems[i].Name,
+					ResourceVersion: podItems[i].ResourceVersion,
+				}
+				objPod, err := json.Marshal(podItems[i])
+				if err == nil {
+					hrr.Object = string(objPod)
+				} else {
+					glog.Error(err)
+				}
+
+				resources = append(resources, hrr)
+			}
+		}
+	}
+	return resources, nil
+}
+
+func (c *client) getHelmRelease(release *release.Release) (*Release, error) {
+	resources, err := c.GetResources(release.Namespace, release.Manifest)
 	if err != nil {
 		return nil, fmt.Errorf("get resource: %v", err)
 	}
-	rlsHooks := make([]*model_helm.ReleaseHook, len(release.GetHooks()))
+	rlsHooks := make([]*ReleaseHook, len(release.GetHooks()))
 	for i := 0; i < len(rlsHooks); i++ {
 		rlsHook := release.GetHooks()[i]
-		rlsHooks[i] = &model_helm.ReleaseHook{
+		rlsHooks[i] = &ReleaseHook{
 			Name: rlsHook.Name,
 			Kind: rlsHook.Kind,
 		}
 	}
-	rls := &model_helm.Release{
+	rls := &Release{
 		Name:         release.Name,
 		Revision:     release.Version,
 		Namespace:    release.Namespace,
@@ -411,16 +469,16 @@ func (c *client) getHelmRelease(release *release.Release) (*model_helm.Release, 
 	return rls, nil
 }
 
-func (c *client) getHelmReleaseNoResource(release *release.Release) (*model_helm.Release, error) {
-	rlsHooks := make([]*model_helm.ReleaseHook, len(release.GetHooks()))
+func (c *client) getHelmReleaseNoResource(release *release.Release) (*Release, error) {
+	rlsHooks := make([]*ReleaseHook, len(release.GetHooks()))
 	for i := 0; i < len(rlsHooks); i++ {
 		rlsHook := release.GetHooks()[i]
-		rlsHooks[i] = &model_helm.ReleaseHook{
+		rlsHooks[i] = &ReleaseHook{
 			Name: rlsHook.Name,
 			Kind: rlsHook.Kind,
 		}
 	}
-	rls := &model_helm.Release{
+	rls := &Release{
 		Name:         release.Name,
 		Revision:     release.Version,
 		Namespace:    release.Namespace,
@@ -434,15 +492,15 @@ func (c *client) getHelmReleaseNoResource(release *release.Release) (*model_helm
 	return rls, nil
 }
 
-func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([]*model_helm.ReleaseHook, error) {
-	var releaseHooks []*model_helm.ReleaseHook
+func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest) ([]*ReleaseHook, error) {
+	var releaseHooks []*ReleaseHook
 
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
 	}
 	if releaseContentResp == nil {
-		installReq := &model_helm.InstallReleaseRequest{
+		installReq := &InstallReleaseRequest{
 			RepoURL:          request.RepoURL,
 			ChartName:        request.ChartName,
 			ChartVersion:     request.ChartVersion,
@@ -472,7 +530,7 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 	}
 
 	for _, hook := range rlsHooks {
-		releaseHook := &model_helm.ReleaseHook{
+		releaseHook := &ReleaseHook{
 			Name:        hook.Name,
 			Manifest:    hook.Manifest,
 			Weight:      hook.Weight,
@@ -485,13 +543,13 @@ func (c *client) PreUpgradeRelease(request *model_helm.UpgradeReleaseRequest) ([
 	return releaseHooks, nil
 }
 
-func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*model_helm.Release, error) {
+func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
 	}
 	if releaseContentResp == nil {
-		installReq := &model_helm.InstallReleaseRequest{
+		installReq := &InstallReleaseRequest{
 			RepoURL:          request.RepoURL,
 			ChartName:        request.ChartName,
 			ChartVersion:     request.ChartVersion,
@@ -578,7 +636,7 @@ func (c *client) UpgradeRelease(request *model_helm.UpgradeReleaseRequest) (*mod
 	return rls, nil
 }
 
-func (c *client) RollbackRelease(request *model_helm.RollbackReleaseRequest) (*model_helm.Release, error) {
+func (c *client) RollbackRelease(request *RollbackReleaseRequest) (*Release, error) {
 	rollbackReleaseResp, err := c.helmClient.RollbackRelease(
 		request.ReleaseName,
 		helm.RollbackVersion(int32(request.Version)))
@@ -593,7 +651,7 @@ func (c *client) RollbackRelease(request *model_helm.RollbackReleaseRequest) (*m
 	return rls, nil
 }
 
-func (c *client) DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model_helm.Release, error) {
+func (c *client) DeleteRelease(request *DeleteReleaseRequest) (*Release, error) {
 	deleteReleaseResp, err := c.helmClient.DeleteRelease(
 		request.ReleaseName,
 		helm.DeletePurge(true),
@@ -608,7 +666,7 @@ func (c *client) DeleteRelease(request *model_helm.DeleteReleaseRequest) (*model
 	return rls, nil
 }
 
-func (c *client) StopRelease(request *model_helm.StopReleaseRequest) (*model_helm.StopReleaseResponse, error) {
+func (c *client) StopRelease(request *StopReleaseRequest) (*StopReleaseResponse, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -621,13 +679,13 @@ func (c *client) StopRelease(request *model_helm.StopReleaseRequest) (*model_hel
 	if err != nil {
 		return nil, fmt.Errorf("get resource: %v", err)
 	}
-	resp := &model_helm.StopReleaseResponse{
+	resp := &StopReleaseResponse{
 		ReleaseName: request.ReleaseName,
 	}
 	return resp, nil
 }
 
-func (c *client) StartRelease(request *model_helm.StartReleaseRequest) (*model_helm.StartReleaseResponse, error) {
+func (c *client) StartRelease(request *StartReleaseRequest) (*StartReleaseResponse, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -640,18 +698,18 @@ func (c *client) StartRelease(request *model_helm.StartReleaseRequest) (*model_h
 	if err != nil {
 		return nil, fmt.Errorf("get resource: %v", err)
 	}
-	resp := &model_helm.StartReleaseResponse{
+	resp := &StartReleaseResponse{
 		ReleaseName: request.ReleaseName,
 	}
 	return resp, nil
 }
 
-func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *model_helm.CertManagerInfo, error) {
+func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *CertManagerInfo, error) {
 	listReleasesRsp, err := c.helmClient.ListReleases(helm.ReleaseListStatuses([]release.Status_Code{}))
 	upgradeInfo := &model.UpgradeInfo{
 		Envs: []model.OldEnv{},
 	}
-	var certInfo *model_helm.CertManagerInfo
+	var certInfo *CertManagerInfo
 	if err != nil {
 		return nil, nil, err
 	}
@@ -670,7 +728,7 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *model_hel
 				if !strings.Contains(devConnectUrl, connectUrl) {
 					continue
 				}
-				stopRls := &model_helm.StopReleaseRequest{
+				stopRls := &StopReleaseRequest{
 					ReleaseName: rls.Name,
 					Namespace:   rls.Namespace,
 				}
@@ -689,7 +747,7 @@ func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *model_hel
 			}
 
 		} else if rls.Chart.Metadata.Name == "cert-manager" {
-			certInfo = &model_helm.CertManagerInfo{
+			certInfo = &CertManagerInfo{
 				ReleaseName: rls.Name,
 				Namespace:   rls.Namespace,
 				Version:     rls.Chart.Metadata.Version,
@@ -775,7 +833,7 @@ func (c *client) renderManifests(
 	return hooks, b, nil
 }
 
-func (c *client) GetReleaseContent(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error) {
+func (c *client) GetReleaseContent(request *GetReleaseContentRequest) (*Release, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName, helm.ContentReleaseVersion(request.Version))
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -804,7 +862,7 @@ func (c *client) DeleteNamespaceReleases(namespaces string) error {
 
 }
 
-func (c *client) GetRelease(request *model_helm.GetReleaseContentRequest) (*model_helm.Release, error) {
+func (c *client) GetRelease(request *GetReleaseContentRequest) (*Release, error) {
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName, helm.ContentReleaseVersion(request.Version))
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err

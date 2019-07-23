@@ -37,13 +37,11 @@ import (
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 )
 
 type Client interface {
 	DeleteJob(namespace string, name string) error
 	LogsForJob(namespace string, name string, jobLabel string) (string, string, error)
-	GetResources(namespace string, manifest string) ([]*model_helm.ReleaseResource, error)
 	CreateOrUpdateService(namespace string, serviceStr string) (*core_v1.Service, error)
 	CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error)
 	//todo:remove
@@ -68,6 +66,9 @@ type Client interface {
 	GetKubeClient() *kubernetes.Clientset
 	IsReleaseJobRun(namespace, releaseName string) bool
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
+	BuildUnstructured(namespace string, manifest string) (Result, error)
+	//todo: delete follow func
+	GetSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error)
 }
 
 const testContainer string = "automation-test"
@@ -142,64 +143,7 @@ func (c *client) GetKubeClient() *kubernetes.Clientset {
 	return c.client
 }
 
-func (c *client) GetResources(namespace string, manifest string) ([]*model_helm.ReleaseResource, error) {
-	resources := make([]*model_helm.ReleaseResource, 0, 10)
-	result, err := c.buildUnstructured(namespace, manifest)
-	if err != nil {
-		return nil, fmt.Errorf("build unstructured: %v", err)
-	}
-
-	var objPods = make(map[string][]core_v1.Pod)
-	for _, info := range result {
-		if err := info.Get(); err != nil {
-			continue
-		}
-		hrr := &model_helm.ReleaseResource{
-			Group:           info.Object.GetObjectKind().GroupVersionKind().Group,
-			Version:         info.Object.GetObjectKind().GroupVersionKind().Version,
-			Kind:            info.Object.GetObjectKind().GroupVersionKind().Kind,
-			Name:            info.Name,
-			ResourceVersion: info.ResourceVersion,
-		}
-
-		if err != nil {
-			glog.Error("Warning: get the relation pod is failed, err:%s", err.Error())
-		}
-		objB, err := json.Marshal(info.Object)
-
-		if err == nil {
-			hrr.Object = string(objB)
-		} else {
-			glog.Error(err)
-		}
-
-		resources = append(resources, hrr)
-		objPods, err = c.getSelectRelationPod(info, objPods)
-		//here, we will add the objPods to the objs
-		for _, podItems := range objPods {
-			for i := range podItems {
-				hrr := &model_helm.ReleaseResource{
-					Group:           podItems[i].GroupVersionKind().Group,
-					Version:         podItems[i].GroupVersionKind().Version,
-					Kind:            podItems[i].GroupVersionKind().Kind,
-					Name:            podItems[i].Name,
-					ResourceVersion: podItems[i].ResourceVersion,
-				}
-				objPod, err := json.Marshal(podItems[i])
-				if err == nil {
-					hrr.Object = string(objPod)
-				} else {
-					glog.Error(err)
-				}
-
-				resources = append(resources, hrr)
-			}
-		}
-	}
-	return resources, nil
-}
-
-func (c *client) buildUnstructured(namespace string, manifest string) (Result, error) {
+func (c *client) BuildUnstructured(namespace string, manifest string) (Result, error) {
 	var result Result
 
 	result, err := c.NewBuilder().
@@ -445,7 +389,7 @@ func (c *client) DeleteIngress(namespace string, name string) error {
 }
 
 func (c *client) StopResources(namespace string, manifest string) error {
-	result, err := c.buildUnstructured(namespace, manifest)
+	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
@@ -472,7 +416,7 @@ func (c *client) StopResources(namespace string, manifest string) error {
 }
 
 func (c *client) StartResources(namespace string, manifest string) error {
-	result, err := c.buildUnstructured(namespace, manifest)
+	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
@@ -551,7 +495,7 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 	return nil
 }
 
-func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
+func (c *client) GetSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
 	if info == nil {
 		return objPods, nil
 	}
@@ -596,7 +540,7 @@ func (c *client) getSelectRelationPod(info *resource.Info, objPods map[string][]
 
 func (c *client) LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
 
-	result, err := c.buildUnstructured(namespace, manifest)
+	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
 	}
@@ -659,7 +603,7 @@ func (c *client) LabelObjects(namespace string,
 	releaseName string,
 	app string,
 	version string) (*bytes.Buffer, error) {
-	result, err := c.buildUnstructured(namespace, manifest)
+	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
 	}
@@ -915,7 +859,7 @@ func (c *client) LabelTestObjects(namespace string,
 	app string,
 	version string,
 	label string) (*bytes.Buffer, error) {
-	result, err := c.buildUnstructured(namespace, manifest)
+	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
 	}

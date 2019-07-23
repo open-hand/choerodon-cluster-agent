@@ -3,6 +3,7 @@ package websocket
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/manager"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,8 +15,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 
+	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 )
 
 var (
@@ -68,8 +69,13 @@ func TestClient(t *testing.T) {
 	server := httptest.NewServer(clientTestRouter(t))
 	defer server.Close()
 
+	crChan := &manager.CRChan{
+		ResponseChan: responseChan,
+		CommandChan:  commandChan,
+	}
+
 	serverURL, _ := url.Parse(fmt.Sprintf("ws%s/agent", strings.TrimPrefix(server.URL, "http")))
-	c, err := NewClient(Token("token"), serverURL.String(), commandChan, responseChan)
+	c, err := NewClient(Token("token"), serverURL.String(), crChan)
 	assert.Nil(t, err, "no error create new client")
 
 	go c.Loop(shutdown, shutdownWg)

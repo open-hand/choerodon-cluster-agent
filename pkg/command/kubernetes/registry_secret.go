@@ -1,24 +1,20 @@
-package worker
+package kubernetes
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
-	core_v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
-func init() {
-	registerCmdFunc(model.OperateDockerRegistrySecret, createDockerRegistrySecret)
-}
-
-func createDockerRegistrySecret(w *workerManager, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+func CreateDockerRegistrySecret(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	dockerCfg := &DockerConfigEntry{}
 	err := json.Unmarshal([]byte(cmd.Payload), dockerCfg)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.OperateDockerRegistrySecretFailed, err)
 	}
-	raw := &core_v1.Secret{}
+	raw := &corev1.Secret{}
 	raw.SetName(dockerCfg.Name)
 	dockerCfgJSONContent, err := handleDockerCfgJSONContent(
 		dockerCfg.Username,
@@ -30,9 +26,9 @@ func createDockerRegistrySecret(w *workerManager, cmd *model.Packet) ([]*model.P
 		return nil, command.NewResponseError(cmd.Key, model.OperateDockerRegistrySecretFailed, err)
 	}
 	raw.Data = make(map[string][]byte, 0)
-	raw.Data[core_v1.DockerConfigJsonKey] = dockerCfgJSONContent
-	raw.Type = core_v1.SecretTypeDockerConfigJson
-	secret, err := w.kubeClient.CreateOrUpdateDockerRegistrySecret(dockerCfg.Namespace, raw)
+	raw.Data[corev1.DockerConfigJsonKey] = dockerCfgJSONContent
+	raw.Type = corev1.SecretTypeDockerConfigJson
+	secret, err := opts.KubeClient.CreateOrUpdateDockerRegistrySecret(dockerCfg.Namespace, raw)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.OperateDockerRegistrySecretFailed, err)
 	}

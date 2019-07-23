@@ -2,8 +2,8 @@ package helm
 
 import (
 	"encoding/json"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/golang/glog"
 	"strings"
