@@ -3,7 +3,6 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/controller/statefulset"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics"
@@ -11,6 +10,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 	"time"
 
@@ -19,8 +19,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 
 	"github.com/choerodon/choerodon-cluster-agent/controller/endpoint"
-	"github.com/choerodon/choerodon-cluster-agent/controller/pod"
-	"github.com/choerodon/choerodon-cluster-agent/controller/replicaset"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 )
@@ -155,38 +153,38 @@ func startDaemonSetController(ctx *ControllerContext) (bool, error) {
 }
 
 func startStatefulSetController(ctx *ControllerContext) (bool, error) {
-	resp, err := ctx.kubeClientset.Discovery().ServerResourcesForGroupVersion("apps/v1beta2")
-	if err != nil {
-		return false, fmt.Errorf("start statefulsets error: %v", err)
-	}
-	apiList := resp.APIResources
-	for _, resource := range apiList {
-		if resource.Name == "statefulsets" {
-			go statefulset.NewBeta2StatefulSetController(ctx.kubeInformer.Apps().V1beta2().StatefulSets(),
-				ctx.chans.ResponseChan,
-				ctx.Namespaces,
-			).Run(workers, ctx.stop)
-			return true, nil
+
+	go func() {
+		namespaces := ctx.Namespaces.GetAll()
+		for _, ns := range namespaces {
+			pods, err := ctx.kubeInformer.Apps().V1().StatefulSets().Lister().StatefulSets(ns).List(labels.NewSelector())
+			if err != nil {
+				glog.Fatal("can not list resource, no rabc bind, exit !")
+			} else {
+				var podList []string
+				for _, pod := range pods {
+					if pod.Labels[model.ReleaseLabel] != "" {
+						podList = append(podList, pod.GetName())
+					}
+				}
+				resourceList := &kubernetes.ResourceList{
+					Resources:    podList,
+					ResourceType: "StatefulSet",
+				}
+				content, err := json.Marshal(resourceList)
+				if err != nil {
+					glog.Fatal("marshal pod list error")
+				} else {
+					response := &model.Packet{
+						Key:     fmt.Sprintf("env:%s", ns),
+						Type:    model.ResourceSync,
+						Payload: string(content),
+					}
+					ctx.chans.ResponseChan <- response
+				}
+			}
 		}
-
-	}
-	resp, err = ctx.kubeClientset.Discovery().ServerResourcesForGroupVersion("apps/v1")
-	if err != nil {
-		return false, fmt.Errorf("start statefulsets error: %v", err)
-	}
-	apiList = resp.APIResources
-	for _, resource := range apiList {
-		if resource.Name == "statefulsets" {
-			go statefulset.NewStatefulSetController(
-				ctx.kubeInformer.Apps().V1().StatefulSets(),
-				ctx.chans.ResponseChan,
-				ctx.Namespaces,
-			).Run(workers, ctx.stop)
-			return true, nil
-		}
-
-	}
-
+	}()
 	return false, fmt.Errorf("no  group version for statefulset compatiable")
 }
 
@@ -196,11 +194,40 @@ func startIngressController(ctx *ControllerContext) (bool, error) {
 }
 
 func startReplicaSetController(ctx *ControllerContext) (bool, error) {
-	go replicaset.NewReplicaSetController(
-		ctx.kubeInformer.Extensions().V1beta1().ReplicaSets(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-	).Run(workers, ctx.stop)
+
+	go func() {
+		namespaces := ctx.Namespaces.GetAll()
+		for _, ns := range namespaces {
+			lister := ctx.kubeInformer.Extensions().V1beta1().ReplicaSets().Lister()
+			rsList, err := lister.ReplicaSets(ns).List(labels.NewSelector())
+			if err != nil {
+				glog.Fatal("can not list resource, no rabc bind, exit !")
+			} else {
+				var resourceSyncList []string
+				for _, resource := range rsList {
+					if resource.Labels[model.ReleaseLabel] != "" {
+						resourceSyncList = append(resourceSyncList, resource.GetName())
+					}
+				}
+				resourceList := &kubernetes.ResourceList{
+					Resources:    resourceSyncList,
+					ResourceType: "ReplicaSet",
+				}
+				content, err := json.Marshal(resourceList)
+				if err != nil {
+					glog.Fatal("marshal ReplicaSet list error")
+				} else {
+					response := &model.Packet{
+						Key:     fmt.Sprintf("env:%s", ns),
+						Type:    model.ResourceSync,
+						Payload: string(content),
+					}
+					ctx.chans.ResponseChan <- response
+				}
+			}
+		}
+
+	}()
 	return true, nil
 }
 
@@ -255,12 +282,37 @@ func startConfigMapController(ctx *ControllerContext) (bool, error) {
 }
 
 func startPodController(ctx *ControllerContext) (bool, error) {
-	go pod.NewpodController(
-		ctx.kubeInformer.Core().V1().Pods(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-		ctx.PlatformCode,
-	).Run(workers, ctx.stop)
+	go func() {
+		namespaces := ctx.Namespaces.GetAll()
+		for _, ns := range namespaces {
+			pods, err := ctx.kubeInformer.Core().V1().Pods().Lister().Pods(ns).List(labels.NewSelector())
+			if err != nil {
+				glog.Fatal("can not list resource, no rabc bind, exit !")
+			} else {
+				var podList []string
+				for _, pod := range pods {
+					if pod.Labels[model.ReleaseLabel] != "" {
+						podList = append(podList, pod.GetName())
+					}
+				}
+				resourceList := &kubernetes.ResourceList{
+					Resources:    podList,
+					ResourceType: "Pod",
+				}
+				content, err := json.Marshal(resourceList)
+				if err != nil {
+					glog.Fatal("marshal pod list error")
+				} else {
+					response := &model.Packet{
+						Key:     fmt.Sprintf("env:%s", ns),
+						Type:    model.ResourceSync,
+						Payload: string(content),
+					}
+					ctx.chans.ResponseChan <- response
+				}
+			}
+		}
+	}()
 	return true, nil
 }
 
