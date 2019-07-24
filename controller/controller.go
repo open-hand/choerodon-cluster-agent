@@ -19,7 +19,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 
 	"github.com/choerodon/choerodon-cluster-agent/controller/endpoint"
-	"github.com/choerodon/choerodon-cluster-agent/controller/event"
 	"github.com/choerodon/choerodon-cluster-agent/controller/pod"
 	"github.com/choerodon/choerodon-cluster-agent/controller/replicaset"
 	"github.com/choerodon/choerodon-cluster-agent/controller/secret"
@@ -56,7 +55,6 @@ func init() {
 	controllers["ingress"] = startIngressController
 	controllers["replicaset"] = startReplicaSetController
 	controllers["pod"] = startPodController
-	controllers["event"] = startEventController
 	controllers["c7nhelmrelease"] = startC7NHelmReleaseController
 	controllers["namesapce"] = startNamespaceController
 	controllers["daemonset"] = startDaemonSetController
@@ -284,16 +282,5 @@ func startNodeController(ctx *ControllerContext) (bool, error) {
 
 func startC7NHelmReleaseController(ctx *ControllerContext) (bool, error) {
 	go fmt.Println("start c7n helm release has moved")
-	return true, nil
-}
-
-func startEventController(ctx *ControllerContext) (bool, error) {
-	go event.NewEventController(
-		ctx.kubeInformer.Core().V1().Events(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-		ctx.kubeClientset,
-		ctx.PlatformCode,
-	).Run(workers, ctx.stop)
 	return true, nil
 }
