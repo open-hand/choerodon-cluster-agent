@@ -3,68 +3,51 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/sets"
-	clientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
+	client "k8s.io/client-go/kubernetes"
 	"strings"
 	"time"
 )
 
-var (
-	keyFunc             = cache.DeletionHandlingMetaNamespaceKeyFunc
+const (
 	LabelNodeRolePrefix = "node-role.kubernetes.io/"
-
 	// NodeLabelRole specifies the role of a node
-	NodeLabelRole = "kubernetes.io/role"
+	RoleLabel = "kubernetes.io/role"
 )
 
-type controller struct {
-	responseChan  chan<- *model.Packet
-	namespaces    *namespace.Namespaces
-	platformCode  string
-	kubeClientset clientset.Interface
+type Node struct {
+	Client client.Interface
+	CrChan *channel.CRChan
 }
 
-func NewNodeController(kubeClientset clientset.Interface, responseChan chan<- *model.Packet, namespaces *namespace.Namespaces, platformCode string) *controller {
-
-	c := &controller{
-		kubeClientset: kubeClientset,
-		responseChan:  responseChan,
-		namespaces:    namespaces,
-		platformCode:  platformCode,
-	}
-	return c
-}
-
-func (c *controller) Run(workers int, stopCh <-chan struct{}) {
-
-	syncTimer := time.NewTimer(30 * time.Second)
+func (no *Node) Run(stopCh <-chan struct{}) error {
+	responseChan := no.CrChan.ResponseChan
 	for {
 		select {
 		case <-stopCh:
-			glog.Info("stop node controller")
-			return
-		case <-syncTimer.C:
-			nodes := []kubernetes.NodeInfo{}
-			nodelist, err := c.kubeClientset.CoreV1().Nodes().List(v1.ListOptions{})
+			glog.Info("stop node metrics collector")
+			return nil
+		case <-time.Tick(time.Second * 30):
+			nodes := make([]kubernetes.NodeInfo, 0)
+			nodeList, err := no.Client.CoreV1().Nodes().List(v1.ListOptions{})
 			if err != nil {
 				glog.Errorf("list node error :", err)
 			}
-			for _, node := range nodelist.Items {
+			for _, node := range nodeList.Items {
 				fieldSelector, err := fields.ParseSelector("spec.nodeName=" + node.Name + ",status.phase!=" + string(corev1.PodSucceeded) + ",status.phase!=" + string(corev1.PodFailed))
 				if err != nil {
 					glog.Errorf("parse field selector error: %v", err)
 					continue
 				}
-				podList, err := c.kubeClientset.CoreV1().Pods("").List(v1.ListOptions{
+				podList, err := no.Client.CoreV1().Pods("").List(v1.ListOptions{
 					FieldSelector: fieldSelector.String(),
 				})
 				if err != nil {
@@ -119,14 +102,10 @@ func (c *controller) Run(workers int, stopCh <-chan struct{}) {
 					Type:    model.NodeSync,
 					Payload: string(content),
 				}
-				c.responseChan <- response
+				responseChan <- response
 			}
-			syncTimer.Reset(30 * time.Second)
 		}
 	}
-
-	// Launch two workers to process Foo resources
-
 }
 
 func getPodsTotalRequestsAndLimits(podList *corev1.PodList) (reqs map[corev1.ResourceName]resource.Quantity, limits map[corev1.ResourceName]resource.Quantity) {
@@ -202,7 +181,7 @@ func findNodeRoles(node *corev1.Node) []string {
 				roles.Insert(role)
 			}
 
-		case k == NodeLabelRole && v != "":
+		case k == RoleLabel && v != "":
 			roles.Insert(v)
 		}
 	}

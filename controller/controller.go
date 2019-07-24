@@ -3,11 +3,11 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/controller/namespace"
-	"github.com/choerodon/choerodon-cluster-agent/controller/node"
 	"github.com/choerodon/choerodon-cluster-agent/controller/statefulset"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics"
+	metricsnode "github.com/choerodon/choerodon-cluster-agent/pkg/metrics/node"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,7 +21,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/controller/endpoint"
 	"github.com/choerodon/choerodon-cluster-agent/controller/pod"
 	"github.com/choerodon/choerodon-cluster-agent/controller/replicaset"
-	"github.com/choerodon/choerodon-cluster-agent/controller/secret"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 )
@@ -117,6 +116,7 @@ func (ctx *ControllerContext) StartControllers() error {
 			}
 		}
 	}()
+	go metrics.Run(ctx.stop)
 	return nil
 }
 
@@ -125,6 +125,7 @@ func (ctx *ControllerContext) ReSync() {
 	ctx.stop = make(chan struct{}, 1)
 	ctx.kubeInformer = kubeinformers.NewSharedInformerFactory(ctx.kubeClientset, time.Second*30)
 	ctx.StartControllers()
+
 }
 
 func startEndpointController(ctx *ControllerContext) (bool, error) {
@@ -138,10 +139,7 @@ func startEndpointController(ctx *ControllerContext) (bool, error) {
 }
 func startNamespaceController(ctx *ControllerContext) (bool, error) {
 
-	go namespace.NewNamespaceController(
-		ctx.kubeInformer.Core().V1().Namespaces(),
-		ctx.chans.ResponseChan,
-	).Run(workers, ctx.stop)
+	fmt.Println("start namespace has deleted ")
 	return true, nil
 }
 
@@ -247,11 +245,7 @@ func startServiceController(ctx *ControllerContext) (bool, error) {
 }
 
 func startSecretController(ctx *ControllerContext) (bool, error) {
-	go secret.NewSecretController(
-		ctx.kubeInformer.Core().V1().Secrets(),
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-	).Run(workers, ctx.stop)
+	fmt.Println("start secret has moved")
 	return true, nil
 }
 
@@ -270,13 +264,15 @@ func startPodController(ctx *ControllerContext) (bool, error) {
 	return true, nil
 }
 
+// todo move to another place
 func startNodeController(ctx *ControllerContext) (bool, error) {
-	go node.NewNodeController(
-		ctx.kubeClientset,
-		ctx.chans.ResponseChan,
-		ctx.Namespaces,
-		ctx.PlatformCode,
-	).Run(workers, ctx.stop)
+	m := &metricsnode.Node{
+		Client: ctx.kubeClient.GetKubeClient(),
+		CrChan: ctx.chans,
+	}
+
+	metrics.Register(m)
+
 	return true, nil
 }
 
