@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/service"
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -93,9 +94,12 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			if service.IsInstancedService(instance) {
+				err = r.deleteInstancedService(instance)
+			}
 			responseChan <- newServiceDelRep(request.Name, request.Namespace)
 			glog.Warningf("service '%s' in work queue no longer exists", instance)
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, err
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
@@ -103,6 +107,12 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 	if instance.Labels[model.NetworkLabel] != "" {
 		glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
 		responseChan <- newServiceRep(instance)
+	}
+
+	if service.IsInstancedService(instance) {
+		if err := r.checkInstancedService(instance); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	return reconcile.Result{}, nil

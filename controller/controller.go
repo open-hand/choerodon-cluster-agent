@@ -18,7 +18,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	clientset "k8s.io/client-go/kubernetes"
 
-	"github.com/choerodon/choerodon-cluster-agent/controller/endpoint"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 )
@@ -26,8 +25,6 @@ import (
 type InitFunc func(ctx *ControllerContext) (bool, error)
 
 var controllers = map[string]InitFunc{}
-
-const workers int = 1
 
 type ControllerContext struct {
 	kubeInformer   kubeinformers.SharedInformerFactory
@@ -127,12 +124,7 @@ func (ctx *ControllerContext) ReSync() {
 }
 
 func startEndpointController(ctx *ControllerContext) (bool, error) {
-	go endpoint.NewEndpointController(
-		ctx.kubeInformer.Core().V1().Pods(),
-		ctx.kubeInformer.Core().V1().Services(),
-		ctx.kubeInformer.Core().V1().Endpoints(),
-		ctx.kubeClientset,
-	).Run(workers, ctx.stop)
+	fmt.Println("start endpoints has moved ")
 	return true, nil
 }
 func startNamespaceController(ctx *ControllerContext) (bool, error) {
