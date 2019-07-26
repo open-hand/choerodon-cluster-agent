@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/glog"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 )
 
 // How did this update get triggered?

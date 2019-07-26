@@ -15,8 +15,8 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	model_helm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 )
 
 var (

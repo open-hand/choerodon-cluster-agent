@@ -7,8 +7,8 @@ import (
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 )
 
 var (

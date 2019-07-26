@@ -1,8 +1,8 @@
 package command
 
 import (
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command/agent"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 )
 
 func init() {

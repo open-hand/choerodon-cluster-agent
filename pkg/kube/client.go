@@ -35,8 +35,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"strings"
 
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 )
 
 type Client interface {

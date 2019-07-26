@@ -3,7 +3,7 @@ package command
 import (
 	"github.com/golang/glog"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 )
 
 func NewResponseError(key string, cmdType string, err error) *model.Packet {

@@ -14,7 +14,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-cleanhttp"
 
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	util_url "github.com/choerodon/choerodon-cluster-agent/pkg/util/url"
 )
 

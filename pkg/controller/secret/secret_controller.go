@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/golang/glog"
 
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"

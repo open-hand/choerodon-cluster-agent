@@ -13,12 +13,12 @@ import (
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	//todo : remove another controller
 	controller2 "github.com/choerodon/choerodon-cluster-agent/pkg/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"

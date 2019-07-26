@@ -4,8 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -23,6 +22,24 @@ const (
 	RoleLabel = "kubernetes.io/role"
 )
 
+type NodeInfo struct {
+	NodeName          string `json:"nodeName,omitempty"`
+	Status            string `json:"status,omitempty"`
+	Type              string `json:"type,omitempty"`
+	CreateTime        string `json:"createTime,omitempty"`
+	CpuCapacity       string `json:"cpuCapacity,omitempty"`
+	CpuAllocatable    string `json:"cpuAllocatable,omitempty"`
+	PodAllocatable    string `json:"podAllocatable,omitempty"`
+	PodCapacity       string `json:"podCapacity,omitempty"`
+	MemoryCapacity    string `json:"memoryCapacity,omitempty"`
+	MemoryAllocatable string `json:"memoryAllocatable,omitempty"`
+	MemoryRequest     string `json:"memoryRequest,omitempty"`
+	MemoryLimit       string `json:"memoryLimit,omitempty"`
+	CpuRequest        string `json:"cpuRequest,omitempty"`
+	CpuLimit          string `json:"cpuLimit,omitempty"`
+	PodCount          int    `json:"podCount,omitempty"`
+}
+
 type Node struct {
 	Client client.Interface
 	CrChan *channel.CRChan
@@ -36,7 +53,7 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 			glog.Info("stop node metrics collector")
 			return nil
 		case <-time.Tick(time.Second * 30):
-			nodes := make([]kubernetes.NodeInfo, 0)
+			nodes := make([]NodeInfo, 0)
 			nodeList, err := no.Client.CoreV1().Nodes().List(v1.ListOptions{})
 			if err != nil {
 				glog.Errorf("list node error :", err)
@@ -66,7 +83,7 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 				CpuRequest := reqs["cpu"]
 				MemoryRequest := reqs["memory"]
 				MemoryLimit := limit["memory"]
-				nodeInfo := &kubernetes.NodeInfo{
+				nodeInfo := &NodeInfo{
 					NodeName:          node.Name,
 					CreateTime:        node.CreationTimestamp.String(),
 					CpuAllocatable:    node.Status.Allocatable.Cpu().String(),

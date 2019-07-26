@@ -1,6 +1,6 @@
 package channel
 
-import "github.com/choerodon/choerodon-cluster-agent/pkg/model"
+import "github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 
 type CRChan struct {
 	CommandChan  chan *model.Packet

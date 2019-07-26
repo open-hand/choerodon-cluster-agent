@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/golang/glog"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/api/apps/v1beta1"

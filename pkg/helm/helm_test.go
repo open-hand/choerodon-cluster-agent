@@ -2,9 +2,9 @@ package helm
 
 import (
 	"encoding/json"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

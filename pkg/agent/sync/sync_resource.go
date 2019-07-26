@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics/node"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model/kubernetes"
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -37,7 +36,7 @@ func syncStatefulSet(ctx *Context) error {
 					podList = append(podList, statefulset.GetName())
 				}
 			}
-			resourceList := &kubernetes.ResourceList{
+			resourceList := &ResourceList{
 				Resources:    podList,
 				ResourceType: "StatefulSet",
 			}
@@ -71,7 +70,7 @@ func syncReplicaSet(ctx *Context) error {
 					resourceSyncList = append(resourceSyncList, resource.GetName())
 				}
 			}
-			resourceList := &kubernetes.ResourceList{
+			resourceList := &ResourceList{
 				Resources:    resourceSyncList,
 				ResourceType: "ReplicaSet",
 			}
@@ -104,7 +103,7 @@ func syncService(ctx *Context) error {
 					serviceList = append(serviceList, instance.GetName())
 				}
 			}
-			resourceList := &kubernetes.ResourceList{
+			resourceList := &ResourceList{
 				Resources:    serviceList,
 				ResourceType: "Service",
 			}
@@ -138,7 +137,7 @@ func syncPod(ctx *Context) error {
 					podList = append(podList, pod.GetName())
 				}
 			}
-			resourceList := &kubernetes.ResourceList{
+			resourceList := &ResourceList{
 				Resources:    podList,
 				ResourceType: "Pod",
 			}

@@ -2,7 +2,7 @@ package gitops
 
 import (
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"io/ioutil"
 	"os"
