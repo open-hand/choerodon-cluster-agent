@@ -4,9 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
+	agentsync "github.com/choerodon/choerodon-cluster-agent/pkg/agent/sync"
 	apis "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
@@ -285,15 +285,12 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		GitPollInterval: o.gitPollInterval,
 	}
 
-	ctx2 := controller.CreateControllerContext(
-		kubeClient.GetKubeClient(),
-		kubeClient,
-		helmClient,
-		shutdown,
-		crChan,
-		namespaces,
-		o.PlatformCode,
-	)
+	agentctx := &agentsync.Context{
+		Namespaces: namespaces,
+		KubeClient: kubeClient.GetKubeClient(),
+		CrChan:     crChan,
+		StopCh:     shutdown,
+	}
 	//ctx.StartControllers()
 	var k8s *kubernetes.Cluster
 	{
@@ -326,7 +323,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.statusSyncInterval,
 		o.gitTimeOut,
 		gitConfig,
-		ctx2,
+		agentctx,
 		shutdownWg,
 		shutdown,
 		o.Token,

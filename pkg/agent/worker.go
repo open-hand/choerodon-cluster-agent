@@ -2,8 +2,8 @@ package agent
 
 import (
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	agentsync "github.com/choerodon/choerodon-cluster-agent/pkg/agent/sync"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -35,7 +35,7 @@ type workerManager struct {
 	cluster            *kubernetes.Cluster
 	statusSyncInterval time.Duration
 	gitTimeout         time.Duration
-	controllerContext  *controller.ControllerContext
+	controllerContext  *agentsync.Context
 	wg                 *sync.WaitGroup
 	stop               <-chan struct{}
 	token              string
@@ -54,7 +54,7 @@ func NewWorkerManager(
 	statusSyncInterval time.Duration,
 	gitTimeout time.Duration,
 	gitConfig git.Config,
-	controllerContext *controller.ControllerContext,
+	controllerContext *agentsync.Context,
 	wg *sync.WaitGroup,
 	stop <-chan struct{},
 	token string,
