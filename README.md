@@ -4,7 +4,7 @@
 
 `Choerodon Agent` is a environment client which connects to the choerodon platform through websocket, And it is a relay station for other services and k8s interaction. The interactioninteract through `command/response` to provide these features to other service,such as management of helm release, network management, k8s object monitoring, and container log and shell. We can use che choerodon agent to operate the k8s like using kubectl client.
 
-![](image/design.png)
+![](docs/img/design.png)
 
 ## Feature
 

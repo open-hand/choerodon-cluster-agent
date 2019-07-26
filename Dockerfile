@@ -20,7 +20,7 @@ RUN apk --no-cache add \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     mkdir -p /ssh-keys && \
     echo "Asia/Shanghai" > /etc/timezone
-COPY ./docker/ssh_config /etc/ssh/ssh_config
+COPY ./build/ssh_config /etc/ssh/ssh_config
 COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent /
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["/choerodon-cluster-agent"]
