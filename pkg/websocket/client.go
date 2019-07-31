@@ -44,12 +44,14 @@ type appClient struct {
 	backgroundWait sync.WaitGroup
 	pipeConns      map[string]*websocket.Conn
 	respQueue      []*model.Packet
+	clusterId      string
 }
 
 func NewClient(
 	t Token,
 	endpoint string,
-	crChannel *channel.CRChan) (Client, error) {
+	crChannel *channel.CRChan,
+	clusterId string) (Client, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("no upstream URL given")
 	}
@@ -69,6 +71,7 @@ func NewClient(
 		client:    httpClient,
 		pipeConns: make(map[string]*websocket.Conn),
 		respQueue: make([]*model.Packet, 0, 100),
+		clusterId: clusterId,
 	}
 
 	return c, nil
@@ -127,16 +130,16 @@ func (c *appClient) connect() error {
 
 		c.conn.SetPingHandler(nil)
 		for {
-			var command model.Packet
-			err := c.conn.ReadJSON(&command)
+			var wp WsPacket
+			err := c.conn.ReadJSON(&wp)
 			if err != nil {
 				if !websocket.IsCloseError(err, websocket.CloseNoStatusReceived) {
 					glog.Error(err)
 				}
 				break
 			}
-			glog.V(1).Info("receive command: ", command)
-			c.crChannel.CommandChan <- &command
+			glog.V(1).Info("receive command: ", wp.Data)
+			c.crChannel.CommandChan <- wp.Data
 		}
 	}()
 
@@ -169,14 +172,22 @@ func (c *appClient) connect() error {
 	}
 }
 
+type WsPacket struct {
+	Type string        `json:"type"`
+	Key  string        `json:"key"`
+	Data *model.Packet `json:"data"`
+}
+
 func (c *appClient) sendResponse(resp *model.Packet) error {
-	content, _ := json.Marshal(resp)
+
+	wp := WsPacket{
+		Type: "agent",
+		Key:  fmt.Sprintf("cluster:%s", c.clusterId),
+		Data: resp,
+	}
+	content, _ := json.Marshal(wp)
 	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
 	glog.V(1).Info("send response: ", string(content))
-	//if len(content) > 65535 {
-	//	glog.Errorf("message %s/%s to large", resp.Key, resp.Type)
-	//	return nil
-	//}
 	return c.conn.WriteMessage(websocket.TextMessage, content)
 }
 

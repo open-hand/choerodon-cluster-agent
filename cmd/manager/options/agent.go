@@ -265,7 +265,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		shutdownWg.Wait()
 	}()
 
-	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan)
+	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan, o.ClusterId)
 	if err != nil {
 		errChan <- err
 		return

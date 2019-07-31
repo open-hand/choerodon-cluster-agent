@@ -75,7 +75,7 @@ func TestClient(t *testing.T) {
 	}
 
 	serverURL, _ := url.Parse(fmt.Sprintf("ws%s/agent", strings.TrimPrefix(server.URL, "http")))
-	c, err := NewClient(Token("token"), serverURL.String(), crChan)
+	c, err := NewClient(Token("token"), serverURL.String(), crChan, "testcluster")
 	assert.Nil(t, err, "no error create new client")
 
 	go c.Loop(shutdown, shutdownWg)
@@ -101,4 +101,27 @@ func TestClient(t *testing.T) {
 	}
 
 	responseChan <- resp
+}
+
+func TestWsPacket(t *testing.T) {
+	packet := &model.Packet{
+		Key:     "a.key",
+		Type:    "b.type",
+		Payload: "c.payload",
+	}
+	wp := WsPacket{
+		Type: "agent",
+		Key:  fmt.Sprintf("cluster:%s", "d.clusterid"),
+		Data: packet,
+	}
+	content, _ := json.Marshal(wp)
+
+	wp2 := &WsPacket{}
+	if err := json.Unmarshal(content, wp2); err != nil {
+		t.Fatal(err)
+	}
+	if wp2.Data.Payload != "c.payload" {
+		t.Fatal("ws packet failed")
+	}
+
 }
