@@ -44,14 +44,14 @@ type appClient struct {
 	backgroundWait sync.WaitGroup
 	pipeConns      map[string]*websocket.Conn
 	respQueue      []*model.Packet
-	clusterId      string
+	clusterId      int32
 }
 
 func NewClient(
 	t Token,
 	endpoint string,
 	crChannel *channel.CRChan,
-	clusterId string) (Client, error) {
+	clusterId int32) (Client, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("no upstream URL given")
 	}
@@ -182,7 +182,7 @@ func (c *appClient) sendResponse(resp *model.Packet) error {
 
 	wp := WsPacket{
 		Type: "agent",
-		Key:  fmt.Sprintf("cluster:%s", c.clusterId),
+		Key:  fmt.Sprintf("cluster:%d", c.clusterId),
 		Data: resp,
 	}
 	content, _ := json.Marshal(wp)

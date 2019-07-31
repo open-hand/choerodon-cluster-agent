@@ -37,6 +37,7 @@ spec:
         - --token={{ .Values.config.token }}
         - --agent-version={{ .Chart.Version }}
         - --choerodon-id={{ .Values.config.choerodonId }}
+        - --clusterId={{ .Values.config.clusterId }}
       {{- range $key, $value := .Values.config.extraArgs }}
         - --{{ $key }}={{ $value }}
       {{- end }}

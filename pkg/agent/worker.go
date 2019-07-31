@@ -99,6 +99,10 @@ func (w *workerManager) runWorker() {
 			return
 		case cmd := <-w.chans.CommandChan:
 			go func(cmd *model.Packet) {
+				if cmd == nil {
+					glog.Error("got wrong command")
+					return
+				}
 				glog.Infof("get command: %s/%s", cmd.Key, cmd.Type)
 				var newCmds []*model.Packet = nil
 				var resp *model.Packet = nil
