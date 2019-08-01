@@ -6,7 +6,9 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -39,8 +41,34 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	}
 	namespaces.Set(nsList)
 
-	//启动控制器， todo: 后期移除
+	//启动控制器， todo: 重启metrics
 	opts.ControllerContext.ReSync()
+
+	cfg, err := opts.KubeClient.GetRESTConfig()
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+	}
+
+	args := &controller.Args{
+		CrChan:       opts.CrChan,
+		HelmClient:   opts.HelmClient,
+		Namespaces:   namespaces,
+		KubeClient:   opts.KubeClient,
+		PlatformCode: opts.PlatformCode,
+	}
+	for _, ns := range nsList {
+		mgr, err := operator.New(cfg, ns, args)
+		if err != nil {
+			return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+		}
+		stopCh := make(chan struct{}, 1)
+		opts.Mgrs.AddStop(ns, mgr, stopCh)
+		go func() {
+			if err := mgr.Start(stopCh); err != nil {
+				opts.CrChan.ResponseChan <- commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+			}
+		}()
+	}
 
 	//启动repo、
 	g.Envs = agentInitOpts.Envs

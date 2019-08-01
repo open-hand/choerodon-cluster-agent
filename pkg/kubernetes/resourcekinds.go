@@ -105,7 +105,7 @@ type c7nHelmReleaseKind struct {
 
 func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
 
-	client := c.mgr.GetClient()
+	client := c.mgrs.Get(namespace).GetClient()
 
 	instances := &c7nv1alpha1.C7NHelmReleaseList{}
 

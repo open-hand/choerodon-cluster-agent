@@ -5,7 +5,9 @@ import (
 	"errors"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 )
 
@@ -39,6 +41,30 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 
 	//启动控制器， todo: 后期移除
 	opts.ControllerContext.ReSync()
+
+	cfg, err := opts.KubeClient.GetRESTConfig()
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+	}
+
+	args := &controller.Args{
+		CrChan:       opts.CrChan,
+		HelmClient:   opts.HelmClient,
+		KubeClient:   opts.KubeClient,
+		PlatformCode: opts.PlatformCode,
+	}
+	mgr, err := operator.New(cfg, namespace, args)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+	}
+
+	stopCh := make(chan struct{}, 1)
+	opts.Mgrs.AddStop(namespace, mgr, stopCh)
+	go func() {
+		if err := mgr.Start(stopCh); err != nil {
+			opts.CrChan.ResponseChan <- commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+		}
+	}()
 
 	//启动repo、
 	g.Envs = append(g.Envs, agentInitOpts.Envs[0])
@@ -74,7 +100,7 @@ func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		if envPara.Namespace == env.Namespace {
 			newEnvs = append(opts.Envs[0:index], opts.Envs[index+1:]...)
 		}
-
+		opts.Mgrs.Remove(envPara.Namespace)
 	}
 	opts.Envs = newEnvs
 

@@ -9,6 +9,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"sync"
 	"time"
@@ -19,6 +20,7 @@ type Opts struct {
 	Namespaces        *namespace.Namespaces
 	GitRepos          map[string]*git.Repo
 	KubeClient        kube.Client
+	Mgrs              *operator.MgrList
 	ControllerContext *agentsync.Context
 	StopCh            <-chan struct{}
 	Cluster           *kubernetes.Cluster

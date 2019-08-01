@@ -7,6 +7,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
+	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"sync"
 
 	"github.com/golang/glog"
@@ -41,9 +42,11 @@ type workerManager struct {
 	token              string
 	platformCode       string
 	syncAll            bool
+	mgrs               *operatorutil.MgrList
 }
 
 func NewWorkerManager(
+	mgrs *operatorutil.MgrList,
 	chans *channel.CRChan,
 	kubeClient kube.Client,
 	helmClient helm.Client,
@@ -79,6 +82,7 @@ func NewWorkerManager(
 		token:              token,
 		platformCode:       platformCode,
 		syncAll:            syncAll,
+		mgrs:               mgrs,
 	}
 }
 
@@ -124,6 +128,7 @@ func (w *workerManager) runWorker() {
 						PlatformCode:      w.platformCode,
 						WsClient:          w.appClient,
 						Token:             w.token,
+						Mgrs:              w.mgrs,
 					}
 					newCmds, resp = processCmdFunc(opts, cmd)
 				} else {

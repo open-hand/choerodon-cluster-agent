@@ -2,7 +2,6 @@ package kube
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/ghodss/yaml"
@@ -20,11 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
@@ -32,11 +31,9 @@ import (
 	"k8s.io/kubernetes/pkg/kubectl"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"strings"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 )
 
 type Client interface {
@@ -62,8 +59,8 @@ type Client interface {
 	GetNamespace(namespace string) error
 	DeleteNamespace(namespace string) error
 	GetSecret(namespace string, secretName string) (string, error)
-	GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error)
 	GetKubeClient() *kubernetes.Clientset
+	GetRESTConfig() (*rest.Config, error)
 	IsReleaseJobRun(namespace, releaseName string) bool
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
 	BuildUnstructured(namespace string, manifest string) (Result, error)
@@ -78,23 +75,9 @@ var AgentVersion string
 type client struct {
 	cmdutil.Factory
 	client *kubernetes.Clientset
-	mgr    manager.Manager
 }
 
-//todo: remove
-//func NewForConfig(c *rest.Config, mgr manager.Manager) (Client, error) {
-//	k8sClientSet, err := kubernetes.NewForConfig(c)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return &client{
-//		Factory: nil,
-//		client:  k8sClientSet,
-//		mgr:     mgr,
-//	}, nil
-//}
-
-func NewClient(f cmdutil.Factory, mgr manager.Manager) (Client, error) {
+func NewClient(f cmdutil.Factory) (Client, error) {
 	kubeClient, err := f.KubernetesClientSet()
 	if err != nil {
 		return nil, fmt.Errorf("get kubernetes client: %v", err)
@@ -108,8 +91,11 @@ func NewClient(f cmdutil.Factory, mgr manager.Manager) (Client, error) {
 	return &client{
 		Factory: f,
 		client:  kubeClient,
-		mgr:     mgr,
 	}, nil
+}
+
+func (c *client) GetRESTConfig() (*rest.Config, error) {
+	return c.ToRESTConfig()
 }
 
 func (c *client) DeleteJob(namespace string, name string) error {
@@ -281,27 +267,6 @@ func (c *client) GetSecret(namespace string, secretName string) (string, error) 
 		return secret.Annotations[model.CommitLabel], nil
 	}
 	return "", nil
-}
-
-func (c *client) GetC7nHelmRelease(namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error) {
-
-	client := c.mgr.GetClient()
-
-	instance := &v1alpha1.C7NHelmRelease{}
-	namespacedName := types.NamespacedName{
-		Namespace: namespace,
-		Name:      releaseName,
-	}
-	if err := client.Get(context.TODO(), namespacedName, instance); err != nil {
-		if errors.IsNotFound(err) {
-			return nil, err
-		}
-		return nil, nil
-	}
-	if instance.Annotations != nil && instance.Annotations[model.CommitLabel] != "" {
-		return instance, nil
-	}
-	return nil, nil
 }
 
 func (c *client) IsReleaseJobRun(namespace, releaseName string) bool {

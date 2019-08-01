@@ -6,7 +6,7 @@ package kubernetes
 
 import (
 	"bytes"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"sync"
 
 	k8syaml "github.com/ghodss/yaml"
@@ -54,7 +54,7 @@ type Applier interface {
 // (Typically, this code is deployed into the same cluster.)
 type Cluster struct {
 	client  extendedClient
-	mgr     manager.Manager
+	mgrs    *operatorutil.MgrList
 	applier Applier
 	mu      sync.Mutex
 }
@@ -62,7 +62,7 @@ type Cluster struct {
 // NewCluster returns a usable cluster.
 func NewCluster(
 	clientset k8sclient.Interface,
-	mgr manager.Manager,
+	mgrs *operatorutil.MgrList,
 	applier Applier) *Cluster {
 
 	c := &Cluster{
@@ -70,7 +70,7 @@ func NewCluster(
 			clientset.CoreV1(),
 			clientset.ExtensionsV1beta1(),
 		},
-		mgr:     mgr,
+		mgrs:    mgrs,
 		applier: applier,
 	}
 

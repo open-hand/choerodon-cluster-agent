@@ -1,11 +1,16 @@
 package helm
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
+	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/golang/glog"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"strings"
 )
 
@@ -76,6 +81,27 @@ func GetHelmReleaseContent(opts *command.Opts, cmd *model.Packet) ([]*model.Pack
 	}
 }
 
+func GetC7nHelmRelease(mgrs *operatorutil.MgrList, namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error) {
+
+	client := mgrs.Get(namespace).GetClient()
+
+	instance := &v1alpha1.C7NHelmRelease{}
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      releaseName,
+	}
+	if err := client.Get(context.TODO(), namespacedName, instance); err != nil {
+		if errors.IsNotFound(err) {
+			return nil, err
+		}
+		return nil, nil
+	}
+	if instance.Annotations != nil && instance.Annotations[model.CommitLabel] != "" {
+		return instance, nil
+	}
+	return nil, nil
+}
+
 func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var reqs []helm.SyncRequest
 	var reps = make([]*helm.SyncRequest, 0)
@@ -117,7 +143,7 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 			}
 			break
 		case "instance":
-			chr, err := kubeClient.GetC7nHelmRelease(namespace, syncRequest.ResourceName)
+			chr, err := GetC7nHelmRelease(opts.Mgrs, namespace, syncRequest.ResourceName)
 			if err != nil {
 				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
 			} else if chr != nil {

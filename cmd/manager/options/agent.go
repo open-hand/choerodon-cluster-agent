@@ -4,28 +4,22 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	agentsync "github.com/choerodon/choerodon-cluster-agent/pkg/agent/sync"
-	apis "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
-	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
-
-	"github.com/choerodon/choerodon-cluster-agent/pkg/agent"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	//todo : remove another controller
-	controller2 "github.com/choerodon/choerodon-cluster-agent/pkg/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/metrics"
-	"github.com/operator-framework/operator-sdk/pkg/restmapper"
+	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,12 +28,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"runtime"
-	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
-	crsignals "sigs.k8s.io/controller-runtime/pkg/runtime/signals"
-
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"os/signal"
+	"runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sync"
 	"syscall"
@@ -50,6 +40,10 @@ const (
 	defaultGitSyncTag       = "agent-sync"
 	defaultGitDevOpsSyncTag = "devops-sync"
 	defaultGitNotesRef      = "choerodon"
+)
+
+var (
+	metricsPort int32 = 8383
 )
 
 type AgentOptions struct {
@@ -88,11 +82,6 @@ type AgentOptions struct {
 }
 
 var log = logf.Log.WithName("cmd")
-
-var (
-	metricsHost       = "0.0.0.0"
-	metricsPort int32 = 8383
-)
 
 func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
@@ -157,11 +146,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	helm.InitEnvSettings()
 
 	// --------------- operator sdk start  -----------------  //
-	namespace, err := k8sutil.GetWatchNamespace()
-	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
-		os.Exit(1)
-	}
 
 	// Get a config to talk to the apiserver
 	//cfg, err := config.GetConfig()
@@ -173,7 +157,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	ctx := context.TODO()
 
 	// Become the leader before proceeding
-	err = leader.Become(ctx, "c7n-agent-lock")
+	err := leader.Become(ctx, "c7n-agent-lock")
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
@@ -181,19 +165,11 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	cfg, _ := f.ToRESTConfig()
 
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := crmanager.New(cfg, crmanager.Options{
-		Namespace:          namespace,
-		MapperProvider:     restmapper.NewDynamicRESTMapper,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-	})
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
+	// for controller-manager
+	mgrs := &operatorutil.MgrList{}
 
 	// new kubernetes clientf
-	kubeClient, err := kube.NewClient(f, mgr)
+	kubeClient, err := kube.NewClient(f)
 	if err != nil {
 		errChan <- err
 		return
@@ -208,47 +184,10 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	glog.Infof("KubeClient init success.")
 
-	log.Info("Registering Components.")
-
-	// Setup Scheme for all resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
 	// 需要listen de namespaces
 	namespaces := agentnamespace.NewNamespaces()
 
-	args := &controllerutil.Args{
-		CrChan:       crChan,
-		HelmClient:   helmClient,
-		Namespaces:   namespaces,
-		KubeClient:   kubeClient,
-		PlatformCode: o.PlatformCode,
-	}
-
-	// Setup all Controllers
-	if err := controller2.AddToManager(mgr, args); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	// Create Service object to expose the metrics port.
-	_, err = metrics.ExposeMetricsPort(ctx, metricsPort)
-	if err != nil {
-		log.Info(err.Error())
-	}
-
 	log.Info("Starting the Cmd.")
-
-	// Start the Cmd
-	go func() {
-		if err := mgr.Start(crsignals.SetupSignalHandler()); err != nil {
-			log.Error(err, "Manager exited non-zero")
-			os.Exit(1)
-		}
-	}()
-
 	// --------------- operator sdk end  -----------------  //
 
 	// receive system int or term signal, send to err channel
@@ -291,6 +230,13 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		CrChan:     crChan,
 		StopCh:     shutdown,
 	}
+
+	cfg, err = f.ToRESTConfig()
+	if err != nil {
+		log.Error(err, "")
+		os.Exit(127)
+	}
+
 	//ctx.StartControllers()
 	var k8s *kubernetes.Cluster
 	{
@@ -310,9 +256,10 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			glog.V(1).Info(err)
 		}
 
-		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), mgr, kubectlApplier)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), mgrs, kubectlApplier)
 	}
 	workerManager := agent.NewWorkerManager(
+		mgrs,
 		crChan,
 		kubeClient,
 		helmClient,

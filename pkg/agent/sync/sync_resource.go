@@ -17,7 +17,8 @@ type Context struct {
 	Namespaces *agentnamespace.Namespaces
 	KubeClient clientset.Interface
 	CrChan     *channel.CRChan
-	StopCh     <-chan struct{}
+	StopCh     chan struct{}
+	stopCh     chan struct{}
 }
 
 var syncFuncs []func(ctx *Context) error
@@ -163,7 +164,7 @@ func syncMetrics(ctx *Context) error {
 		CrChan: ctx.CrChan,
 	}
 	metrics.Register(m)
-	return m.Run(ctx.StopCh)
+	return m.Run(ctx.stopCh)
 }
 
 func init() {
@@ -176,14 +177,31 @@ func init() {
 
 func Run(ctx *Context) {
 	for _, fn := range syncFuncs {
+		p := fn
 		go func() {
-			if err := fn(ctx); err != nil {
+			if err := p(ctx); err != nil {
 				glog.Warningf("sync %v failed", fn)
 			}
 		}()
 	}
+	go func() {
+		for {
+			select {
+			case <-ctx.StopCh:
+				close(ctx.stopCh)
+			case <-ctx.stopCh:
+				return
+			}
+		}
+	}()
 }
 
+var Y int
+
 func (ctx *Context) ReSync() {
+	if ctx.stopCh != nil {
+		close(ctx.stopCh)
+	}
+	ctx.stopCh = make(chan struct{}, 1)
 	Run(ctx)
 }
