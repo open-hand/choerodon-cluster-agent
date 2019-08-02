@@ -59,12 +59,15 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 	}
 
 	stopCh := make(chan struct{}, 1)
-	opts.Mgrs.AddStop(namespace, mgr, stopCh)
-	go func() {
-		if err := mgr.Start(stopCh); err != nil {
-			opts.CrChan.ResponseChan <- commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
-		}
-	}()
+
+	// check success added avoid repeat watch
+	if opts.Mgrs.AddStop(namespace, mgr, stopCh) {
+		go func() {
+			if err := mgr.Start(stopCh); err != nil {
+				opts.CrChan.ResponseChan <- commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+			}
+		}()
+	}
 
 	//启动repo、
 	g.Envs = append(g.Envs, agentInitOpts.Envs[0])
