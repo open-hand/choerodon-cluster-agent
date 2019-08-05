@@ -131,7 +131,7 @@ func (c *appClient) connect() error {
 		c.conn.SetPingHandler(nil)
 		for {
 			var wp WsPacket
-			err := c.conn.ReadJSON(&wp)
+			err := c.conn.ReadJSON(&wp.Data)
 			if err != nil {
 				if !websocket.IsCloseError(err, websocket.CloseNoStatusReceived) {
 					glog.Error(err)
@@ -185,7 +185,7 @@ func (c *appClient) sendResponse(resp *model.Packet) error {
 		Key:  fmt.Sprintf("cluster:%d", c.clusterId),
 		Data: resp,
 	}
-	content, _ := json.Marshal(wp)
+	content, _ := json.Marshal(wp.Data)
 	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
 	glog.V(1).Info("send response: ", string(content))
 	return c.conn.WriteMessage(websocket.TextMessage, content)
