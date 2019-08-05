@@ -6,8 +6,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/manager"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/cluster/kubernetes"
-	k8sclient "k8s.io/client-go/kubernetes"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
@@ -17,6 +15,8 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/ws"
 	"github.com/golang/glog"
 	"github.com/spf13/pflag"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sclient "k8s.io/client-go/kubernetes"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
 	"os"
@@ -36,12 +36,19 @@ const (
 )
 
 type AgentOptions struct {
-	Listen       string
-	UpstreamURL  string
-	Token        string
+	Listen               string
+	UpstreamURL          string
+	Token                string
+	ReadLimit            int64
+	ConnectionTimeout    time.Duration
+	WriteTimeout         time.Duration
+	HealthCheckDuration  time.Duration
+	HealthCheckTimeout   time.Duration
+	HealthCheckTryNumber int32
+
 	PrintVersion bool
 	// kubernetes controller
-	PlatformCode string
+	PlatformCode                  string
 	ConcurrentEndpointSyncs       int32
 	ConcurrentServiceSyncs        int32
 	ConcurrentRSSyncs             int32
@@ -127,8 +134,15 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	checkKube(kubeClient.GetKubeClient())
 
+	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, chans, &ws.Conf{
+		ReadLimit:            o.ReadLimit,
+		ConnectionTimeout:    o.ConnectionTimeout,
+		WriteTimeout:         o.WriteTimeout,
+		HealthCheckTryNumber: o.HealthCheckTryNumber,
+		HealthCheckTimeout:   o.HealthCheckTimeout,
+		HealthCheckDuration:  o.HealthCheckDuration,
+	})
 
-	appClient, err := ws.NewClient(ws.Token(o.Token), o.UpstreamURL, chans)
 	if err != nil {
 		errChan <- err
 		return
@@ -137,14 +151,14 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	//gitRemote := git.Remote{URL: o.gitURL}
 	gitConfig := git.Config{
-		Branch:    o.gitBranch,
-		Path:      o.gitPath,
-		UserName:  o.gitUser,
-		GitUrl:    o.gitURL,
-		UserEmail: o.gitEmail,
-		SyncTag:   o.gitSyncTag,
-		DevOpsTag: o.gitDevOpsSyncTag,
-		NotesRef:  o.gitNotesRef,
+		Branch:          o.gitBranch,
+		Path:            o.gitPath,
+		UserName:        o.gitUser,
+		GitUrl:          o.gitURL,
+		UserEmail:       o.gitEmail,
+		SyncTag:         o.gitSyncTag,
+		DevOpsTag:       o.gitDevOpsSyncTag,
+		NotesRef:        o.gitNotesRef,
 		GitPollInterval: o.gitPollInterval,
 	}
 	//gitRepo := git.NewRepo(gitRemote, git.PollInterval(o.gitPollInterval))
@@ -178,7 +192,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	//	k8sManifests = &kubernetes.Manifests{Namespace: o.Namespace}
 	//}
 
-
 	namespaces := manager.NewNamespaces()
 
 	ctx := controller.CreateControllerContext(
@@ -204,11 +217,11 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			glog.Fatal(err)
 		}
 		glog.Infof("kubectl %s", kubectl)
-		cfg,_ := f.ClientConfig()
+		cfg, _ := f.ClientConfig()
 		kubectlApplier := kubernetes.NewKubectl(kubectl, cfg)
 		kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML)
 
-		k8s = kubernetes.NewCluster( kubeClient.GetKubeClient(), kubeClient.GetC7NClient(), kubectlApplier)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetC7NClient(), kubectlApplier)
 		k8sManifests = &kubernetes.Manifests{}
 	}
 	workerManager := worker.NewWorkerManager(
@@ -233,14 +246,11 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	go workerManager.Start()
 	shutdownWg.Add(1)
 
-
-
 	go func() {
 		errChan <- http.ListenAndServe(o.Listen, nil)
 	}()
 
 }
-
 
 func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
@@ -250,6 +260,12 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.UpstreamURL, "connect", "", "Connect to an upstream service")
 	fs.StringVar(&o.Token, "token", "", "Authentication token for upstream service")
 	fs.Int32Var(&o.ClusterId, "clusterId", 0, "the env cluster id in devops")
+	fs.Int64Var(&o.ReadLimit, "readLimit", 524288, "message read size")
+	fs.DurationVar(&o.ConnectionTimeout, "connectionTimeout", 10*time.Second, "connection server timeout, default 10 second.")
+	fs.DurationVar(&o.WriteTimeout, "writeTimeout", 3*time.Second, "write message timeout, default 3 second.")
+	fs.DurationVar(&o.HealthCheckDuration, "healthCheckDuration", 3*time.Second, "health check duration.")
+	fs.DurationVar(&o.HealthCheckTimeout, "healthCheckTimeout", 10*time.Second, "health check wait pong duration.")
+	fs.Int32Var(&o.HealthCheckTryNumber, "healthCheckTryNumber", int32(3), "health check max try number.")
 
 	// kubernetes controller
 	fs.StringVar(&o.PlatformCode, "choerodon-id", "", "choerodon platform id label")
@@ -279,13 +295,12 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
 }
 
-func checkKube(client *k8sclient.Clientset)  {
+func checkKube(client *k8sclient.Clientset) {
 	glog.Infof("check k8s role binding...")
 	_, err := client.CoreV1().Pods("").List(meta_v1.ListOptions{})
 	if err != nil {
 		glog.Errorf("check role binding failed %v", err)
-		os.Exit(0	)
+		os.Exit(0)
 	}
 	glog.Infof(" k8s role binding succeed.")
 }
-
