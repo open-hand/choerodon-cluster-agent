@@ -10,7 +10,6 @@ import (
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
