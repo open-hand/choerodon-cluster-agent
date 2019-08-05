@@ -24,11 +24,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	"k8s.io/kubernetes/pkg/kubectl"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
 	"strings"
@@ -360,21 +358,17 @@ func (c *client) StopResources(namespace string, manifest string) error {
 	}
 
 	clientSet := c.GetKubeClient()
+
 	for _, info := range result {
-		mapping := info.ResourceMapping()
-		gr := mapping.Resource.GroupResource()
-		scaleClient := scale.New(clientSet.RESTClient(), nil, nil, nil)
-
-		scaler := kubectl.NewScaler(scaleClient)
-
-		//scaler, err := c.Scaler(mapping)
+		s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
 		if err != nil {
-			glog.V(2).Infof("get scaler: %v", err)
-			continue
+			return err
 		}
-		precondition := &kubectl.ScalePrecondition{Size: -1, ResourceVersion: ""}
-		if _, err := scaler.ScaleSimple(info.Namespace, info.Name, precondition, 0, gr); err != nil {
-			glog.V(2).Infof("scale to 0: %v", err)
+		s.Spec.Replicas = 0
+
+		_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
