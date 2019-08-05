@@ -138,7 +138,8 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		}
 		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config {
 			glog.Infof("release %s chart、version、values not change", rls.Name)
-			responseChan <- newReleaseSyncRep(instance)
+			payload, _ := json.Marshal(rls)
+			responseChan <- UpgradeInstanceStatusCmd(instance, string(payload))
 			return result, nil
 		}
 		if cmd := updateHelmReleaseCmd(instance); cmd != nil {
@@ -205,10 +206,11 @@ func newReleaseSyncFailRep(instance *choerodonv1alpha1.C7NHelmRelease, msg strin
 	}
 }
 
-func newReleaseSyncRep(instance *choerodonv1alpha1.C7NHelmRelease) *model.Packet {
+func UpgradeInstanceStatusCmd(instance *choerodonv1alpha1.C7NHelmRelease, payload string) *model.Packet {
 	return &model.Packet{
-		Key:  fmt.Sprintf("env:%s.release:%s.commit:%s", instance.Namespace, instance.Name, instance.Annotations[model.CommitLabel]),
-		Type: model.HelmReleaseSynced,
+		Key:     fmt.Sprintf("env:%s.release:%s.commit:%s", instance.Namespace, instance.Name, instance.Annotations[model.CommitLabel]),
+		Type:    model.HelmReleaseUpgrade,
+		Payload: payload,
 	}
 }
 
@@ -249,27 +251,4 @@ func newC7NHelmCRDForCr(cr *choerodonv1alpha1.C7NHelmRelease) *apiextensions.Cus
 		},
 	}
 
-}
-
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *choerodonv1alpha1.C7NHelmRelease) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
 }

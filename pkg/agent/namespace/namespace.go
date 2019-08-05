@@ -55,7 +55,7 @@ func (nsSet *Namespaces) AddAll(nsList []string) {
 func (nsSet *Namespaces) GetAll() []string {
 	nsSet.RLock()
 	defer nsSet.RUnlock()
-	nsList := []string{}
+	var nsList []string
 	for key := range nsSet.m {
 		nsList = append(nsList, key)
 	}
