@@ -8,6 +8,7 @@ import (
 	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics/node"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/packet"
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
@@ -124,6 +125,16 @@ func syncService(ctx *Context) error {
 	return nil
 }
 
+// 将集群中的空间发给devOps防止冲突
+func syncNamespace(ctx *Context) error {
+	namespaces, err := ctx.KubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	ctx.CrChan.ResponseChan <- packet.NamespacePacket(namespaces)
+	return nil
+}
+
 func syncPod(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
@@ -172,6 +183,7 @@ func init() {
 	syncFuncs = append(syncFuncs, syncReplicaSet)
 	syncFuncs = append(syncFuncs, syncService)
 	syncFuncs = append(syncFuncs, syncPod)
+	syncFuncs = append(syncFuncs, syncNamespace)
 	syncFuncs = append(syncFuncs, syncMetrics)
 }
 
