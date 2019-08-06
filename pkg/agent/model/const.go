@@ -7,15 +7,11 @@ const (
 	InitAgentSucceed = "init_agent_succeed"
 	InitAgentFailed  = "init_agent_failed"
 	EnvCreateFailed  = "env_create_failed"
-	EnvCreateSucceed = "env_create_succeed"
 	EnvDeleteSucceed = "env_stop_succeed"
-	EnvDeleteFailed  = "env_stop_failed"
 	EnvDelete        = "delete_env"
 	CreateEnv        = "create_env"
-	NamespaceUpdate  = "namespace_update"
 
 	// helm
-	HelmReleaseSynced           = "helm_release_sync"
 	HelmReleaseSyncedFailed     = "helm_release_sync_failed"
 	HelmReleasePreInstall       = "helm_release_pre_install"
 	HelmInstallRelease          = "helm_install_release"
@@ -87,10 +83,7 @@ const (
 	GitOpsSyncFailed = "git_ops_sync_failed"
 	GitOpsSyncEvent  = "git_ops_sync_event"
 
-	StatusSyncEvent      = "status_sync_event"
-	StatusSync           = "status_sync"
-	Upgrade              = "upgrade"
-	UpgradeCluster       = "upgrade_cluster"
-	UpgradeClusterFailed = "upgrade_cluster_failed"
-	CertManagerInfo      = "cert_manager_info"
+	StatusSyncEvent = "status_sync_event"
+	StatusSync      = "status_sync"
+	Upgrade         = "upgrade"
 )

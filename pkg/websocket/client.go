@@ -115,8 +115,6 @@ func (c *appClient) connect() error {
 	// 建立连接，同步资源对象
 	if reconnectFlag {
 		c.crChannel.CommandChan <- newReConnectCommand()
-	} else {
-		c.crChannel.CommandChan <- newUpgradeInfoCommand(c.url.String())
 	}
 
 	defer func() {
@@ -323,12 +321,5 @@ func newReConnectCommand() *model.Packet {
 	return &model.Packet{
 		Key:  "inter:inter",
 		Type: model.ReSyncAgent,
-	}
-}
-func newUpgradeInfoCommand(connectUrl string) *model.Packet {
-	return &model.Packet{
-		Key:     "inter:inter",
-		Type:    model.UpgradeCluster,
-		Payload: connectUrl,
 	}
 }

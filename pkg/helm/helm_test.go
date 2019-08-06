@@ -132,11 +132,6 @@ func (c *helmClientTest) GetRelease(request *GetReleaseContentRequest) (*Release
 	return args.Get(0).(*Release), args.Error(1)
 }
 
-func (c *helmClientTest) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *CertManagerInfo, error) {
-
-	return &model.UpgradeInfo{}, &CertManagerInfo{}, nil
-}
-
 func (c *helmClientTest) DeleteNamespaceReleases(namespaces string) error {
 	return nil
 }
