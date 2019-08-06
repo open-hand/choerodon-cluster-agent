@@ -83,7 +83,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			responseChan <- newIngressDelRep(instance.Name, instance.Namespace)
+			responseChan <- newIngressDelRep(request.Name, request.Namespace)
 			glog.Warningf("ingress '%s' in work queue no longer exists", instance.Name)
 			return reconcile.Result{}, nil
 		}
