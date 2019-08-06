@@ -157,7 +157,7 @@ func TestPreInstallHelmRelease(t *testing.T) {
 
 	reqB, _ := json.Marshal(req)
 	cmd := &model.Packet{
-		Type:    model.HelmReleasePreInstall,
+		Type:    model.HelmInstallJobInfo,
 		Payload: string(reqB),
 	}
 
@@ -165,11 +165,11 @@ func TestPreInstallHelmRelease(t *testing.T) {
 		GitConfig:  git.Config{},
 		HelmClient: helmClient,
 	}
-	newCmds, resp := helm.PreInstallHelmRelease(opts, cmd)
+	newCmds, resp := helm.InstallJobInfo(opts, cmd)
 
 	assert.Equal(t, len(newCmds), 1, "only one new command")
-	assert.Equal(t, model.HelmInstallRelease, newCmds[0].Type, "get install command")
+	assert.Equal(t, model.HelmReleaseInstallResourceInfo, newCmds[0].Type, "get install command")
 	assert.Equal(t, string(reqB), newCmds[0].Payload, "equal request")
-	assert.Equal(t, model.HelmReleasePreInstall, resp.Type, "pre install response")
+	assert.Equal(t, model.HelmInstallJobInfo, resp.Type, "pre install response")
 	assert.Equal(t, string(releaseHooksB), resp.Payload, "payload is hook list")
 }

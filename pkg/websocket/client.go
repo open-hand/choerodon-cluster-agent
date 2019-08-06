@@ -136,8 +136,19 @@ func (c *appClient) connect() error {
 				}
 				break
 			}
-			glog.V(1).Info("receive command: ", wp.Data)
-			c.crChannel.CommandChan <- wp.Data
+			// for 平滑升级 we need to retain Payload field to handle upgrade agent command
+			if wp.Data != nil {
+				glog.V(1).Info("receive command: ", wp.Data)
+				c.crChannel.CommandChan <- wp.Data
+			} else {
+				glog.V(1).Info("receive command: ", wp.Key, wp.Type)
+				c.crChannel.CommandChan <- &model.Packet{
+					Key:     wp.Key,
+					Type:    wp.Type,
+					Payload: wp.Payload,
+				}
+			}
+
 		}
 	}()
 
@@ -171,9 +182,11 @@ func (c *appClient) connect() error {
 }
 
 type WsPacket struct {
-	Type string        `json:"type"`
-	Key  string        `json:"key"`
+	Type string        `json:"type,omitempty"`
+	Key  string        `json:"key,omitempty"`
 	Data *model.Packet `json:"data"`
+	// Deprecated; will remove at 0.20
+	Payload string `json:"payload,omitempty"`
 }
 
 func (c *appClient) sendResponse(resp *model.Packet) error {

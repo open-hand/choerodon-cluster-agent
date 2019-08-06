@@ -170,7 +170,7 @@ func newEventRep(event *corev1.Event) *model.Packet {
 	}
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.Event:%s", event.Namespace, event.Name),
-		Type:    model.JobEvent,
+		Type:    model.HelmJobEvent,
 		Payload: string(payload),
 	}
 }
@@ -182,7 +182,7 @@ func newInstanceEventRep(event *corev1.Event, release string) *model.Packet {
 	}
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.Event:%s", event.Namespace, release, event.Name),
-		Type:    model.ReleasePodEvent,
+		Type:    model.HelmPodEvent,
 		Payload: string(payload),
 	}
 }

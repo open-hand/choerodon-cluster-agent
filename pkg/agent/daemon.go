@@ -52,6 +52,6 @@ func (w *workerManager) syncStatus() {
 func newSyncRep(ns string) *model.Packet {
 	return &model.Packet{
 		Key:  fmt.Sprintf("env:%s", ns),
-		Type: model.StatusSyncEvent,
+		Type: model.ResourceStatusSyncEvent,
 	}
 }

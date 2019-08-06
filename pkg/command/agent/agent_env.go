@@ -73,11 +73,7 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 	g.Envs = append(g.Envs, agentInitOpts.Envs[0])
 	go g.WithStop(opts.StopCh)
 
-	return nil, &model.Packet{
-		Key:     cmd.Key,
-		Type:    model.InitAgentSucceed,
-		Payload: cmd.Payload,
-	}
+	return nil, nil
 }
 
 func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {

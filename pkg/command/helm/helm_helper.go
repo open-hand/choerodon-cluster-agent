@@ -187,7 +187,7 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 	glog.Infof("sync response %s", string(respB))
 	return nil, &model.Packet{
 		Key:     cmd.Key,
-		Type:    model.StatusSync,
+		Type:    model.ResourceStatusSync,
 		Payload: string(respB),
 	}
 }

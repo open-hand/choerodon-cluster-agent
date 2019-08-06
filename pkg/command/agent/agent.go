@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -12,6 +13,8 @@ import (
 	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"math/rand"
+	"time"
 )
 
 func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
@@ -75,10 +78,43 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	g.Envs = agentInitOpts.Envs
 	go g.WithStop(opts.StopCh)
 
+	return nil, nil
+}
+
+// 以前用于重新部署实例，现在仅用于升级Agent
+func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var req helm.UpgradeReleaseRequest
+	err := json.Unmarshal([]byte(cmd.Payload), &req)
+	if err != nil {
+		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	if req.Namespace == "" {
+		req.Namespace = cmd.Namespace()
+	}
+
+	ch := opts.CrChan
+	resp, err := opts.HelmClient.UpgradeRelease(&req)
+	if err != nil {
+		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == "choerodon" {
+			go func() {
+				//maybe avoid lot request devOps-service in a same time
+				rand.Seed(time.Now().UnixNano())
+				randWait := rand.Intn(20)
+				time.Sleep(time.Duration(randWait) * time.Second)
+				glog.Infof("start retry upgrade agent ...")
+				ch.CommandChan <- cmd
+			}()
+		}
+		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
 	return nil, &model.Packet{
 		Key:     cmd.Key,
-		Type:    model.InitAgentSucceed,
-		Payload: cmd.Payload,
+		Type:    model.HelmReleaseUpgradeResourceInfo,
+		Payload: string(respB),
 	}
 }
 

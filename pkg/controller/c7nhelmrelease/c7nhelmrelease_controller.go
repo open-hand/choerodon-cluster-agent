@@ -167,7 +167,7 @@ func installHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pa
 	}
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s", instance.Namespace, instance.Name),
-		Type:    model.HelmReleasePreInstall,
+		Type:    model.HelmInstallJobInfo,
 		Payload: string(reqBytes),
 	}
 }
@@ -191,7 +191,7 @@ func updateHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pac
 	}
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s", instance.Namespace, instance.Name),
-		Type:    model.HelmReleasePreUpgrade,
+		Type:    model.HelmUpgradeJobInfo,
 		Payload: string(reqBytes),
 	}
 }
@@ -208,7 +208,7 @@ func newReleaseSyncFailRep(instance *choerodonv1alpha1.C7NHelmRelease, msg strin
 func UpgradeInstanceStatusCmd(instance *choerodonv1alpha1.C7NHelmRelease, payload string) *model.Packet {
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.commit:%s", instance.Namespace, instance.Name, instance.Annotations[model.CommitLabel]),
-		Type:    model.HelmReleaseUpgrade,
+		Type:    model.HelmReleaseUpgradeResourceInfo,
 		Payload: payload,
 	}
 }

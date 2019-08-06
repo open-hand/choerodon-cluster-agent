@@ -48,7 +48,7 @@ func clientTestServeWs(t *testing.T, w http.ResponseWriter, r *http.Request) {
 	commandMsgPayloadBytes, err = json.Marshal(helmInstallMessage)
 	command := &model.Packet{
 		Key:     "helm:release:install",
-		Type:    model.HelmInstallRelease,
+		Type:    model.HelmReleaseInstallResourceInfo,
 		Payload: string(commandMsgPayloadBytes),
 	}
 
@@ -96,7 +96,7 @@ func TestClient(t *testing.T) {
 
 	resp := &model.Packet{
 		Key:     cmd.Key,
-		Type:    model.HelmInstallRelease,
+		Type:    model.HelmReleaseInstallResourceInfo,
 		Payload: string(helmInstallRespB),
 	}
 

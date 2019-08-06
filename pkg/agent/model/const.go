@@ -2,22 +2,29 @@ package model
 
 const (
 	//manager
-	InitAgent        = "init_agent"
-	ReSyncAgent      = "re_sync"
-	InitAgentSucceed = "init_agent_succeed"
+	InitAgent    = "agent_init"
+	AgentUpgrade = "agent_upgrade"
+	ReSyncAgent  = "re_sync"
+	// devOps-service暂无处理失败的逻辑
 	InitAgentFailed  = "init_agent_failed"
 	EnvCreateFailed  = "env_create_failed"
 	EnvDeleteSucceed = "env_stop_succeed"
-	EnvDelete        = "delete_env"
-	CreateEnv        = "create_env"
+	EnvDelete        = "env_delete"
+	EnvCreate        = "env_create"
+
+	// Components
+	CertManagerInstall = "cert_manager_install"
 
 	// helm
-	HelmReleaseSyncedFailed     = "helm_release_sync_failed"
-	HelmReleasePreInstall       = "helm_release_pre_install"
-	HelmInstallRelease          = "helm_install_release"
-	HelmReleaseInstallFailed    = "helm_release_install_failed"
-	HelmReleasePreUpgrade       = "helm_release_pre_upgrade"
+	// HelmReleaseUpgrade 以前用于升级agent及重新部署实例，现仅用于升级agent
+	// Deprecated: 将在0.20移除
 	HelmReleaseUpgrade          = "helm_release_upgrade"
+	HelmReleaseSyncedFailed     = "helm_release_sync_failed"
+	HelmReleaseInstallFailed    = "helm_release_install_failed"
+	HelmInstallJobInfo          = "helm_install_job_info"
+	HelmUpgradeJobInfo          = "helm_upgrade_job_info"
+	HelmJobLog                  = "helm_job_log"
+	HelmJobEvent                = "helm_job_event"
 	HelmReleaseRollback         = "helm_release_rollback"
 	HelmReleaseRollbackFailed   = "helm_release_rollback_failed"
 	HelmReleaseStart            = "helm_release_start"
@@ -26,11 +33,14 @@ const (
 	HelmReleaseStopFailed       = "helm_release_stop_failed"
 	HelmReleaseDelete           = "helm_release_delete"
 	HelmReleaseDeleteFailed     = "helm_release_delete_failed"
-	HelmReleaseHookGetLogs      = "helm_release_hook_get_logs"
 	HelmReleaseGetContent       = "helm_release_get_content"
 	HelmReleaseGetContentFailed = "helm_release_get_content_failed"
+
+	HelmReleaseInstallResourceInfo = "helm_install_resource_info"
+	HelmReleaseUpgradeResourceInfo = "helm_upgrade_resource_info"
+	HelmPodEvent                   = "helm_pod_event"
 	// automatic test
-	ExecuteTest        = "execute_test"
+	TestExecute        = "test_execute"
 	ExecuteTestSucceed = "execute_test_succeed"
 	ExecuteTestFailed  = "execute_test_failed"
 	TestJobLog         = "test_job_log"
@@ -62,11 +72,6 @@ const (
 	ResourceSync   = "resource_sync"
 	NodeSync       = "node_sync"
 
-	//kubernetes event
-	JobEvent = "job_event"
-
-	ReleasePodEvent = "release_pod_event"
-
 	// kubernetes
 	KubernetesGetLogs                 = "kubernetes_get_logs"
 	KubernetesGetLogsFailed           = "kubernetes_get_logs_failed"
@@ -83,7 +88,7 @@ const (
 	GitOpsSyncFailed = "git_ops_sync_failed"
 	GitOpsSyncEvent  = "git_ops_sync_event"
 
-	StatusSyncEvent = "status_sync_event"
-	StatusSync      = "status_sync"
-	Upgrade         = "upgrade"
+	ResourceStatusSyncEvent = "resource_status_sync_event"
+	ResourceStatusSync      = "resource_status_sync"
+	Upgrade                 = "upgrade"
 )

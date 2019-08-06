@@ -10,6 +10,8 @@ func init() {
 
 	Funcs.Add(model.ReSyncAgent, agent.ReSyncAgent)
 
-	Funcs.Add(model.CreateEnv, agent.AddEnv)
+	Funcs.Add(model.EnvCreate, agent.AddEnv)
 	Funcs.Add(model.EnvDelete, agent.DeleteEnv)
+	Funcs.Add(model.HelmReleaseUpgrade, agent.UpgradeAgent)
+	Funcs.Add(model.AgentUpgrade, agent.UpgradeAgent)
 }

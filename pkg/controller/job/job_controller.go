@@ -168,7 +168,7 @@ func newJobDelRep(name string, namespace string) *model.Packet {
 func newJobLogRep(name string, release string, jobLogs string, namespace string) *model.Packet {
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.Job:%s", namespace, release, name),
-		Type:    model.HelmReleaseHookGetLogs,
+		Type:    model.HelmJobLog,
 		Payload: jobLogs,
 	}
 }

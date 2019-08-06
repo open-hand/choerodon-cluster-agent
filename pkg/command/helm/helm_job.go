@@ -7,7 +7,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 )
 
-func PreInstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+func InstallJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.InstallReleaseRequest
 	var newCmds []*model.Packet
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
@@ -28,19 +28,19 @@ func PreInstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Pack
 	}
 	resp := &model.Packet{
 		Key:     cmd.Key,
-		Type:    model.HelmReleasePreInstall,
+		Type:    model.HelmInstallJobInfo,
 		Payload: string(hooksJsonB),
 	}
 	newCmd := &model.Packet{
 		Key:     cmd.Key,
-		Type:    model.HelmInstallRelease,
+		Type:    model.HelmReleaseInstallResourceInfo,
 		Payload: cmd.Payload,
 	}
 	newCmds = append(newCmds, newCmd)
 	return newCmds, resp
 }
 
-func PreUpdateHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+func UpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.UpgradeReleaseRequest
 	var newCmds []*model.Packet
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
@@ -60,12 +60,12 @@ func PreUpdateHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packe
 	}
 	resp := &model.Packet{
 		Key:     cmd.Key,
-		Type:    model.HelmReleasePreUpgrade,
+		Type:    model.HelmUpgradeJobInfo,
 		Payload: string(hooksJsonB),
 	}
 	newCmd := &model.Packet{
 		Key:     cmd.Key,
-		Type:    model.HelmReleaseUpgrade,
+		Type:    model.HelmReleaseUpgradeResourceInfo,
 		Payload: cmd.Payload,
 	}
 	newCmds = append(newCmds, newCmd)
