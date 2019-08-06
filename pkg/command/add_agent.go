@@ -7,7 +7,6 @@ import (
 
 func init() {
 	Funcs.Add(model.InitAgent, agent.InitAgent)
-	Funcs.Add(model.UpgradeCluster, agent.UpgradeAgent)
 
 	Funcs.Add(model.ReSyncAgent, agent.ReSyncAgent)
 

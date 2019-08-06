@@ -74,7 +74,6 @@ type Client interface {
 	StopRelease(request *StopReleaseRequest) (*StopReleaseResponse, error)
 	GetReleaseContent(request *GetReleaseContentRequest) (*Release, error)
 	GetRelease(request *GetReleaseContentRequest) (*Release, error)
-	ListAgent(devConnectUrl string) (*model.UpgradeInfo, *CertManagerInfo, error)
 	DeleteNamespaceReleases(namespaces string) error
 }
 
@@ -702,61 +701,6 @@ func (c *client) StartRelease(request *StartReleaseRequest) (*StartReleaseRespon
 		ReleaseName: request.ReleaseName,
 	}
 	return resp, nil
-}
-
-func (c *client) ListAgent(devConnectUrl string) (*model.UpgradeInfo, *CertManagerInfo, error) {
-	listReleasesRsp, err := c.helmClient.ListReleases(helm.ReleaseListStatuses([]release.Status_Code{}))
-	upgradeInfo := &model.UpgradeInfo{
-		Envs: []model.OldEnv{},
-	}
-	var certInfo *CertManagerInfo
-	if err != nil {
-		return nil, nil, err
-	}
-	if listReleasesRsp == nil {
-		return upgradeInfo, nil, err
-	}
-	// just what check cert-manager ?
-	for _, rls := range listReleasesRsp.Releases {
-		if rls.Chart.Metadata.Name == "choerodon-agent" {
-			if c.kubeClient.GetNamespace(rls.Namespace) == nil {
-				err, connectUrl, envId := getEnvInfo(rls.Config.Raw)
-				if err != nil {
-					glog.Infof("rls: %s upgrade error ", rls.Name)
-					continue
-				}
-				if !strings.Contains(devConnectUrl, connectUrl) {
-					continue
-				}
-				stopRls := &StopReleaseRequest{
-					ReleaseName: rls.Name,
-					Namespace:   rls.Namespace,
-				}
-				rsp, err := c.StopRelease(stopRls)
-				if err == nil {
-					glog.Infof("stop old agent %s succeed", rsp.ReleaseName)
-				} else {
-					glog.Warningf("stop old agent %s failed: %v", rls.Name, err)
-				}
-
-				oldEnv := model.OldEnv{
-					EnvId:     envId,
-					Namespace: rls.Namespace,
-				}
-				upgradeInfo.Envs = append(upgradeInfo.Envs, oldEnv)
-			}
-
-		} else if rls.Chart.Metadata.Name == "cert-manager" {
-			certInfo = &CertManagerInfo{
-				ReleaseName: rls.Name,
-				Namespace:   rls.Namespace,
-				Version:     rls.Chart.Metadata.Version,
-			}
-
-		}
-	}
-
-	return upgradeInfo, certInfo, nil
 }
 
 func (c *client) renderManifests(
