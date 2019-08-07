@@ -8,21 +8,8 @@ build:
   stage: build
   script:
   - docker build --build-arg KUBECTL_VRESION=v1.14.1  -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG} .
-  - docker build --build-arg KUBECTL_VRESION=v1.14.1  -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.14 .
-  - docker build --build-arg KUBECTL_VRESION=v1.13.6  -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.13 .
-  - docker build --build-arg KUBECTL_VRESION=v1.12.8  -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.12 .
-  - docker build --build-arg KUBECTL_VRESION=v1.11.10 -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.11 .
-  - docker build --build-arg KUBECTL_VRESION=v1.10.13 -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.10 .
-  - docker build --build-arg KUBECTL_VRESION=v1.9.11  -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.9 .
-  - docker build --build-arg KUBECTL_VRESION=v1.8.15  -t ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.8 .
   - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}
-  - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.14
-  - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.13
-  - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.12
-  - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.11
-  - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.10
-  - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.9
-  - docker push ${DOCKER_REGISTRY}/${GROUP_NAME}/${PROJECT_NAME}:${CI_COMMIT_TAG}-k8sv1.8
+
 release:
   stage: release
   script:
