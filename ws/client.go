@@ -24,6 +24,7 @@ const (
 	initialBackOff = 1 * time.Second
 	maxBackOff     = 60 * time.Second
 )
+
 var connectFlag = false
 
 type WebSocketClient interface {
@@ -43,12 +44,23 @@ type appClient struct {
 	backgroundWait sync.WaitGroup
 	pipeConns      map[string]*websocket.Conn
 	respQueue      []*model.Packet
+	conf           *Conf
+	healthCheck    *HealthCheck
+}
+
+type Conf struct {
+	ReadLimit            int64
+	ConnectionTimeout    time.Duration
+	WriteTimeout         time.Duration
+	HealthCheckDuration  time.Duration
+	HealthCheckTimeout   time.Duration
+	HealthCheckTryNumber int32
 }
 
 func NewClient(
 	t Token,
 	endpoint string,
-	crChannel *manager.CRChan) (WebSocketClient, error) {
+	crChannel *manager.CRChan, connConf *Conf) (WebSocketClient, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("no upstream URL given")
 	}
@@ -61,13 +73,14 @@ func NewClient(
 	httpClient := cleanhttp.DefaultClient()
 
 	c := &appClient{
-		url:        endpointURL,
-		token:      t,
+		url:       endpointURL,
+		token:     t,
 		crChannel: crChannel,
-		quit:       make(chan struct{}),
-		client:     httpClient,
-		pipeConns:  make(map[string]*websocket.Conn),
-		respQueue:  make([]*model.Packet, 0, 100),
+		quit:      make(chan struct{}),
+		client:    httpClient,
+		pipeConns: make(map[string]*websocket.Conn),
+		respQueue: make([]*model.Packet, 0, 100),
+		conf:      connConf,
 	}
 
 	return c, nil
@@ -102,11 +115,17 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 func (c *appClient) connect() error {
 	glog.V(1).Info("Start connect to DevOps service")
 	var err error
-	c.conn, err = dial(c.url.String(), c.token)
+	c.conn, err = dial(c.url.String(), c.token, c.conf.ConnectionTimeout)
 	if err != nil {
 		return err
 	}
 	glog.V(1).Info("Connect to DevOps service success")
+
+	// 配置连接.
+	c.configure()
+
+	// 开始健康检查
+	c.startHealthCheck()
 
 	// 建立连接，同步资源对象
 	if connectFlag {
@@ -124,7 +143,6 @@ func (c *appClient) connect() error {
 	go func() {
 		defer close(done)
 
-		c.conn.SetPingHandler(nil)
 		for {
 			var command model.Packet
 			err := c.conn.ReadJSON(&command)
@@ -134,6 +152,9 @@ func (c *appClient) connect() error {
 				}
 				break
 			}
+
+			c.healthCheck.OnRecvice(nil)
+
 			glog.V(1).Info("receive command: ", command)
 			c.crChannel.CommandChan <- &command
 		}
@@ -141,7 +162,7 @@ func (c *appClient) connect() error {
 
 	end := 0
 	for ; end < len(c.respQueue); end++ {
-		c.conn.SetWriteDeadline(time.Now().Add(WriteWait))
+		c.conn.SetWriteDeadline(time.Now().Add(c.conf.WriteTimeout))
 		resp := c.respQueue[end]
 		if err := c.sendResponse(resp); err != nil {
 			c.respQueue = c.respQueue[end:]
@@ -292,7 +313,7 @@ func (c *appClient) pipeConnection(id string, pipe common.Pipe) (bool, error) {
 	}
 	newURLStr := fmt.Sprintf("%s.%s:%s", newURL.String(), pipe.PipeType(), id)
 	headers := http.Header{}
-	conn, resp, err := dialWS(newURLStr, headers)
+	conn, resp, err := dialWS(newURLStr, headers, c.conf.ConnectionTimeout)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
 		glog.V(2).Info("response with not found")
 		pipe.Close()
@@ -317,16 +338,55 @@ func (c *appClient) pipeConnection(id string, pipe common.Pipe) (bool, error) {
 	return true, nil
 }
 
-func newReConnectCommand()  *model.Packet{
+func (c *appClient) configure() {
+	c.conn.SetReadLimit(c.conf.ReadLimit)
+
+	c.conn.SetPingHandler(func(message string) error {
+		return c.healthCheck.OnPing([]byte(message))
+	})
+
+	c.conn.SetPongHandler(func(message string) error {
+		return c.healthCheck.OnPone([]byte(message))
+	})
+
+	c.conn.SetCloseHandler(func(code int, text string) error {
+		c.healthCheck.Stop()
+
+		return nil
+	})
+}
+
+func (c *appClient) startHealthCheck() error {
+
+	if c.healthCheck != nil {
+		c.healthCheck = nil
+	}
+
+	h, err := NewHealthCheck(c.conf, c.conn, func() {
+		e := c.conn.Close()
+		if e != nil {
+			glog.V(1).Infof("An error occurred while closing target %s because of %v.", c.conn.RemoteAddr().String(), e)
+		}
+	})
+
+	if err != nil {
+		return err
+	} else {
+		c.healthCheck = h
+		return nil
+	}
+}
+
+func newReConnectCommand() *model.Packet {
 	return &model.Packet{
-		Key: "inter:inter",
+		Key:  "inter:inter",
 		Type: model.ReSyncAgent,
 	}
 }
-func newUpgradeInfoCommand(connectUrl string)  *model.Packet{
+func newUpgradeInfoCommand(connectUrl string) *model.Packet {
 	return &model.Packet{
-		Key: "inter:inter",
-		Type: model.UpgradeCluster,
+		Key:     "inter:inter",
+		Type:    model.UpgradeCluster,
 		Payload: connectUrl,
 	}
 }

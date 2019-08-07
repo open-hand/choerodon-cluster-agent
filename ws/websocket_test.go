@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -46,7 +47,7 @@ func TestDial(t *testing.T) {
 	server := httptest.NewServer(websocketTestRouter(t))
 	defer server.Close()
 	serverURL, _ := url.Parse(fmt.Sprintf("ws%s", strings.TrimPrefix(server.URL, "http")))
-	conn, err := dial(serverURL.String(), Token("token"))
+	conn, err := dial(serverURL.String(), Token("token"), 3*time.Second)
 	assert.Nil(t, err, "no error websocket dial")
 	defer conn.Close()
 

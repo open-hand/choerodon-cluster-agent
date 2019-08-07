@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
-func dial(urlStr string, token Token) (*websocket.Conn, error) {
+func dial(urlStr string, token Token, timeout time.Duration) (*websocket.Conn, error) {
 	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		return nil, fmt.Errorf("constructing request %s: %v", urlStr, err)
@@ -16,7 +17,13 @@ func dial(urlStr string, token Token) (*websocket.Conn, error) {
 
 	token.Set(req)
 
-	conn, _, err := websocket.DefaultDialer.Dial(urlStr, req.Header)
+	dialer := websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: timeout,
+	}
+
+	conn, _, err := dialer.Dial(urlStr, req.Header)
+
 	if err != nil {
 		return nil, fmt.Errorf("dial error %s: %v", urlStr, err)
 	}
@@ -24,8 +31,14 @@ func dial(urlStr string, token Token) (*websocket.Conn, error) {
 	return conn, nil
 }
 
-func dialWS(urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
-	conn, resp, err := websocket.DefaultDialer.Dial(urlStr, requestHeader)
+func dialWS(urlStr string, requestHeader http.Header, timeout time.Duration) (*websocket.Conn, *http.Response, error) {
+
+	dialer := websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: timeout,
+	}
+	conn, resp, err := dialer.Dial(urlStr, requestHeader)
+
 	if err != nil {
 		return nil, resp, fmt.Errorf("dial error %s: %v", urlStr, err)
 	}
