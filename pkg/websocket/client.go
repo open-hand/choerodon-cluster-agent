@@ -23,6 +23,10 @@ const (
 	WriteWait      = 10 * time.Second
 	initialBackOff = 1 * time.Second
 	maxBackOff     = 60 * time.Second
+	// Time allowed to read the next pong message from the peer.
+	pongWait = 60 * time.Second
+	// Send pings to peer with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
 )
 
 var reconnectFlag = false
@@ -120,6 +124,25 @@ func (c *appClient) connect() error {
 	defer func() {
 		glog.V(1).Info("stop websocket connect")
 		c.conn.Close()
+	}()
+
+	//ping-pong check
+	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		return err
+	}
+	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	ticker := time.NewTicker(pingPeriod)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				c.conn.SetWriteDeadline(time.Now().Add(WriteWait))
+				if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					glog.Error(err)
+					return
+				}
+			}
+		}
 	}()
 
 	done := make(chan struct{})
