@@ -7,7 +7,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 )
 
-func CertManagerInstall(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+func InstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.InstallReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -29,6 +29,10 @@ func CertManagerInstall(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 		Type:    model.HelmReleaseInstallResourceInfo,
 		Payload: string(respB),
 	}
+}
+
+func CertManagerInstall(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	return InstallHelmRelease(opts, cmd)
 }
 
 func RollbackHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
@@ -69,6 +73,31 @@ func DeleteHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, 
 	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.HelmReleaseDelete,
+		Payload: string(respB),
+	}
+}
+
+func UpgradeHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var req helm.UpgradeReleaseRequest
+	err := json.Unmarshal([]byte(cmd.Payload), &req)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	if req.Namespace == "" {
+		req.Namespace = cmd.Namespace()
+	}
+
+	resp, err := opts.HelmClient.UpgradeRelease(&req)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.HelmReleaseUpgradeResourceInfo,
 		Payload: string(respB),
 	}
 }

@@ -651,6 +651,10 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 	l := t.GetLabels()
 	defer t.SetLabels(l)
 
+	if l == nil {
+		l = make(map[string]string)
+	}
+
 	var addBaseLabels = func() {
 		l[model.ReleaseLabel] = releaseName
 		l[model.AgentVersionLabel] = AgentVersion

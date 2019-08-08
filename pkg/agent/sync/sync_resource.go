@@ -6,6 +6,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics/node"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/packet"
@@ -17,6 +18,7 @@ import (
 type Context struct {
 	Namespaces *agentnamespace.Namespaces
 	KubeClient clientset.Interface
+	HelmClient helm.Client
 	CrChan     *channel.CRChan
 	StopCh     chan struct{}
 	stopCh     chan struct{}
@@ -207,8 +209,6 @@ func Run(ctx *Context) {
 		}
 	}()
 }
-
-var Y int
 
 func (ctx *Context) ReSync() {
 	if ctx.stopCh != nil {

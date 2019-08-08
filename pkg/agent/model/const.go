@@ -91,4 +91,6 @@ const (
 	ResourceStatusSyncEvent = "resource_status_sync_event"
 	ResourceStatusSync      = "resource_status_sync"
 	Upgrade                 = "upgrade"
+
+	CertManagerInfo = "cert_manager_info"
 )

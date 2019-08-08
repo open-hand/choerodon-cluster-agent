@@ -18,6 +18,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
+	vlog "github.com/vinkdong/gox/log"
 )
 
 type WorkerManager workerManager
@@ -107,7 +108,7 @@ func (w *workerManager) runWorker() {
 					glog.Error("got wrong command")
 					return
 				}
-				glog.Infof("get command: %s/%s", cmd.Key, cmd.Type)
+				vlog.Successf("get command: %s/%s", cmd.Key, cmd.Type)
 				var newCmds []*model.Packet = nil
 				var resp *model.Packet = nil
 

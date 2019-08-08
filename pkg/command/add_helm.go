@@ -7,6 +7,9 @@ import (
 
 func init() {
 	Funcs.Add(model.CertManagerInstall, helm.CertManagerInstall)
+
+	Funcs.Add(model.HelmReleaseInstallResourceInfo, helm.InstallHelmRelease)
+	Funcs.Add(model.HelmReleaseUpgradeResourceInfo, helm.UpgradeHelmRelease)
 	Funcs.Add(model.HelmReleaseRollback, helm.RollbackHelmRelease)
 	Funcs.Add(model.HelmReleaseDelete, helm.DeleteHelmRelease)
 
