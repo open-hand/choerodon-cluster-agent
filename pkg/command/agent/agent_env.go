@@ -84,23 +84,18 @@ func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, model.EnvDelete, err)
 	}
 
-	controllerContext := opts.ControllerContext
+	namespace := opts.Namespaces
+	namespace.Remove(env.Namespace)
 
-	if !controllerContext.Namespaces.Contain(env.Namespace) {
-		return nil, commandutil.NewResponseError(cmd.Key, model.EnvDelete, err)
-	}
-
-	controllerContext.Namespaces.Remove(env.Namespace)
-
-	newEnvs := []model.EnvParas{}
+	newEnvs := make([]model.EnvParas, 0)
 
 	for index, envPara := range opts.Envs {
 
 		if envPara.Namespace == env.Namespace {
 			newEnvs = append(opts.Envs[0:index], opts.Envs[index+1:]...)
 		}
-		opts.Mgrs.Remove(envPara.Namespace)
 	}
+	opts.Mgrs.Remove(env.Namespace)
 	opts.Envs = newEnvs
 
 	if err := opts.HelmClient.DeleteNamespaceReleases(env.Namespace); err != nil {
