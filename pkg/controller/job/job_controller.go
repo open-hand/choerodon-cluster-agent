@@ -91,10 +91,6 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Job")
 
-	if !r.args.Namespaces.Contain(request.Namespace) {
-		return reconcile.Result{}, nil
-	}
-
 	responseChan := r.args.CrChan.ResponseChan
 	namespace := request.Namespace
 
