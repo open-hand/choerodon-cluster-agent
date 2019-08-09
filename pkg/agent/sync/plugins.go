@@ -3,6 +3,7 @@ package sync
 import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
 	"github.com/gin-gonic/gin/json"
 )
 
@@ -11,8 +12,8 @@ func reportCertManager(ctx *Context) error {
 		ReleaseName: "choerodon-cert-manager",
 	}
 	release, err := ctx.HelmClient.GetRelease(req)
-	if err != nil {
-		return nil
+	if err != nil && !errors.IsNotFound(err) {
+		return err
 	}
 	var payload []byte
 	if release != nil {

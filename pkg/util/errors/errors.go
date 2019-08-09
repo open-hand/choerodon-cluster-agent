@@ -7,6 +7,7 @@ package errors
 import (
 	"encoding/json"
 	"errors"
+	"strings"
 )
 
 // Representation of errors in the API. These are divided into a small
@@ -36,11 +37,23 @@ const (
 	// The operation was well-formed, but you asked for something that
 	// can't happen at present (e.g., because you've not supplied some
 	// config yet)
-	User = "user"
+	User     = "user"
+	NotFound = "not found"
+	NotExist = "not exist"
 )
 
 func IsMissing(err error) bool {
 	if err, ok := err.(*Error); ok && err.Type == Missing {
+		return true
+	}
+	return false
+}
+
+func IsNotFound(err error) bool {
+	if strings.Contains(err.Error(), NotFound) {
+		return true
+	}
+	if strings.Contains(err.Error(), NotExist) {
 		return true
 	}
 	return false
