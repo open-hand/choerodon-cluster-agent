@@ -89,9 +89,6 @@ func NewWorkerManager(
 
 func (w *workerManager) Start() {
 	w.wg.Add(1)
-	go w.syncStatus()
-
-	w.wg.Add(1)
 	go w.runWorker()
 }
 
