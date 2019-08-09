@@ -12,6 +12,7 @@ import (
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientset "k8s.io/client-go/kubernetes"
+	"time"
 )
 
 type Context struct {
@@ -169,6 +170,31 @@ func syncPod(ctx *Context) error {
 	return nil
 }
 
+func syncStatus(ctx *Context) error {
+	// We want to sync at least every `SyncInterval`. Being told to
+	// sync, or completing a job, may intervene (in which case,
+	// reschedule the next sync).
+	ticker := time.NewTicker(1 * time.Minute)
+	for {
+		select {
+		case <-ctx.stopCh:
+			glog.Info("sync loop stopping")
+			return nil
+		case <-ticker.C:
+			for _, ns := range ctx.Namespaces.GetAll() {
+				ctx.CrChan.ResponseChan <- newSyncRep(ns)
+			}
+		}
+	}
+}
+
+func newSyncRep(ns string) *model.Packet {
+	return &model.Packet{
+		Key:  fmt.Sprintf("env:%s", ns),
+		Type: model.StatusSyncEvent,
+	}
+}
+
 func syncMetrics(ctx *Context) error {
 	m := &node.Node{
 		Client: ctx.KubeClient,
@@ -184,6 +210,7 @@ func init() {
 	syncFuncs = append(syncFuncs, syncService)
 	syncFuncs = append(syncFuncs, syncPod)
 	syncFuncs = append(syncFuncs, syncNamespace)
+	syncFuncs = append(syncFuncs, syncStatus)
 	syncFuncs = append(syncFuncs, syncMetrics)
 }
 

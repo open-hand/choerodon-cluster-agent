@@ -83,6 +83,13 @@ func GetHelmReleaseContent(opts *command.Opts, cmd *model.Packet) ([]*model.Pack
 
 func GetC7nHelmRelease(mgrs *operatorutil.MgrList, namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error) {
 
+	if mgrs == nil {
+		return nil, nil
+	}
+	mgr := mgrs.Get(namespace)
+	if mgr == nil {
+		return nil, nil
+	}
 	client := mgrs.Get(namespace).GetClient()
 
 	instance := &v1alpha1.C7NHelmRelease{}
