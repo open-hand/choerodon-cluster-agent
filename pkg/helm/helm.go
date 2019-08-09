@@ -799,6 +799,9 @@ func (c *client) DeleteNamespaceReleases(namespaces string) error {
 		glog.Errorf("delete ns release failed %v", err)
 		return err
 	}
+	if rlss == nil {
+		return nil
+	}
 	for _, rls := range rlss.Releases {
 		c.helmClient.DeleteRelease(rls.Name, helm.DeletePurge(true))
 	}

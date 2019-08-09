@@ -57,6 +57,9 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		PlatformCode: opts.PlatformCode,
 	}
 	for _, ns := range nsList {
+		if opts.Mgrs.IsExist(ns) {
+			continue
+		}
 		mgr, err := operator.New(cfg, ns, args)
 		if err != nil {
 			return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)

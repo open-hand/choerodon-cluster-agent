@@ -23,6 +23,13 @@ func (ms *MgrList) Add(namespace string, mgr *Mgr) bool {
 	return true
 }
 
+func (ms *MgrList) IsExist(namespace string) bool {
+	if _, ok := (*ms)[namespace]; ok && (*ms)[namespace] != nil {
+		return false
+	}
+	return true
+}
+
 func (ms *MgrList) AddStop(namespace string, manager crmanager.Manager, stopCh chan struct{}) bool {
 	if _, ok := (*ms)[namespace]; ok && (*ms)[namespace] != nil {
 		return false
