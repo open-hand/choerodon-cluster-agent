@@ -59,6 +59,9 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		KubeClient:   opts.KubeClient,
 		PlatformCode: opts.PlatformCode,
 	}
+
+	testManagerNamespace := "choerodon-test"
+	nsList = append(nsList, testManagerNamespace)
 	for _, ns := range nsList {
 		if opts.Mgrs.IsExist(ns) {
 			continue
