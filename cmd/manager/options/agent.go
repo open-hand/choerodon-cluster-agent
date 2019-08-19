@@ -157,7 +157,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	ctx := context.TODO()
 
 	// Become the leader before proceeding
-	err := leader.Become(ctx, "c7n-agent-lock")
+	err := leader.Become(ctx, "c7n-agent-lock-"+string(o.ClusterId))
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
