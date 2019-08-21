@@ -1,6 +1,6 @@
 default: &default
   docker:
-  - image: choerodon/cibase:0.6.0
+  - image: choerodon/cibase:0.9.0
 
 version: 2
 jobs:
@@ -9,28 +9,14 @@ jobs:
     working_directory: ~/repo
     steps:
       - setup_remote_docker:
-            version: 17.05.0-ce
+            version: 18.09.3
       - checkout
       - attach_workspace:
           at: .
       - run: |
           docker login -u ${REGISTRY_USER} -p ${REGISTRY_PASSWORD}
-          docker build --build-arg KUBECTL_VRESION=v1.14.1  -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG} .
-          docker build --build-arg KUBECTL_VRESION=v1.14.1  -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.14.1 .
-          docker build --build-arg KUBECTL_VRESION=v1.13.6  -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.13.6 .
-          docker build --build-arg KUBECTL_VRESION=v1.12.8  -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.12.8 .
-          docker build --build-arg KUBECTL_VRESION=v1.11.10 -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.11.10 .
-          docker build --build-arg KUBECTL_VRESION=v1.10.13 -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.10.13 .
-          docker build --build-arg KUBECTL_VRESION=v1.9.11  -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.9.11 .
-          docker build --build-arg KUBECTL_VRESION=v1.8.15  -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.8.15 .
+          docker build --no-cache -t ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG} .
           docker push ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}
-          docker push ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.14.1
-          docker push ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.13.6
-          docker push ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.12.8
-          docker push ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.11.10
-          docker push ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.10.13
-          docker push ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.9.11
-          docker push ${DOCKER_GROUP_NAME}/${CIRCLE_PROJECT_REPONAME}:${CIRCLE_TAG}-v1.8.15
   helm_chart_build:
     <<: *default
     steps:
