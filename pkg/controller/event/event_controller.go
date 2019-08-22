@@ -104,7 +104,9 @@ func (r *ReconcileEvent) Reconcile(request reconcile.Request) (reconcile.Result,
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
-	if instance.InvolvedObject.Kind == "Job" {
+
+	switch instance.InvolvedObject.Kind {
+	case "Job":
 		job := &batchv1.Job{}
 		err := r.client.Get(context.TODO(),
 			client.ObjectKey{Namespace: instance.InvolvedObject.Namespace, Name: instance.InvolvedObject.Name},
@@ -122,9 +124,7 @@ func (r *ReconcileEvent) Reconcile(request reconcile.Request) (reconcile.Result,
 		if job.Labels[model.TestLabel] == "" {
 			responseChan <- newEventRep(instance)
 		}
-	}
-
-	if instance.InvolvedObject.Kind == "Pod" {
+	case "Pod":
 		pod := &corev1.Pod{}
 		err := r.client.Get(context.TODO(),
 			client.ObjectKey{Namespace: instance.InvolvedObject.Namespace, Name: instance.InvolvedObject.Name},
@@ -150,14 +150,13 @@ func (r *ReconcileEvent) Reconcile(request reconcile.Request) (reconcile.Result,
 		} else {
 			responseChan <- newEventRep(instance)
 		}
-
-		if instance.InvolvedObject.Kind == "Certificate" && strings.Contains(instance.Reason, "Err") {
+	case "Certificate":
+		if strings.Contains(instance.Reason, "Err") {
 			if len(instance.Message) > 43 {
 				glog.Warningf("Certificate err event reason not contain commit")
 				responseChan <- newCertFailed(instance)
 			}
 		}
-
 	}
 
 	return reconcile.Result{}, nil
