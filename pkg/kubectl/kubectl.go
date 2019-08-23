@@ -99,6 +99,30 @@ func (c *Kubectl) ApplySingleObj(namespace string, resourceFile string) error {
 	return nil
 }
 
+func (c *Kubectl) Describe(namespace, sourceKind, sourceName string) (info string) {
+	return c.describe(namespace, sourceKind, sourceName)
+}
+
+func (c *Kubectl) describe(namespace, sourceKind, sourceName string) (info string) {
+	args := []string{"describe", sourceKind, sourceName}
+	if len(namespace) != 0 {
+		args = append(args, "-n", namespace)
+	}
+	cmd := c.kubectlCommand(args...)
+	stderr := &bytes.Buffer{}
+	cmd.Stderr = stderr
+	stdout := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	begin := time.Now()
+	err := cmd.Run()
+	if err != nil {
+		glog.Infof("kubectl %s , took %v, err: %v, output: %s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
+		return strings.TrimSpace(stderr.String())
+	}
+	glog.Infof("kubectl %s , took %v, output: %s", strings.Join(args, " "), time.Since(begin), strings.TrimSpace(stdout.String()))
+	return strings.TrimSpace(stdout.String())
+}
+
 func (c *Kubectl) doCommand(r io.Reader, args ...string) error {
 	args = append(args, "-f", "-")
 	cmd := c.kubectlCommand(args...)

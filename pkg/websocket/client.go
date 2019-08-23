@@ -35,6 +35,7 @@ type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
 	PipeConnection(pipeID string, pipe pipeutil.Pipe) error
 	PipeClose(pipeID string, pipe pipeutil.Pipe) error
+	URL() *url.URL
 }
 
 type appClient struct {
@@ -254,6 +255,10 @@ func (c *appClient) stop() {
 	c.mtx.Unlock()
 
 	c.backgroundWait.Wait()
+}
+
+func (c *appClient) URL() *url.URL {
+	return c.url
 }
 
 func (c *appClient) PipeConnection(id string, pipe pipeutil.Pipe) error {

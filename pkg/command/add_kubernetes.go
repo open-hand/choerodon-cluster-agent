@@ -17,4 +17,5 @@ func init() {
 	Funcs.Add(model.NetworkIngress, kubernetes.CreateIngress)
 	Funcs.Add(model.NetworkIngressDelete, kubernetes.DeleteIngress)
 
+	Funcs.Add(model.ResourceDescribe, kubernetes.Describe)
 }

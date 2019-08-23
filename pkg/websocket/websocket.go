@@ -34,6 +34,10 @@ func dialWS(urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Re
 	return conn, resp, nil
 }
 
+func DialWS(urlStr string, requestHeader http.Header) (*websocket.Conn, *http.Response, error) {
+	return dialWS(urlStr, requestHeader)
+}
+
 func IsExpectedWSCloseError(err error) bool {
 	return err == io.EOF || err == io.ErrClosedPipe || websocket.IsCloseError(err,
 		websocket.CloseNormalClosure,

@@ -90,6 +90,7 @@ const (
 
 	ResourceStatusSyncEvent = "resource_status_sync_event"
 	ResourceStatusSync      = "resource_status_sync"
+	ResourceDescribe        = "resource_describe"
 	Upgrade                 = "upgrade"
 
 	CertManagerInfo = "cert_manager_info"

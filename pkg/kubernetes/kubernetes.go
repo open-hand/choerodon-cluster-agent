@@ -50,28 +50,35 @@ type Applier interface {
 	Apply(namespace string, cs ChangeSet) SyncError
 }
 
+type Describer interface {
+	Describe(namespace, sourceKind, sourceName string) string
+}
+
 // Cluster is a handle to a Kubernetes API server.
 // (Typically, this code is deployed into the same cluster.)
 type Cluster struct {
-	client  extendedClient
-	mgrs    *operatorutil.MgrList
-	applier Applier
-	mu      sync.Mutex
+	client    extendedClient
+	mgrs      *operatorutil.MgrList
+	applier   Applier
+	describer Describer
+	mu        sync.Mutex
 }
 
 // NewCluster returns a usable cluster.
 func NewCluster(
 	clientset k8sclient.Interface,
 	mgrs *operatorutil.MgrList,
-	applier Applier) *Cluster {
+	applier Applier,
+	describer Describer) *Cluster {
 
 	c := &Cluster{
 		client: extendedClient{
 			clientset.CoreV1(),
 			clientset.ExtensionsV1beta1(),
 		},
-		mgrs:    mgrs,
-		applier: applier,
+		mgrs:      mgrs,
+		applier:   applier,
+		describer: describer,
 	}
 
 	return c
@@ -101,6 +108,10 @@ func (c *Cluster) Export(namespace string) ([]byte, error) {
 		}
 	}
 	return config.Bytes(), nil
+}
+
+func (c *Cluster) DescribeResource(namespace, sourceKind, sourceName string) string {
+	return c.describer.Describe(namespace, sourceKind, sourceName)
 }
 
 // Sync performs the given actions on resources. Operations are

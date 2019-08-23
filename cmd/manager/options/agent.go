@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
-	"strconv"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
 	"os"
@@ -32,6 +31,7 @@ import (
 	"os/signal"
 	"runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -254,11 +254,12 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		glog.Infof("kubectl %s", kubectlPath)
 		cfg, _ := f.ToRESTConfig()
 		kubectlApplier := kubectl.NewKubectl(kubectlPath, cfg)
+		kubectlDescriber := kubectl.NewKubectl(kubectlPath, cfg)
 		if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML); err != nil {
 			glog.V(1).Info(err)
 		}
 
-		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), mgrs, kubectlApplier)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), mgrs, kubectlApplier, kubectlDescriber)
 	}
 	workerManager := agent.NewWorkerManager(
 		mgrs,
