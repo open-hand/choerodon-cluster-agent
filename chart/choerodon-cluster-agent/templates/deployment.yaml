@@ -19,6 +19,10 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+{{- if not (empty .Values.hostAliases) }}
+      hostAliases:
+{{ toYaml .Values.hostAliases | indent 6 }}
+{{- end }}
       containers:
       - name: {{ .Release.Name }}
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
