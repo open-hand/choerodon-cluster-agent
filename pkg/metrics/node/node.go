@@ -76,7 +76,7 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 				if len(roles) == 0 {
 					role = "none"
 				} else {
-					role = strings.Join(roles, "")
+					role = strings.Join(roles, ",")
 				}
 				reqs, limit := getPodsTotalRequestsAndLimits(podList)
 				CpuLimit := limit["cpu"]
