@@ -18,10 +18,11 @@ func Register(m Metrics) {
 func Run(stopCh <-chan struct{}) {
 	glog.V(1).Info("start catch metrics")
 	wg := sync.WaitGroup{}
-	for _, m := range Funcs {
+	for k, _ := range Funcs {
 		wg.Add(1)
+		f := Funcs[k]
 		go func() {
-			if err := m.Run(stopCh); err != nil {
+			if err := f.Run(stopCh); err != nil {
 				glog.V(1).Info(err)
 			}
 			wg.Done()
