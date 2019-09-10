@@ -71,6 +71,7 @@ const (
 	ResourceDelete = "resource_delete"
 	ResourceSync   = "resource_sync"
 	NodeSync       = "node_sync"
+	PodMetricsSync = "pod_metrics_sync"
 
 	// kubernetes
 	KubernetesGetLogs                 = "kubernetes_get_logs"

@@ -227,7 +227,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	agentctx := &agentsync.Context{
 		Namespaces: namespaces,
-		KubeClient: kubeClient.GetKubeClient(),
+		KubeClient: kubeClient,
 		HelmClient: helmClient,
 		CrChan:     crChan,
 		StopCh:     shutdown,

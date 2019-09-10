@@ -7,18 +7,19 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	agentnamespace "github.com/choerodon/choerodon-cluster-agent/pkg/agent/namespace"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics/node"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics/pod"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/packet"
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientset "k8s.io/client-go/kubernetes"
 	"time"
 )
 
 type Context struct {
 	Namespaces *agentnamespace.Namespaces
-	KubeClient clientset.Interface
+	KubeClient kube.Client
 	HelmClient helm.Client
 	CrChan     *channel.CRChan
 	StopCh     chan struct{}
@@ -31,7 +32,7 @@ func syncStatefulSet(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
 
-		instances, err := ctx.KubeClient.AppsV1().StatefulSets(ns).List(metav1.ListOptions{})
+		instances, err := ctx.KubeClient.GetKubeClient().AppsV1().StatefulSets(ns).List(metav1.ListOptions{})
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
 		} else {
@@ -65,7 +66,7 @@ func syncReplicaSet(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
 
-		rsList, err := ctx.KubeClient.ExtensionsV1beta1().ReplicaSets(ns).List(metav1.ListOptions{})
+		rsList, err := ctx.KubeClient.GetKubeClient().ExtensionsV1beta1().ReplicaSets(ns).List(metav1.ListOptions{})
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
 		} else {
@@ -98,7 +99,7 @@ func syncReplicaSet(ctx *Context) error {
 func syncService(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
-		instances, err := ctx.KubeClient.CoreV1().Services(ns).List(metav1.ListOptions{})
+		instances, err := ctx.KubeClient.GetKubeClient().CoreV1().Services(ns).List(metav1.ListOptions{})
 		if err != nil {
 			glog.Fatal(err)
 		} else {
@@ -130,7 +131,7 @@ func syncService(ctx *Context) error {
 
 // 将集群中的空间发给devOps防止冲突
 func syncNamespace(ctx *Context) error {
-	namespaces, err := ctx.KubeClient.CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := ctx.KubeClient.GetKubeClient().CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -142,7 +143,7 @@ func syncPod(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
 
-		pods, err := ctx.KubeClient.CoreV1().Pods(ns).List(metav1.ListOptions{})
+		pods, err := ctx.KubeClient.GetKubeClient().CoreV1().Pods(ns).List(metav1.ListOptions{})
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
 		} else {
@@ -199,11 +200,18 @@ func newSyncRep(ns string) *model.Packet {
 
 func syncMetrics(ctx *Context) error {
 	m := &node.Node{
-		Client: ctx.KubeClient,
+		Client: ctx.KubeClient.GetKubeClient(),
 		CrChan: ctx.CrChan,
 	}
+	p := &pod.Pod{
+		CrChan:     ctx.CrChan,
+		Namespaces: ctx.Namespaces,
+		Client:     ctx.KubeClient,
+	}
 	metrics.Register(m)
-	return m.Run(ctx.stopCh)
+	metrics.Register(p)
+	metrics.Run(ctx.stopCh)
+	return nil
 }
 
 func init() {
