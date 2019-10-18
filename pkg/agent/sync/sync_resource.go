@@ -10,7 +10,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics/node"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/metrics/pod"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/packet"
 	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -34,7 +33,7 @@ func syncStatefulSet(ctx *Context) error {
 
 		instances, err := ctx.KubeClient.GetKubeClient().AppsV1().StatefulSets(ns).List(metav1.ListOptions{})
 		if err != nil {
-			glog.Fatal("can not list resource, no rabc bind, exit !")
+			glog.Warning("StatefulSets v1 not support on your cluster ",err)
 		} else {
 			var podList []string
 			for _, statefulset := range instances.Items {
@@ -203,13 +202,14 @@ func syncMetrics(ctx *Context) error {
 		Client: ctx.KubeClient.GetKubeClient(),
 		CrChan: ctx.CrChan,
 	}
-	p := &pod.Pod{
-		CrChan:     ctx.CrChan,
-		Namespaces: ctx.Namespaces,
-		Client:     ctx.KubeClient,
-	}
+	// todo: need improve method
+	//p := &pod.Pod{
+	//	CrChan:     ctx.CrChan,
+	//	Namespaces: ctx.Namespaces,
+	//	Client:     ctx.KubeClient,
+	//}
 	metrics.Register(m)
-	metrics.Register(p)
+	//metrics.Register(p)
 	metrics.Run(ctx.stopCh)
 	return nil
 }
