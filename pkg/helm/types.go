@@ -11,6 +11,7 @@ type InstallReleaseRequest struct {
 	Values           string                         `json:"values,omitempty"`
 	ReleaseName      string                         `json:"releaseName,omitempty"`
 	Commit           string                         `json:"commit,omitempty"`
+	Command          int                            `json:"command,omitempty"`
 	Namespace        string                         `json:"namespace,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
@@ -82,6 +83,7 @@ type UpgradeReleaseRequest struct {
 	ChartName        string                         `json:"chartName,omitempty"`
 	ChartVersion     string                         `json:"chartVersion,omitempty"`
 	Values           string                         `json:"values,omitempty"`
+	Command          int                            `json:"command,omitempty"`
 	Commit           string                         `json:"commit,omitempty"`
 	Namespace        string                         `json:"namespace,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`

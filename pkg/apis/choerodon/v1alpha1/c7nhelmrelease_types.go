@@ -17,6 +17,7 @@ type C7NHelmReleaseSpec struct {
 	RepoURL          string                        `json:"repoUrl,omitempty"`
 	ChartName        string                        `json:"chartName,omitempty"`
 	ChartVersion     string                        `json:"chartVersion,omitempty"`
+	CommandId        int                           `json:"commandId,omitempty"`
 	Values           string                        `json:"values,omitempty"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }

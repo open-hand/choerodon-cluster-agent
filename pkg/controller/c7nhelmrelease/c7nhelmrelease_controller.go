@@ -9,7 +9,9 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
+	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
+	"k8s.io/api/apps/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strconv"
 	"strings"
 )
 
@@ -135,7 +138,21 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			responseChan <- newReleaseSyncFailRep(instance, "release already in other namespace!")
 			glog.Error("release already in other namespace!")
 		}
-		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config {
+		//todo  目前的方式是解析release里面的对象，找到deployment的command标签，用于比较是否更改，执行重新部署，是否有更好的方式？
+		results := strings.Split(rls.Manifest, "---")
+		var commandId int = 0
+		for _, result := range results {
+			if result != "" && result != "\n" {
+				var data = []byte(result)
+				deployment := &v1beta1.Deployment{}
+				yaml.Unmarshal(data, &deployment)
+				if deployment.Kind == "Deployment" {
+					commandId, _ = strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
+					break
+				}
+			}
+		}
+		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId {
 			glog.Infof("release %s chart、version、values not change", rls.Name)
 			payload, _ := json.Marshal(rls)
 			responseChan <- UpgradeInstanceStatusCmd(instance, string(payload))
@@ -156,6 +173,7 @@ func installHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pa
 		ChartVersion:     instance.Spec.ChartVersion,
 		Values:           instance.Spec.Values,
 		ReleaseName:      instance.Name,
+		Command:          instance.Spec.CommandId,
 		Commit:           instance.Annotations[model.CommitLabel],
 		Namespace:        instance.Namespace,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
@@ -180,6 +198,7 @@ func updateHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pac
 		ChartVersion:     instance.Spec.ChartVersion,
 		Values:           instance.Spec.Values,
 		ReleaseName:      instance.Name,
+		Command:          instance.Spec.CommandId,
 		Commit:           instance.Annotations[model.CommitLabel],
 		Namespace:        instance.Namespace,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,

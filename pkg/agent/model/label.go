@@ -9,5 +9,6 @@ const (
 	NetworkNoDelLabel  = "choerodon.io/no_delete"
 	AgentVersionLabel  = "choerodon.io"
 	CommitLabel        = "choerodon.io/commit"
+	CommandLabel       = "choeroodn.io/command"
 	TestLabel          = "choerodon.io/test"
 )

@@ -228,6 +228,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 
 	for index, manifestToInsert := range manifestDocs {
 		newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace,
+			request.Command,
 			request.ImagePullSecrets,
 			manifestToInsert,
 			request.ReleaseName,
@@ -594,7 +595,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 
 	if request.ChartName != "choerodon-cluster-agent" {
 		for index, manifestToInsert := range manifestDocs {
-			newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
+			newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
 			if err != nil {
 				return nil, fmt.Errorf("label objects: %v", err)
 			}

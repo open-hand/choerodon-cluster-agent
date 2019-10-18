@@ -29,6 +29,7 @@ import (
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
@@ -49,7 +50,7 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
+	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
 	LabelTestObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
@@ -557,6 +558,7 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 }
 
 func (c *client) LabelObjects(namespace string,
+	command int,
 	imagePullSecret []core_v1.LocalObjectReference,
 	manifest string,
 	releaseName string,
@@ -571,7 +573,7 @@ func (c *client) LabelObjects(namespace string,
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelObject(imagePullSecret, info, releaseName, app, version)
+		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version)
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
 		}
@@ -645,6 +647,7 @@ func setTemplateLabels(obj map[string]interface{}, templateLabels map[string]str
 
 // Provide a common method for adding labels
 func addLabel(imagePullSecret []core_v1.LocalObjectReference,
+	command int,
 	info *resource.Info, version, releaseName, app, testLabel string, isTest bool) (runtime.Object, error) {
 	t := info.Object.(*unstructured.Unstructured)
 
@@ -668,6 +671,9 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 		tplLabels := getTemplateLabels(t.Object)
 		tplLabels[model.ReleaseLabel] = releaseName
 		tplLabels[model.AgentVersionLabel] = AgentVersion
+		if !isTest {
+			tplLabels[model.CommandLabel] = strconv.Itoa(command)
+		}
 		tplLabels[model.AppLabel] = app
 		tplLabels[model.AppVersionLabel] = version
 		if err := setTemplateLabels(t.Object, tplLabels); err != nil {
@@ -756,12 +762,13 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 }
 
 func labelObject(imagePullSecret []core_v1.LocalObjectReference,
+	command int,
 	info *resource.Info,
 	releaseName string,
 	app string,
 	version string) (runtime.Object, error) {
 
-	return addLabel(imagePullSecret, info, version, releaseName, app, "", false)
+	return addLabel(imagePullSecret, command, info, version, releaseName, app, "", false)
 }
 
 func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
@@ -854,7 +861,7 @@ func labelTestObject(info *resource.Info,
 	version string,
 	label string) (runtime.Object, error) {
 
-	return addLabel(imagePullSecret, info, version, releaseName, app, label, true)
+	return addLabel(imagePullSecret, 0, info, version, releaseName, app, label, true)
 }
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {
