@@ -223,6 +223,7 @@ func (c *appClient) sendResponse(resp *model.Packet) error {
 	content, _ := json.Marshal(wp)
 	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
 	glog.V(1).Info("send response: ", string(content))
+	glog.V(1).Info("=======================================")
 	return c.conn.WriteMessage(websocket.TextMessage, content)
 }
 

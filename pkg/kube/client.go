@@ -703,9 +703,9 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 		if secrets == nil {
 			secrets = make([]core_v1.LocalObjectReference, 0)
 		}
-
+		fmt.Println("===========+++========",secrets)
 		secrets = append(secrets, imagePullSecret...)
-
+		fmt.Println("============++++=======",secrets)
 		// SetNestedField method just support a few types
 		s := make([]interface{}, 0)
 		for _, secret := range secrets {

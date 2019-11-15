@@ -191,6 +191,7 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		glog.Errorf("Marshal response error %v", err)
 		return nil, nil
 	}
+
 	glog.Infof("sync response %s", string(respB))
 	return nil, &model.Packet{
 		Key:     cmd.Key,
