@@ -25,6 +25,7 @@ func init() {
 	resourceKinds["c7nhelmrelease"] = &c7nHelmReleaseKind{}
 	resourceKinds["configmap"] = &configMap{}
 	resourceKinds["secret"] = &secret{}
+	resourceKinds["persistentvolumeclaim"] = &persistentVolumeClaim{}
 }
 
 type k8sResource struct {
@@ -193,5 +194,37 @@ func makeSecretK8sResource(cm *core_v1.Secret) k8sResource {
 		kind:       "Secret",
 		name:       cm.Name,
 		k8sObject:  cm,
+	}
+}
+
+// ==============================================
+// persistentVolumeClaim
+
+type persistentVolumeClaim struct {
+}
+
+func (s *persistentVolumeClaim) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
+	persistentVolumeClaims, err := c.client.PersistentVolumeClaims(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var k8sResources []k8sResource
+	for i := range persistentVolumeClaims.Items {
+		pvc := persistentVolumeClaims.Items[i]
+		if pvc.Labels[model.ReleaseLabel] == "" && pvc.Labels[model.AgentVersionLabel] != "" {
+			k8sResources = append(k8sResources, makePersistentVolumeClaimK8sResource(&persistentVolumeClaims.Items[i]))
+		}
+	}
+
+	return k8sResources, nil
+}
+
+func makePersistentVolumeClaimK8sResource(pvc *core_v1.PersistentVolumeClaim) k8sResource {
+	return k8sResource{
+		apiVersion: "v1",
+		kind:       "PersistentVolumeClaim",
+		name:       pvc.Name,
+		k8sObject:  pvc,
 	}
 }

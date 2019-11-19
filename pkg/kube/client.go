@@ -609,6 +609,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		l[model.NetworkLabel] = "ingress"
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
+	case "PersistentVolumeClaim":
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
