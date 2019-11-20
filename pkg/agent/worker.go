@@ -104,6 +104,7 @@ func (w *workerManager) runWorker() {
 				if cmd == nil {
 					glog.Error("got wrong command")
 					return
+
 				}
 				vlog.Successf("get command: %s/%s", cmd.Key, cmd.Type)
 				var newCmds []*model.Packet = nil

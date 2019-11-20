@@ -16,6 +16,7 @@ func DoSync(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Pack
 		}
 	}
 	if opts.GitRepos[cmd.Namespace()] == nil {
+
 		return nil, &model.Packet{
 			Key:     cmd.Key,
 			Type:    model.GitOpsSyncFailed,

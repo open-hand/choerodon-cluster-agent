@@ -609,6 +609,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		l[model.NetworkLabel] = "ingress"
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
+	case "PersistentVolumeClaim":
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
@@ -620,12 +621,29 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 
 func nestedLocalObjectReferences(obj map[string]interface{}, fields ...string) ([]core_v1.LocalObjectReference, bool, error) {
 	val, found, err := unstructured.NestedFieldNoCopy(obj, fields...)
+	fmt.Println(val)
 	if !found || err != nil {
 		return nil, found, err
 	}
+
 	m, ok := val.([]core_v1.LocalObjectReference)
-	if !ok {
-		return nil, false, fmt.Errorf("%v accessor error: %v is of the type %T, expected []core_v1.LocalObjectReference", strings.Join(fields, "."), val, val)
+	if ok {
+		return m, true, nil
+		//return nil, false, fmt.Errorf("%v accessor error: %v is of the type %T, expected []core_v1.LocalObjectReference", strings.Join(fields, "."), val, val)
+	}
+
+	if m,ok := val.([]interface{});ok {
+		secrets := make([]core_v1.LocalObjectReference, 0)
+		for _,v := range m{
+			if v1,ok := v.(map[string]interface{});ok{
+				v2 := v1["name"]
+				secret := core_v1.LocalObjectReference{}
+				if secret.Name ,ok = v2.(string);ok {
+					secrets = append(secrets, secret)
+				}
+			}
+		}
+		return secrets,true,nil
 	}
 	return m, true, nil
 }
@@ -702,10 +720,9 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 		}
 		if secrets == nil {
 			secrets = make([]core_v1.LocalObjectReference, 0)
+
 		}
-
 		secrets = append(secrets, imagePullSecret...)
-
 		// SetNestedField method just support a few types
 		s := make([]interface{}, 0)
 		for _, secret := range secrets {
