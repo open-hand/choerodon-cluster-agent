@@ -35,6 +35,8 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 )
 
+var ClusterId int32
+
 type Client interface {
 	DeleteJob(namespace string, name string) error
 	LogsForJob(namespace string, name string, jobLabel string) (string, string, error)
@@ -611,7 +613,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 	case "PersistentVolumeClaim":
 		l[model.PvcLabel] = "pvc"
 	case "PersistentVolume":
-		l[model.PvLabel] = "pv"
+		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
