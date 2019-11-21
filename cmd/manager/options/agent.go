@@ -257,6 +257,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		cfg, _ := f.ToRESTConfig()
 		kubectlApplier := kubectl.NewKubectl(kubectlPath, cfg)
 		kubectlDescriber := kubectl.NewKubectl(kubectlPath, cfg)
+
 		if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML); err != nil {
 			glog.V(1).Info(err)
 		}

@@ -529,7 +529,7 @@ func (c *client) GetSelectRelationPod(info *resource.Info, objPods map[string][]
 	return objPods, nil
 }
 
-func (c *client) LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
+func (c *client)LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
 
 	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {

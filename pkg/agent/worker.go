@@ -8,17 +8,18 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
+	"strconv"
 	"sync"
-
-	"github.com/golang/glog"
-	"time"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
+	"github.com/golang/glog"
 	vlog "github.com/vinkdong/gox/log"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 type WorkerManager workerManager
@@ -90,6 +91,33 @@ func NewWorkerManager(
 func (w *workerManager) Start() {
 	w.wg.Add(1)
 	go w.runWorker()
+	//监听cert-mgr的pod运行状态
+	//测试 agent自己给自己发送cert-mgr安装信息
+	//vlog.Successf("等待10秒====================")
+	//time.Sleep(10 * time.Second)
+	//vlog.Successf("开始安装certManager====================")
+	//x := &model.Packet{
+	//	Key:     "cluster:305.release:choerodon-cert-manager",
+	//	Type:    "cert_manager_install",
+	//	Payload: `{"namespace":"agetn1114","repoUrl":"agent.example.com","chartName":"cert-manager","imagePullSecrets":null,"chartVersion":"0.1.0","values":null,"releaseName":"choerodon-cert-manager"}`,
+	//}
+	//fmt.Println(x)
+	//y := &model.Packet{
+	//	Key:     "cluster:305.release:choerodon-cert-manager",
+	//	Type:    "cert_manager_uninstall",
+	//	Payload: `{"namespace":"agetn1114","repoUrl":""https://openchart.choerodon.com.cn/choerodon/c7n/","chartName":"cert-manager","imagePullSecrets":null,"chartVersion":"0.1.0","values":null,"releaseName":"choerodon-cert-manager"}`,
+	//
+	//}
+	//fmt.Println(y)
+	//z := &model.Packet{
+	//	Key:     "cluster:305",
+	//	Type:    "delete_pod",
+	//	Payload: `{"podName": "cert-manager-choerodon-cert-manager-75cdf8d675-kcntj","namespace": "kube-system"}`,
+	//}
+	//fmt.Println(z)
+	//w.chans.CommandChan<-x
+	go w.monitorCertMgr()
+
 }
 
 func (w *workerManager) runWorker() {
@@ -151,3 +179,71 @@ func (w *workerManager) runWorker() {
 		}
 	}
 }
+
+//监听cert-mgr的pod运行情况
+func (w *workerManager) monitorCertMgr() {
+	vlog.Successf("等待10秒=====================================")
+	//临时存储pod status 每过10s判断pod状态是否更改，若更改则发送消息。
+	podStatusTmp := " "
+	for {
+		time.Sleep(5 * time.Second)
+		podStatus, err := w.getPodStatus()
+		if err != nil {
+			return
+		}
+		if podStatus!=podStatusTmp {
+			podStatusTmp=podStatus
+			w.chans.ResponseChan <- &model.Packet{
+				Key:     "cluster:" + strconv.Itoa(w.clusterId),
+				Type:    model.CertManagerStatus,
+				Payload: `{"status":"` + podStatus + `"}`,
+			}
+		}
+	}
+
+}
+
+//得到pod的状态
+func (w *workerManager) getPodStatus() (string, error) {
+	//为了兼容老版本
+	podListOld, err := w.kubeClient.GetKubeClient().CoreV1().Pods("kube-system").List(metav1.ListOptions{
+		LabelSelector: "choerodon.io/release=choerodon-cert-manager",
+	})
+	if err != nil {
+		glog.V(1).Info("namespace kube-system dont have the cert-mgr")
+	}
+	if len(podListOld.Items)>0 {
+		return "running",nil
+	}
+	//新版本从这开始--
+	//这个方法从找podList开始，原因是： 如果pod直接被删除，那么名字会更换
+	const namespace = "choerodon"
+	podList, err := w.kubeClient.GetKubeClient().CoreV1().Pods(namespace).List(metav1.ListOptions{
+		LabelSelector: "choerodon.io/release=choerodon-cert-manager",
+	})
+	if err != nil {
+		glog.V(1).Info("[wzl] get cert-mgr pod by selector err: ", err)
+		return "deleted",err
+	}
+	if len(podList.Items) > 1 {
+		glog.V(1).Info("[wzl] the cert-mgr pod got by selector Is not the only")
+		return "",err
+	}
+
+	podName := podList.Items[0].Name
+	//glog.V(1).Info("+++++++++++++++++++=====",podName)
+	pod, err := w.kubeClient.GetKubeClient().CoreV1().Pods(namespace).Get(podName, metav1.GetOptions{})
+	if err != nil {
+		glog.V(1).Info("[wzl] get  pod status by podName err: ", err)
+		return "", err
+	}
+	podStatus := fmt.Sprintf("%s", pod.Status.Phase)
+	return podStatus, nil
+}
+
+
+
+
+
+
+
