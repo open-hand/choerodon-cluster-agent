@@ -11,4 +11,6 @@ const (
 	CommitLabel        = "choerodon.io/commit"
 	CommandLabel       = "choeroodn.io/command"
 	TestLabel          = "choerodon.io/test"
+	PvLabel            = "choerodon.io/pv"
+	PvcLabel           = "choerodon.io/pvc"
 )
