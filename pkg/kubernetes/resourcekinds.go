@@ -26,6 +26,7 @@ func init() {
 	resourceKinds["configmap"] = &configMap{}
 	resourceKinds["secret"] = &secret{}
 	resourceKinds["persistentvolumeclaim"] = &persistentVolumeClaim{}
+	resourceKinds["persistentvolume"] = &persistentVolume{}
 }
 
 type k8sResource struct {
@@ -212,7 +213,7 @@ func (s *persistentVolumeClaim) getResources(c *Cluster, namespace string) ([]k8
 	var k8sResources []k8sResource
 	for i := range persistentVolumeClaims.Items {
 		pvc := persistentVolumeClaims.Items[i]
-		if pvc.Labels[model.ReleaseLabel] == "" && pvc.Labels[model.AgentVersionLabel] != "" {
+		if pvc.Labels[model.ReleaseLabel] == "" && pvc.Labels[model.AgentVersionLabel] != "" && pvc.Labels[model.PvcLabel] != "" {
 			k8sResources = append(k8sResources, makePersistentVolumeClaimK8sResource(&persistentVolumeClaims.Items[i]))
 		}
 	}
@@ -226,5 +227,40 @@ func makePersistentVolumeClaimK8sResource(pvc *core_v1.PersistentVolumeClaim) k8
 		kind:       "PersistentVolumeClaim",
 		name:       pvc.Name,
 		k8sObject:  pvc,
+	}
+}
+
+// ==============================================
+// persistentVolume
+
+type persistentVolume struct {
+}
+
+func (s *persistentVolume) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
+	var k8sResources []k8sResource
+	if namespace != "choerodon" {
+		return nil, nil
+	}
+	persistentVolumes, err := c.client.PersistentVolumes().List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range persistentVolumes.Items {
+		pv := persistentVolumes.Items[i]
+		if pv.Labels[model.ReleaseLabel] == "" && pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] != "" {
+			k8sResources = append(k8sResources, makePersistentVolumeK8sResource(&persistentVolumes.Items[i]))
+		}
+	}
+
+	return k8sResources, nil
+}
+
+func makePersistentVolumeK8sResource(pv *core_v1.PersistentVolume) k8sResource {
+	return k8sResource{
+		apiVersion: "v1",
+		kind:       "PersistentVolume",
+		name:       pv.Name,
+		k8sObject:  pv,
 	}
 }

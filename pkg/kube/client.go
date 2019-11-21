@@ -607,9 +607,11 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		l[model.NetworkLabel] = "service"
 	case "Ingress":
 		l[model.NetworkLabel] = "ingress"
-	case "ConfigMap", "Secret":
-	case "C7NHelmRelease":
+	case "ConfigMap", "Secret", "C7NHelmRelease":
 	case "PersistentVolumeClaim":
+		l[model.PvcLabel] = "pvc"
+	case "PersistentVolume":
+		l[model.PvLabel] = "pv"
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
@@ -632,18 +634,18 @@ func nestedLocalObjectReferences(obj map[string]interface{}, fields ...string) (
 		//return nil, false, fmt.Errorf("%v accessor error: %v is of the type %T, expected []core_v1.LocalObjectReference", strings.Join(fields, "."), val, val)
 	}
 
-	if m,ok := val.([]interface{});ok {
+	if m, ok := val.([]interface{}); ok {
 		secrets := make([]core_v1.LocalObjectReference, 0)
-		for _,v := range m{
-			if v1,ok := v.(map[string]interface{});ok{
+		for _, v := range m {
+			if v1, ok := v.(map[string]interface{}); ok {
 				v2 := v1["name"]
 				secret := core_v1.LocalObjectReference{}
-				if secret.Name ,ok = v2.(string);ok {
+				if secret.Name, ok = v2.(string); ok {
 					secrets = append(secrets, secret)
 				}
 			}
 		}
-		return secrets,true,nil
+		return secrets, true, nil
 	}
 	return m, true, nil
 }
