@@ -131,6 +131,7 @@ func NewAgentOptions() *AgentOptions {
 }
 
 func Run(o *AgentOptions, f cmdutil.Factory) {
+	kube.ClusterId = o.ClusterId
 	if o.PrintVersion {
 		fmt.Println(version.GetVersion())
 		os.Exit(0)

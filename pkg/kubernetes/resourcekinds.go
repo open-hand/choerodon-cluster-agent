@@ -2,6 +2,8 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -248,7 +250,7 @@ func (s *persistentVolume) getResources(c *Cluster, namespace string) ([]k8sReso
 
 	for i := range persistentVolumes.Items {
 		pv := persistentVolumes.Items[i]
-		if pv.Labels[model.ReleaseLabel] == "" && pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] != "" {
+		if pv.Labels[model.ReleaseLabel] == "" && pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] == fmt.Sprintf(model.PvLabelValueFormat, kube.ClusterId) {
 			k8sResources = append(k8sResources, makePersistentVolumeK8sResource(&persistentVolumes.Items[i]))
 		}
 	}
