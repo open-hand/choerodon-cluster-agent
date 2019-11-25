@@ -9,6 +9,7 @@ import (
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
+	"os"
 )
 
 // todo reuse this code
@@ -20,7 +21,9 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, err)
 	}
 
-	if err = opts.KubeClient.GetNamespace(agentInitOpts.Envs[0].Namespace); err == nil && agentInitOpts.Envs[0].Namespace != "choerodon" {
+	skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True"
+
+	if err = opts.KubeClient.GetNamespace(agentInitOpts.Envs[0].Namespace); err == nil && agentInitOpts.Envs[0].Namespace != "choerodon" && !skipCheckNamespace {
 		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, errors.New("env already exist"))
 	}
 	opts.Envs = append(opts.Envs, agentInitOpts.Envs[0])
@@ -103,10 +106,11 @@ func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	if err := opts.HelmClient.DeleteNamespaceReleases(env.Namespace); err != nil {
 		glog.V(1).Info(err)
 	}
-	if err := opts.KubeClient.DeleteNamespace(env.Namespace); err != nil {
+	if skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True";skipCheckNamespace{
+
+	} else if err := opts.KubeClient.DeleteNamespace(env.Namespace); err != nil {
 		glog.V(1).Info(err)
 	}
-
 	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.EnvDeleteSucceed,
