@@ -122,11 +122,12 @@ type GetReleaseContentRequest struct {
 }
 
 type SyncRequest struct {
-	ResourceType string `json:"resourceType,omitempty"`
-	ResourceName string `json:"resourceName,omitempty"`
-	Commit       string `json:"commit,omitempty"`
-	Id           int32  `json:"id,omitempty"`
-	Namespace    string `json:"namespace,omitempty"`
+	ResourceType   string `json:"resourceType,omitempty"`
+	ResourceName   string `json:"resourceName,omitempty"`
+	Commit         string `json:"commit,omitempty"`
+	Id             int32  `json:"id,omitempty"`
+	Namespace      string `json:"namespace,omitempty"`
+	ResourceStatus string `json:"status,omitempty"`
 }
 
 type CertManagerInfo struct {
