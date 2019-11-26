@@ -127,7 +127,7 @@ type SyncRequest struct {
 	Commit         string `json:"commit,omitempty"`
 	Id             int32  `json:"id,omitempty"`
 	Namespace      string `json:"namespace,omitempty"`
-	ResourceStatus string `json:"status,omitempty"`
+	ResourceStatus string `json:"resourceStatus,omitempty"`
 }
 
 type CertManagerInfo struct {
