@@ -128,31 +128,31 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		case "ingress":
 			commit, err := opts.KubeClient.GetIngress(namespace, syncRequest.ResourceName)
 			if err != nil {
-				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 			} else if commit != "" {
-				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
 			}
 			break
 		case "service":
 			commit, err := opts.KubeClient.GetService(namespace, syncRequest.ResourceName)
 			if err != nil {
-				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 			} else if commit != "" {
-				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
 			}
 			break
 		case "certificate":
 			commit, err := kubeClient.GetSecret(namespace, syncRequest.ResourceName)
 			if err != nil {
-				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 			} else if commit != "" {
-				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, syncRequest.Id))
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
 			}
 			break
 		case "instance":
 			chr, err := GetC7nHelmRelease(opts.Mgrs, namespace, syncRequest.ResourceName)
 			if err != nil {
-				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 			} else if chr != nil {
 				if chr.Annotations[model.CommitLabel] == syncRequest.Commit {
 					release, err := helmClient.GetRelease(&helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName})
@@ -162,21 +162,37 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 							if kubeClient.IsReleaseJobRun(namespace, syncRequest.ResourceName) {
 								glog.Errorf("release %s not exist and not job run ", syncRequest.ResourceName, err)
 							} else {
-								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 							}
 						}
 					}
 					if release != nil && release.Status == "DEPLOYED" {
 						if release.ChartVersion != chr.Spec.ChartVersion || release.Config != chr.Spec.Values {
 							glog.Infof("release deployed but not consistent")
-							reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", syncRequest.Id))
+							reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 						} else {
-							reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
+							reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, "", syncRequest.Id))
 						}
 					}
 				} else {
-					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, syncRequest.Id))
+					reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, "", syncRequest.Id))
 				}
+			}
+			break
+		case "persistentvolume":
+			commit, status, err := kubeClient.GetPersistentVolume(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", status, syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, status, syncRequest.Id))
+			}
+			break
+		case "persistentvolumeclaim":
+			commit, status, err := kubeClient.GetPersistentVolumeClaim(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", status, syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, status, syncRequest.Id))
 			}
 			break
 		}
@@ -200,11 +216,12 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 	}
 }
 
-func newSyncResponse(name string, reType string, commit string, id int32) *helm.SyncRequest {
+func newSyncResponse(name, reType, commit, status string, id int32, ) *helm.SyncRequest {
 	return &helm.SyncRequest{
-		ResourceName: name,
-		ResourceType: reType,
-		Commit:       commit,
-		Id:           id,
+		ResourceName:   name,
+		ResourceType:   reType,
+		Commit:         commit,
+		Id:             id,
+		ResourceStatus: status,
 	}
 }

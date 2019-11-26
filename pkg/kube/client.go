@@ -57,6 +57,8 @@ type Client interface {
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
 	GetIngress(namespace string, ingressName string) (string, error)
+	GetPersistentVolumeClaim(namespace string, pvcName string) (string, string, error)
+	GetPersistentVolume(namespace string, pvcName string) (string, string, error)
 	GetNamespace(namespace string) error
 	DeleteNamespace(namespace string) error
 	GetSecret(namespace string, secretName string) (string, error)
@@ -268,6 +270,33 @@ func (c *client) GetSecret(namespace string, secretName string) (string, error) 
 		return secret.Annotations[model.CommitLabel], nil
 	}
 	return "", nil
+}
+
+func (c *client) GetPersistentVolumeClaim(namespace string, pvcName string) (string, string, error) {
+	pvc, err := c.client.CoreV1().PersistentVolumeClaims(namespace).Get(pvcName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", "", err
+		}
+		return "", "", nil
+	}
+	if pvc.Annotations != nil && pvc.Annotations[model.CommitLabel] != "" {
+		return pvc.Annotations[model.CommitLabel], string(pvc.Status.Phase), nil
+	}
+	return "", "", nil
+}
+func (c *client) GetPersistentVolume(namespace string, pvName string) (string, string, error) {
+	pv, err := c.client.CoreV1().PersistentVolumes().Get(pvName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", "", err
+		}
+		return "", "", nil
+	}
+	if pv.Annotations != nil && pv.Annotations[model.CommitLabel] != "" {
+		return pv.Annotations[model.CommitLabel], string(pv.Status.Phase), nil
+	}
+	return "", "", nil
 }
 
 func (c *client) IsReleaseJobRun(namespace, releaseName string) bool {
@@ -611,7 +640,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		l[model.NetworkLabel] = "ingress"
 	case "ConfigMap", "Secret", "C7NHelmRelease":
 	case "PersistentVolumeClaim":
-		l[model.PvcLabel] = "pvc"
+		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat,ClusterId)
 	case "PersistentVolume":
 		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
 	default:

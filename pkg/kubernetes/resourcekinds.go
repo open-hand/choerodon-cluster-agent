@@ -215,7 +215,7 @@ func (s *persistentVolumeClaim) getResources(c *Cluster, namespace string) ([]k8
 	var k8sResources []k8sResource
 	for i := range persistentVolumeClaims.Items {
 		pvc := persistentVolumeClaims.Items[i]
-		if pvc.Labels[model.ReleaseLabel] == "" && pvc.Labels[model.AgentVersionLabel] != "" && pvc.Labels[model.PvcLabel] != "" {
+		if pvc.Labels[model.ReleaseLabel] == "" && pvc.Labels[model.AgentVersionLabel] != "" && pvc.Labels[model.PvcLabel] == fmt.Sprintf(model.PvcLabelValueFormat, kube.ClusterId) {
 			k8sResources = append(k8sResources, makePersistentVolumeClaimK8sResource(&persistentVolumeClaims.Items[i]))
 		}
 	}

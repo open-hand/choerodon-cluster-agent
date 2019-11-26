@@ -106,6 +106,7 @@ func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 			Run(options, f)
 		},
 	}
+	// 给cmd绑定参数
 	options.BindFlags(cmd.Flags())
 	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
