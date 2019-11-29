@@ -31,9 +31,6 @@ func InstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 	}
 }
 
-func CertManagerInstall(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	return InstallHelmRelease(opts, cmd)
-}
 
 func RollbackHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.RollbackReleaseRequest
@@ -101,3 +98,15 @@ func UpgradeHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 		Payload: string(respB),
 	}
 }
+
+//专门用于安装cert-mgr
+func InstallCertManager(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	// 安装 helm Release 不返回新 cmd
+	return InstallHelmRelease(opts, cmd)
+}
+
+//专门用于卸载cert-mgr
+func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	return DeleteHelmRelease(opts, cmd)
+}
+

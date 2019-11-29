@@ -142,6 +142,7 @@ func (c *Cluster) Sync(namespace string, spec SyncDef) error {
 		}
 	}
 
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if applyErrs := c.applier.Apply(namespace, cs); len(applyErrs) > 0 {

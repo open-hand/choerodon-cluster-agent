@@ -13,7 +13,13 @@ const (
 	EnvCreate        = "env_create"
 
 	// Components
-	CertManagerInstall = "cert_manager_install"
+	CertManagerInstall      = "cert_manager_install"
+	CertManagerStatus       = "cert_manager_status"
+	CertManagerUninstall      = "cert_manager_uninstall"
+	//CertManagerUninstallStatus = "cert_manager_uninstall_status"
+	// pod
+	DeletePod = "delete_pod"
+
 
 	// helm
 	// HelmReleaseUpgrade 以前用于升级agent及重新部署实例，现仅用于升级agent
@@ -85,9 +91,9 @@ const (
 	OperateDockerRegistrySecretFailed = "operate_docker_registry_secret_failed"
 
 	// git ops
-	GitOpsSync       = "git_ops_sync"
-	GitOpsSyncFailed = "git_ops_sync_failed"
-	GitOpsSyncEvent  = "git_ops_sync_event"
+	GitOpsSync       = ""
+	GitOpsSyncFailed = "_failed"
+	GitOpsSyncEvent  = "_event"
 
 	ResourceStatusSyncEvent = "resource_status_sync_event"
 	ResourceStatusSync      = "resource_status_sync"

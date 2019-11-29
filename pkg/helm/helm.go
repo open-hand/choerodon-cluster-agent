@@ -140,7 +140,7 @@ func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHo
 	if releaseContentResp != nil {
 		return nil, fmt.Errorf("release %s already exist", request.ReleaseName)
 	}
-
+	//下载chart包到本地
 	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %v", err)
@@ -179,13 +179,14 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	if releaseContentResp != nil {
 		return nil, fmt.Errorf("release %s already exist", request.ReleaseName)
 	}
-
+    //将chart包下载下来   *chart Chart 按照我的理解，是和一个chart包目录一一对应
 	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
-
+    //解决chart包依赖？
 	chartutil.ProcessRequirementsEnabled(chartRequested, &chart.Config{Raw: request.Values})
+
 
 	cm, err := cmForChart(chartRequested)
 	if err != nil {
@@ -238,6 +239,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
 		}
+		//渲染templates下的所有模版。
 		manifestBytes := []byte(replaceValue(string(newManifestBuf.Bytes()), valuesMap))
 		//fmt.Println(string(manifestBytes))
 		if index == 0 {
@@ -252,6 +254,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	chartRequested.Templates = newTemplates
 	chartRequested.Dependencies = []*chart.Chart{}
 	chartRequested.Values.Raw = oldValues
+	//最终安装
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
 		request.Namespace,
@@ -655,6 +658,7 @@ func (c *client) DeleteRelease(request *DeleteReleaseRequest) (*Release, error) 
 	deleteReleaseResp, err := c.helmClient.DeleteRelease(
 		request.ReleaseName,
 		helm.DeletePurge(true),
+
 	)
 	if err != nil {
 		return nil, fmt.Errorf("delete release %s: %v", request.ReleaseName, err)

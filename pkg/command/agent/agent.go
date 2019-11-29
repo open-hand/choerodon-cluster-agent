@@ -45,6 +45,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	namespaces.Set(nsList)
 
 	//启动控制器， todo: 重启metrics
+	//里面含有好多 启动时的方法， 比如启动时发送cert-mgr的情况
 	opts.ControllerContext.ReSync()
 
 	cfg, err := opts.KubeClient.GetRESTConfig()

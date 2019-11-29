@@ -12,7 +12,7 @@ type Packet struct {
 }
 
 func (c *Packet) String() string {
-	return fmt.Sprintf("{key: %s, type: %s}: %s", c.Key, c.Type, c.Payload)
+	return fmt.Sprintf("{key: %s, type: %s}  %s", c.Key, c.Type, c.Payload)
 }
 
 func (c *Packet) Namespace() string {
