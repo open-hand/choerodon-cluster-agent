@@ -91,9 +91,9 @@ const (
 	OperateDockerRegistrySecretFailed = "operate_docker_registry_secret_failed"
 
 	// git ops
-	GitOpsSync       = "git_ops_sync"
-	GitOpsSyncFailed = "git_ops_sync_failed"
-	GitOpsSyncEvent  = "git_ops_sync_event"
+	GitOpsSync       = ""
+	GitOpsSyncFailed = "_failed"
+	GitOpsSyncEvent  = "_event"
 
 	ResourceStatusSyncEvent = "resource_status_sync_event"
 	ResourceStatusSync      = "resource_status_sync"

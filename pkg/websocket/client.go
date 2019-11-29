@@ -162,7 +162,7 @@ func (c *appClient) connect() error {
 			}
 			// for 平滑升级 we need to retain Payload field to handle upgrade agent command
 			if wp.Data != nil {
-				glog.V(1).Info("receive command: ", wp.Data)
+				glog.V(1).Info("receive command : ", wp)
 				c.crChannel.CommandChan <- wp.Data
 			} else {
 				glog.V(1).Info("receive command: ", wp.Key, wp.Type)

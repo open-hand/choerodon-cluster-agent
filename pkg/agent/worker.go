@@ -91,31 +91,6 @@ func NewWorkerManager(
 func (w *workerManager) Start() {
 	w.wg.Add(1)
 	go w.runWorker()
-	//监听cert-mgr的pod运行状态
-	//测试 agent自己给自己发送cert-mgr安装信息
-	//vlog.Successf("等待10秒====================")
-	//time.Sleep(10 * time.Second)
-	//vlog.Successf("开始安装certManager====================")
-	//x := &model.Packet{
-	//	Key:     "cluster:305.release:choerodon-cert-manager",
-	//	Type:    "cert_manager_install",
-	//	Payload: `{"namespace":"agetn1114","repoUrl":"agent.example.com","chartName":"cert-manager","imagePullSecrets":null,"chartVersion":"0.1.0","values":null,"releaseName":"choerodon-cert-manager"}`,
-	//}
-	//fmt.Println(x)
-	//y := &model.Packet{
-	//	Key:     "cluster:305.release:choerodon-cert-manager",
-	//	Type:    "cert_manager_uninstall",
-	//	Payload: `{"namespace":"agetn1114","repoUrl":""https://openchart.choerodon.com.cn/choerodon/c7n/","chartName":"cert-manager","imagePullSecrets":null,"chartVersion":"0.1.0","values":null,"releaseName":"choerodon-cert-manager"}`,
-	//
-	//}
-	//fmt.Println(y)
-	//z := &model.Packet{
-	//	Key:     "cluster:305",
-	//	Type:    "delete_pod",
-	//	Payload: `{"podName": "cert-manager-choerodon-cert-manager-75cdf8d675-kcntj","namespace": "kube-system"}`,
-	//}
-	//fmt.Println(z)
-	//w.chans.CommandChan<-x
 	go w.monitorCertMgr()
 
 }
@@ -182,11 +157,12 @@ func (w *workerManager) runWorker() {
 
 //监听cert-mgr的pod运行情况
 func (w *workerManager) monitorCertMgr() {
-	vlog.Successf("等待10秒=====================================")
+
 	//临时存储pod status 每过10s判断pod状态是否更改，若更改则发送消息。
 	podStatusTmp := " "
 	for {
 		time.Sleep(5 * time.Second)
+		vlog.Successf("等待10秒=====================================")
 		podStatus, err := w.getPodStatus()
 		if err != nil {
 			return
@@ -210,9 +186,12 @@ func (w *workerManager) getPodStatus() (string, error) {
 		LabelSelector: "choerodon.io/release=choerodon-cert-manager",
 	})
 	if err != nil {
-		glog.V(1).Info("namespace kube-system dont have the cert-mgr")
+		glog.V(1).Info("[wzl] namespace kube-system dont have the cert-mgr")
+		return "exception",err
 	}
+
 	if len(podListOld.Items)>0 {
+		glog.V(1).Info("[wzl] the  old cert-mgr pod  is running in the kube-system")
 		return "running",nil
 	}
 	//新版本从这开始--
@@ -223,6 +202,10 @@ func (w *workerManager) getPodStatus() (string, error) {
 	})
 	if err != nil {
 		glog.V(1).Info("[wzl] get cert-mgr pod by selector err: ", err)
+		return "exception",err
+	}
+	if len(podList.Items) == 0 {
+		glog.V(1).Info("[wzl] the  cert-mgr pod status is deleted")
 		return "deleted",err
 	}
 	if len(podList.Items) > 1 {
