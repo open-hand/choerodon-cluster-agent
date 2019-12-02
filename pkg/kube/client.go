@@ -639,9 +639,6 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		l[model.NetworkLabel] = "ingress"
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
-		if info.Namespace=="choerodon" {
-			glog.Info("prometheus-0.10.0-0af10")
-		}
 	case "PersistentVolumeClaim":
 		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat,ClusterId)
 	case "PersistentVolume":
