@@ -20,7 +20,11 @@ type C7NHelmReleaseSpec struct {
 	CommandId        int                           `json:"commandId,omitempty"`
 	Values           string                        `json:"values,omitempty"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+    //12.01新增字段，Deployment要打的label多加一个choerodon.io/app-service-id
+	AppServiceId int64 `json:"appServiceId,omitempty"`
+
 }
+
 
 // C7NHelmReleaseStatus defines the observed state of C7NHelmRelease
 // +k8s:openapi-gen=true
