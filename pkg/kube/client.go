@@ -633,12 +633,15 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 	defer obj.SetLabels(l)
 
 	switch info.Mapping.GroupVersionKind.Kind {
-
 	case "Service":
 		l[model.NetworkLabel] = "service"
 	case "Ingress":
 		l[model.NetworkLabel] = "ingress"
-	case "ConfigMap", "Secret", "C7NHelmRelease":
+	case "ConfigMap", "Secret":
+	case "C7NHelmRelease":
+		if info.Namespace=="choerodon" {
+			glog.Info("prometheus-0.10.0-0af10")
+		}
 	case "PersistentVolumeClaim":
 		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat,ClusterId)
 	case "PersistentVolume":
