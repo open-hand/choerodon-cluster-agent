@@ -176,7 +176,7 @@ func syncStatus(ctx *Context) error {
 	// We want to sync at least every `SyncInterval`. Being told to
 	// sync, or completing a job, may intervene (in which case,
 	// reschedule the next sync).
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(10 * time.Second)
 	for {
 		select {
 		case <-ctx.stopCh:
