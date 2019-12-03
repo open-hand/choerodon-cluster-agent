@@ -12,6 +12,7 @@ const (
 	CommandLabel        = "choeroodn.io/command"
 	TestLabel           = "choerodon.io/test"
 	PvLabel             = "choerodon.io/pv"
+	NameLabel           = "choerodon.io/name"
 	PvcLabel            = "choerodon.io/pvc"
 	PvLabelValueFormat  = "pv-%d"
 	PvcLabelValueFormat = "pvc-%d"
