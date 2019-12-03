@@ -529,7 +529,7 @@ func (c *client) GetSelectRelationPod(info *resource.Info, objPods map[string][]
 	return objPods, nil
 }
 
-func (c *client)LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
+func (c *client) LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error) {
 
 	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
@@ -640,9 +640,11 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
 	case "PersistentVolumeClaim":
-		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat,ClusterId)
+		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
+		l[model.NameLabel] = obj.GetName()
 	case "PersistentVolume":
 		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
+		l[model.NameLabel] = obj.GetName()
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
