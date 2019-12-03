@@ -82,7 +82,6 @@ func (g *GitOps) doSync(namespace string) error {
 		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
 		defer cancel()
 		working, err = g.gitRepos[namespace].Clone(ctx, g.gitConfig)
-		glog.V(1).Info("checkout:%s", working)
 		if err != nil {
 			return err
 		}
@@ -94,8 +93,6 @@ func (g *GitOps) doSync(namespace string) error {
 	if err != nil && !isUnknownRevision(err) {
 		return err
 	}
-
-	glog.V(1).Info("1111111111111111111111111111111111")
 
 	newTagRev, err := working.DevOpsSyncRevision(
 		ctx)
@@ -136,7 +133,6 @@ func (g *GitOps) doSync(namespace string) error {
 			filesCommits = append(filesCommits, FileCommit{File: file, Commit: commit})
 			fileCommitMap[file] = commit
 		}
-		glog.V(1).Info("2222222222222222222222222222222")
 	} else {
 
 		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
@@ -156,8 +152,6 @@ func (g *GitOps) doSync(namespace string) error {
 			changedResources, _, err = manifests.LoadManifests(namespace, working.Dir(), changedFiles[0], changedFiles[1:]...)
 		}
 		cancel()
-
-		glog.V(1).Info("33333333333333333333333333333333")
 		if err != nil {
 			return errors.Wrap(err, "loading resources from repo")
 		}
@@ -177,8 +171,6 @@ func (g *GitOps) doSync(namespace string) error {
 			}
 			changedResources[key] = obj
 		}
-
-		glog.V(1).Info("4444444444444444444444444444444444")
 	}
 	err = Sync(namespace, manifests, allResources, changedResources, g.cluster)
 
@@ -274,8 +266,6 @@ func (g *GitOps) doSync(namespace string) error {
 func Sync(namespace string, m *kubernetes.Manifests, repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, clus *kubernetes.Cluster) error {
 	// Get a map of resources defined in the cluster
 	clusterBytes, err := clus.Export(namespace)
-
-	glog.V(1).Info("555555555555555555555555555555555")
 
 	if err != nil {
 		return errors.Wrap(err, "exporting resource defs from cluster")
