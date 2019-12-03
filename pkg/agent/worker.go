@@ -162,7 +162,6 @@ func (w *workerManager) monitorCertMgr() {
 	podStatusTmp := " "
 	for {
 		time.Sleep(5 * time.Second)
-		vlog.Successf("等待10秒=====================================")
 		podStatus, err := w.getPodStatus()
 		if err != nil {
 			return

@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/golang/glog"
 	"io"
 	"io/ioutil"
 	"os/exec"
@@ -27,6 +28,7 @@ func config(ctx context.Context, workingDir, user, email string) error {
 		"user.name":  user,
 		"user.email": email,
 	} {
+		glog.V(1).Info("workingDir:%s\n values:%s\n", workingDir, v)
 		if err := execGitCmd(ctx, workingDir, nil, "config", k, v); err != nil {
 			return errors.Wrap(err, "setting git config")
 		}
@@ -41,6 +43,9 @@ func clone(ctx context.Context, workingDir, repoURL, repoBranch string) (path st
 		args = append(args, "--branch", repoBranch)
 	}
 	args = append(args, repoURL, repoPath)
+
+	glog.V(1).Info("workingDir:%s\nclone repoURL:%s\nrepoPath:%s", workingDir, repoURL, repoPath)
+
 	if err := execGitCmd(ctx, workingDir, nil, args...); err != nil {
 		return "", errors.Wrap(err, "git clone")
 	}
@@ -51,6 +56,7 @@ func mirror(ctx context.Context, workingDir, repoURL string) (path string, err e
 	repoPath := workingDir
 	args := []string{"clone", "--mirror"}
 	args = append(args, repoURL, repoPath)
+	glog.V(1).Info("workingDir:%s\nclone repoURL:%s\nrepoPath:%s", workingDir, repoURL, repoPath)
 	if err := execGitCmd(ctx, workingDir, nil, args...); err != nil {
 		return "", errors.Wrap(err, "git clone --mirror")
 	}
@@ -125,6 +131,7 @@ func refExists(ctx context.Context, workingDir, ref string) (bool, error) {
 // Get the full ref for a shorthand notes ref.
 func getNotesRef(ctx context.Context, workingDir, ref string) (string, error) {
 	out := &bytes.Buffer{}
+	glog.V(1).Info("workingDir:%s\n ref:%s", workingDir, ref)
 	if err := execGitCmd(ctx, workingDir, out, "notes", "--ref", ref, "get-ref"); err != nil {
 		return "", err
 	}

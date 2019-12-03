@@ -7,6 +7,7 @@ package kubernetes
 import (
 	"bytes"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
+	"github.com/golang/glog"
 	"sync"
 
 	k8syaml "github.com/ghodss/yaml"
@@ -117,6 +118,8 @@ func (c *Cluster) DescribeResource(namespace, sourceKind, sourceName string) str
 // Sync performs the given actions on resources. Operations are
 // asynchronous, but serialised.
 func (c *Cluster) Sync(namespace string, spec SyncDef) error {
+
+	glog.V(1).Info("6666666666666666666666666666666666666")
 	cs := makeChangeSet()
 	var errs SyncError
 	for _, action := range spec.Actions {
