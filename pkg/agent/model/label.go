@@ -10,6 +10,7 @@ const (
 	AgentVersionLabel   = "choerodon.io"
 	CommitLabel         = "choerodon.io/commit"
 	CommandLabel        = "choeroodn.io/command"
+	AppServiceIdLabel   = "choeroodn.io/app-service-id"
 	TestLabel           = "choerodon.io/test"
 	PvLabel             = "choerodon.io/pv"
 	NameLabel           = "choerodon.io/name"

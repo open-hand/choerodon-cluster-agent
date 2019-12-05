@@ -13,6 +13,7 @@ type InstallReleaseRequest struct {
 	Commit           string                         `json:"commit,omitempty"`
 	Command          int                            `json:"command,omitempty"`
 	Namespace        string                         `json:"namespace,omitempty"`
+	AppServiceId     int64                          `json:"appServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
