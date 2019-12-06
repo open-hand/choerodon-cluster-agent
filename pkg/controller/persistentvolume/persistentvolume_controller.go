@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/golang/glog"
 
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
@@ -93,7 +94,7 @@ func (r *ReconcilePersistentVolume) Reconcile(request reconcile.Request) (reconc
 		return reconcile.Result{}, err
 	}
 
-	if pv.Labels[model.AgentVersionLabel] != "" {
+	if pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] == fmt.Sprintf(model.PvLabelValueFormat, kube.ClusterId) {
 		responseChan <- newPersistentVolumeRepoRep(pv)
 	}
 
