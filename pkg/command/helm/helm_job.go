@@ -52,6 +52,7 @@ func UpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 	if req.Namespace == "" {
 		req.Namespace = cmd.Namespace()
 	}
+	//这是在干嘛
 	hooks, err := opts.HelmClient.PreUpgradeRelease(&req)
 	if err != nil {
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)

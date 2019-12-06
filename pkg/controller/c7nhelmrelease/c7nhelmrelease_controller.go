@@ -117,7 +117,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		// Error reading the object - requeue the request.
 		return result, err
 	}
-	//不应该本来就是空的吗 为啥还有choerodon.io/commit 错：instance
+
 	if instance.Annotations == nil || instance.Annotations[model.CommitLabel] == "" {
 		return result, fmt.Errorf("c7nhelmrelease has no commit annotations")
 	}
@@ -146,6 +146,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		//todo  目前的方式是解析release里面的对象，找到deployment的command标签，用于比较是否更改，执行重新部署，是否有更好的方式？
 		results := strings.Split(rls.Manifest, "---")
 		var commandId int = 0
+		var appServiceId int64 = 0
 		for _, result := range results {
 			if result != "" && result != "\n" {
 				var data = []byte(result)
@@ -153,12 +154,14 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 				yaml.Unmarshal(data, &deployment)
 				if deployment.Kind == "Deployment" {
 					commandId, _ = strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
+					appServiceId,_ = strconv.ParseInt(deployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel],10,64)
 					break
 				}
 			}
 		}
-		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId {
-			glog.Infof("release %s chart、version、values not change", rls.Name)
+
+		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId && instance.Spec.AppServiceId == appServiceId {
+			glog.Infof("release %s chart、version、values、 not change", rls.Name)
 			payload, _ := json.Marshal(rls)
 			responseChan <- UpgradeInstanceStatusCmd(instance, string(payload))
 			return result, nil
@@ -207,6 +210,7 @@ func updateHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pac
 		Command:          instance.Spec.CommandId,
 		Commit:           instance.Annotations[model.CommitLabel],
 		Namespace:        instance.Namespace,
+		AppServiceId:     instance.Spec.AppServiceId,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
 	}
 	reqBytes, err := json.Marshal(req)

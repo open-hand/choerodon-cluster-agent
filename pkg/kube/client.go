@@ -726,8 +726,7 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 		tplLabels[model.ReleaseLabel] = releaseName
 		tplLabels[model.AgentVersionLabel] = AgentVersion
 		//12.05 新增打标签。
-		//0 表示的是安装失败
-		tplLabels[model.AppServiceIdLabel] = "xixi"
+		//0 表示的是安装未填入值 -1代表更新
 		if appServiceId != 0 && appServiceId != -1 {
 			tplLabels[model.AppServiceIdLabel] = strconv.FormatInt(int64(appServiceId),10)
 		}
