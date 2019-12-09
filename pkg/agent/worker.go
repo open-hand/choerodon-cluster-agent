@@ -161,7 +161,7 @@ func (w *workerManager) monitorCertMgr() {
 	//临时存储pod status 每过10s判断pod状态是否更改，若更改则发送消息。
 	podStatusTmp := " "
 	for {
-		time.Sleep(5 * time.Second)
+		time.Sleep(20 * time.Second)
 		podStatus, err := w.getPodStatus()
 		if err != nil {
 			return

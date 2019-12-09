@@ -52,7 +52,7 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string) (*bytes.Buffer, error)
+	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string,appServiceId int64) (*bytes.Buffer, error)
 	LabelTestObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
@@ -594,7 +594,7 @@ func (c *client) LabelObjects(namespace string,
 	manifest string,
 	releaseName string,
 	app string,
-	version string) (*bytes.Buffer, error) {
+	version string ,appServiceId int64) (*bytes.Buffer, error) {
 	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -604,7 +604,7 @@ func (c *client) LabelObjects(namespace string,
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version)
+		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version,appServiceId)
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
 		}
@@ -701,6 +701,7 @@ func setTemplateLabels(obj map[string]interface{}, templateLabels map[string]str
 // Provide a common method for adding labels
 func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 	command int,
+	appServiceId int64,
 	info *resource.Info, version, releaseName, app, testLabel string, isTest bool) (runtime.Object, error) {
 	t := info.Object.(*unstructured.Unstructured)
 
@@ -724,6 +725,11 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 		tplLabels := getTemplateLabels(t.Object)
 		tplLabels[model.ReleaseLabel] = releaseName
 		tplLabels[model.AgentVersionLabel] = AgentVersion
+		//12.05 新增打标签。
+		//0 表示的是安装未填入值 -1代表更新
+		if appServiceId != 0 && appServiceId != -1 {
+			tplLabels[model.AppServiceIdLabel] = strconv.FormatInt(int64(appServiceId),10)
+		}
 		if !isTest {
 			tplLabels[model.CommandLabel] = strconv.Itoa(command)
 		}
@@ -818,9 +824,10 @@ func labelObject(imagePullSecret []core_v1.LocalObjectReference,
 	info *resource.Info,
 	releaseName string,
 	app string,
-	version string) (runtime.Object, error) {
+	version string,
+	appServiceId int64 ) (runtime.Object, error) {
 
-	return addLabel(imagePullSecret, command, info, version, releaseName, app, "", false)
+	return addLabel(imagePullSecret, command,appServiceId, info, version, releaseName, app, "", false)
 }
 
 func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
@@ -913,7 +920,7 @@ func labelTestObject(info *resource.Info,
 	version string,
 	label string) (runtime.Object, error) {
 
-	return addLabel(imagePullSecret, 0, info, version, releaseName, app, label, true)
+	return addLabel(imagePullSecret, 0,0, info, version, releaseName, app, label, true)
 }
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {

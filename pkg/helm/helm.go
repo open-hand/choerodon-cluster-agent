@@ -132,7 +132,7 @@ func (c *client) ListRelease(namespace string) ([]*Release, error) {
 
 func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHook, error) {
 	var releaseHooks []*ReleaseHook
-
+    //查看release 是否存在。
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -140,6 +140,7 @@ func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHo
 	if releaseContentResp != nil {
 		return nil, fmt.Errorf("release %s already exist", request.ReleaseName)
 	}
+	//如果不存在那么
 	//下载chart包到本地
 	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
 	if err != nil {
@@ -184,9 +185,10 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	if err != nil {
 		return nil, fmt.Errorf("load chart: %v", err)
 	}
-    //解决chart包依赖？
+    //解决chart包依赖？  //
 	chartutil.ProcessRequirementsEnabled(chartRequested, &chart.Config{Raw: request.Values})
-
+    //request中是提交的vlaues
+    //chartRequested中的是原来chart包中的values
 
 	cm, err := cmForChart(chartRequested)
 	if err != nil {
@@ -194,18 +196,20 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	}
 	valuesMap := make(map[string]string)
 	valuesMap = getValuesMap(cm, valuesMap)
+	// chart包的vlaues
 	oldValues := chartRequested.Values.Raw
-
+    //这一步将chart包中的vlaues去除注释
 	err, newChartValues := removeStringValues(chartRequested.Values.Raw)
 	if err != nil {
 		return nil, err
 	}
+	//这一步将请求的vlaues去除注释
 	err, newValues := removeStringValues(request.Values)
 	if err != nil {
 		return nil, err
 	}
 	chartRequested.Values.Raw = newChartValues
-
+	//这一步 将请求的values 和 chart包中的values合并  这个时候已经成型。
 	hooks, manifestDoc, err := c.renderManifests(
 		request.Namespace,
 		chartRequested,
@@ -216,7 +220,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		glog.V(1).Infof("sort error...")
 		return nil, err
 	}
-
+    //资源清单列表 如 pod（pod竟然提前渲染出来？） ，service deployment 的对应的yaml文件
 	manifestDocs := []string{}
 	newTemplates := []*chart.Template{}
 
@@ -227,6 +231,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		manifestDocs = append(manifestDocs, hook.Manifest)
 	}
 
+	//成形后，加入label标志
 	for index, manifestToInsert := range manifestDocs {
 		newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace,
 			request.Command,
@@ -235,6 +240,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 			request.ReleaseName,
 			request.ChartName,
 			request.ChartVersion,
+			request.AppServiceId,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("label objects: %v", err)
@@ -275,6 +281,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		return nil, newError
 	}
 	rls, err := c.getHelmRelease(installReleaseResp.GetRelease())
+	rls.Command = request.Command
 	rls.Commit = request.Commit
 	if err != nil {
 		return nil, err
@@ -510,6 +517,7 @@ func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest) ([]*ReleaseHo
 			Values:           request.Values,
 			ReleaseName:      request.ReleaseName,
 			Namespace:        request.Namespace,
+			AppServiceId:     request.AppServiceId,
 			ImagePullSecrets: request.ImagePullSecrets,
 		}
 		return c.PreInstallRelease(installReq)
@@ -559,6 +567,8 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 			Values:           request.Values,
 			ReleaseName:      request.ReleaseName,
 			Namespace:        request.Namespace,
+			Command:          request.Command,  // 多填
+			AppServiceId:     request.AppServiceId,
 			ImagePullSecrets: request.ImagePullSecrets,
 		}
 		installResp, err := c.InstallRelease(installReq)
@@ -598,7 +608,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 
 	if request.ChartName != "choerodon-cluster-agent" {
 		for index, manifestToInsert := range manifestDocs {
-			newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion)
+			newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion,request.AppServiceId)
 			if err != nil {
 				return nil, fmt.Errorf("label objects: %v", err)
 			}
@@ -623,6 +633,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 		newErr := fmt.Errorf("update release %s: %v", request.ReleaseName, err)
 		if updateReleaseResp != nil {
 			rls, err := c.getHelmRelease(updateReleaseResp.GetRelease())
+			//这里先不加command
 			if err != nil {
 				return nil, err
 			}
@@ -636,6 +647,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 		return nil, err
 	}
 	rls.Commit = request.Commit
+	rls.Command = request.Command
 	return rls, nil
 }
 
@@ -658,7 +670,6 @@ func (c *client) DeleteRelease(request *DeleteReleaseRequest) (*Release, error) 
 	deleteReleaseResp, err := c.helmClient.DeleteRelease(
 		request.ReleaseName,
 		helm.DeletePurge(true),
-
 	)
 	if err != nil {
 		return nil, fmt.Errorf("delete release %s: %v", request.ReleaseName, err)

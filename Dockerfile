@@ -12,7 +12,7 @@ RUN apk --no-cache add \
         tzdata \
         openssh \
         ca-certificates && \
-    mkdir -p /ssh-keys && \
+    mkdir -p  /ssh-keys&& \
     wget -qO /usr/bin/kubectl \
        "http://mirror.azure.cn/kubernetes/kubectl/$(curl -sSL http://mirror.azure.cn/kubernetes/kubectl/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/bin/kubectl && \

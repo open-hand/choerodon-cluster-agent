@@ -13,6 +13,7 @@ type InstallReleaseRequest struct {
 	Commit           string                         `json:"commit,omitempty"`
 	Command          int                            `json:"command,omitempty"`
 	Namespace        string                         `json:"namespace,omitempty"`
+	AppServiceId     int64                          `json:"appServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
@@ -46,6 +47,7 @@ type TestReleaseStatus struct {
 	Status      string `json:"status,omitempty"`
 }
 
+//安装或者升级 返回值。
 type Release struct {
 	Name         string             `json:"name,omitempty"`
 	Revision     int32              `json:"revision,omitempty"`
@@ -58,6 +60,7 @@ type Release struct {
 	Resources    []*ReleaseResource `json:"resources,omitempty"`
 	Config       string             `json:"config,omitempty"`
 	Commit       string             `json:"commit,omitempty"`
+	Command      int                 `json:"command,omitempty"`
 }
 
 type ReleaseResource struct {
@@ -86,7 +89,9 @@ type UpgradeReleaseRequest struct {
 	Command          int                            `json:"command,omitempty"`
 	Commit           string                         `json:"commit,omitempty"`
 	Namespace        string                         `json:"namespace,omitempty"`
+	AppServiceId     int64                          `json:"appServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+
 }
 
 type RollbackReleaseRequest struct {

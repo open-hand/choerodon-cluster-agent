@@ -85,6 +85,7 @@ type ReconcileC7NHelmRelease struct {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	namespace := request.Namespace
+	//对应 实例视图的名字 如：helm-lll-1f3b8
 	name := request.Name
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling C7NHelmRelease")
@@ -97,6 +98,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 
 	// Fetch the C7NHelmRelease instance
 	instance := &choerodonv1alpha1.C7NHelmRelease{}
+	//这一步将C7NHelmRelease中的值 注入到这个instance 俗话就是得到C7NHelmRelease实例
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -121,9 +123,11 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	// rls -> release
+	//helm list | grep name 存在否？ 不存在的话就安装
 	rls, err := helmClient.GetRelease(&modelhelm.GetReleaseContentRequest{ReleaseName: name})
 
 	if err != nil {
+		//不存在的话 就会报一个不存在的err //然后开始安装
 		if !strings.Contains(err.Error(), helm.ErrReleaseNotFound(name).Error()) {
 			if cmd := installHelmReleaseCmd(instance); cmd != nil {
 				glog.Infof("release %s install", instance.Name)
@@ -133,6 +137,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			responseChan <- newReleaseSyncFailRep(instance, "helm release query failed ,please check tiller server.")
 			return result, fmt.Errorf("get release content: %v", err)
 		}
+		//如果存在 说明release已经存 就是更新？
 	} else {
 		if instance.Namespace != rls.Namespace {
 			responseChan <- newReleaseSyncFailRep(instance, "release already in other namespace!")
@@ -141,6 +146,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		//todo  目前的方式是解析release里面的对象，找到deployment的command标签，用于比较是否更改，执行重新部署，是否有更好的方式？
 		results := strings.Split(rls.Manifest, "---")
 		var commandId int = 0
+		var appServiceId int64 = 0
 		for _, result := range results {
 			if result != "" && result != "\n" {
 				var data = []byte(result)
@@ -148,12 +154,14 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 				yaml.Unmarshal(data, &deployment)
 				if deployment.Kind == "Deployment" {
 					commandId, _ = strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
+					appServiceId,_ = strconv.ParseInt(deployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel],10,64)
 					break
 				}
 			}
 		}
-		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId {
-			glog.Infof("release %s chart、version、values not change", rls.Name)
+        //这边 devops那边已经做判断，所以这段代码相当于，忽略不计
+		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId && instance.Spec.AppServiceId == appServiceId {
+			glog.Infof("release %s chart、version、values、 not change", rls.Name)
 			payload, _ := json.Marshal(rls)
 			responseChan <- UpgradeInstanceStatusCmd(instance, string(payload))
 			return result, nil
@@ -176,6 +184,7 @@ func installHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pa
 		Command:          instance.Spec.CommandId,
 		Commit:           instance.Annotations[model.CommitLabel],
 		Namespace:        instance.Namespace,
+		AppServiceId:     instance.Spec.AppServiceId,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
 	}
 	reqBytes, err := json.Marshal(req)
@@ -201,6 +210,7 @@ func updateHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pac
 		Command:          instance.Spec.CommandId,
 		Commit:           instance.Annotations[model.CommitLabel],
 		Namespace:        instance.Namespace,
+		AppServiceId:     instance.Spec.AppServiceId,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
 	}
 	reqBytes, err := json.Marshal(req)

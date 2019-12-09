@@ -7,6 +7,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 )
 
+//helm 安装
 func InstallJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.InstallReleaseRequest
 	var newCmds []*model.Packet
@@ -18,6 +19,7 @@ func InstallJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 	if req.Namespace == "" {
 		req.Namespace = cmd.Namespace()
 	}
+	//这个hooks 是干嘛的呢？
 	hooks, err := opts.HelmClient.PreInstallRelease(&req)
 	if err != nil {
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
@@ -50,6 +52,7 @@ func UpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 	if req.Namespace == "" {
 		req.Namespace = cmd.Namespace()
 	}
+	//这是在干嘛
 	hooks, err := opts.HelmClient.PreUpgradeRelease(&req)
 	if err != nil {
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
