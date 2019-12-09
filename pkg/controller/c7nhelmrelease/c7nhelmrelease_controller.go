@@ -159,7 +159,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 				}
 			}
 		}
-
+        //这边 devops那边已经做判断，所以这段代码相当于，忽略不计
 		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId && instance.Spec.AppServiceId == appServiceId {
 			glog.Infof("release %s chart、version、values、 not change", rls.Name)
 			payload, _ := json.Marshal(rls)

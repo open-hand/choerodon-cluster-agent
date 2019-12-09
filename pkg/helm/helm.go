@@ -281,6 +281,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		return nil, newError
 	}
 	rls, err := c.getHelmRelease(installReleaseResp.GetRelease())
+	rls.Command = request.Command
 	rls.Commit = request.Commit
 	if err != nil {
 		return nil, err
@@ -566,6 +567,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 			Values:           request.Values,
 			ReleaseName:      request.ReleaseName,
 			Namespace:        request.Namespace,
+			Command:          request.Command,  // 多填
 			AppServiceId:     request.AppServiceId,
 			ImagePullSecrets: request.ImagePullSecrets,
 		}
@@ -631,6 +633,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 		newErr := fmt.Errorf("update release %s: %v", request.ReleaseName, err)
 		if updateReleaseResp != nil {
 			rls, err := c.getHelmRelease(updateReleaseResp.GetRelease())
+			//这里先不加command
 			if err != nil {
 				return nil, err
 			}
@@ -644,6 +647,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 		return nil, err
 	}
 	rls.Commit = request.Commit
+	rls.Command = request.Command
 	return rls, nil
 }
 
