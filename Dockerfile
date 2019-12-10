@@ -4,7 +4,10 @@ COPY . .
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -o ./choerodon-cluster-agent -mod=vendor -v ./cmd/manager
 
 FROM dockerhub.azk8s.cn/library/alpine:3.9
-RUN apk --no-cache add \
+
+RUN cp /etc/apk/repositories /etc/apk/repositories.bak && \
+    sed -i 's dl-cdn.alpinelinux.org mirrors.aliyun.com g' /etc/apk/repositories && \
+    apk --no-cache add \
         git \
         tini \
         curl \
@@ -12,7 +15,7 @@ RUN apk --no-cache add \
         tzdata \
         openssh \
         ca-certificates && \
-    mkdir -p  /ssh-keys&& \
+    mkdir -p /ssh-key s&& \
     wget -qO /usr/bin/kubectl \
        "http://mirror.azure.cn/kubernetes/kubectl/$(curl -sSL http://mirror.azure.cn/kubernetes/kubectl/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/bin/kubectl && \
