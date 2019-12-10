@@ -179,6 +179,24 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 				}
 			}
 			break
+
+		case "configmap":
+			commit, err := kubeClient.GetConfigMap(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
+			}
+			break
+		case "secret":
+			commit, err := kubeClient.GetSecret(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
+			}
+			break
+
 		case "persistentvolume":
 			commit, status, err := kubeClient.GetPersistentVolume(namespace, syncRequest.ResourceName)
 			if err != nil {

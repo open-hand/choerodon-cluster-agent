@@ -52,11 +52,12 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string,appServiceId int64) (*bytes.Buffer, error)
+	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, appServiceId int64) (*bytes.Buffer, error)
 	LabelTestObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
 	GetIngress(namespace string, ingressName string) (string, error)
+	GetConfigMap(namespace string, configMapName string) (string, error)
 	GetPersistentVolumeClaim(namespace string, pvcName string) (string, string, error)
 	GetPersistentVolume(namespace string, pvcName string) (string, string, error)
 	GetNamespace(namespace string) error
@@ -268,6 +269,20 @@ func (c *client) GetSecret(namespace string, secretName string) (string, error) 
 	}
 	if secret.Annotations != nil && secret.Annotations[model.CommitLabel] != "" {
 		return secret.Annotations[model.CommitLabel], nil
+	}
+	return "", nil
+}
+
+func (c *client) GetConfigMap(namespace string, configMapName string) (string, error) {
+	configMap, err := c.client.CoreV1().ConfigMaps(namespace).Get(configMapName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if configMap.Annotations != nil && configMap.Annotations[model.CommitLabel] != "" {
+		return configMap.Annotations[model.CommitLabel], nil
 	}
 	return "", nil
 }
@@ -594,7 +609,7 @@ func (c *client) LabelObjects(namespace string,
 	manifest string,
 	releaseName string,
 	app string,
-	version string ,appServiceId int64) (*bytes.Buffer, error) {
+	version string, appServiceId int64) (*bytes.Buffer, error) {
 	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -604,7 +619,7 @@ func (c *client) LabelObjects(namespace string,
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version,appServiceId)
+		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version, appServiceId)
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
 		}
@@ -728,7 +743,7 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 		//12.05 新增打标签。
 		//0 表示的是安装未填入值 -1代表更新
 		if appServiceId != 0 && appServiceId != -1 {
-			tplLabels[model.AppServiceIdLabel] = strconv.FormatInt(int64(appServiceId),10)
+			tplLabels[model.AppServiceIdLabel] = strconv.FormatInt(int64(appServiceId), 10)
 		}
 		if !isTest {
 			tplLabels[model.CommandLabel] = strconv.Itoa(command)
@@ -825,9 +840,9 @@ func labelObject(imagePullSecret []core_v1.LocalObjectReference,
 	releaseName string,
 	app string,
 	version string,
-	appServiceId int64 ) (runtime.Object, error) {
+	appServiceId int64) (runtime.Object, error) {
 
-	return addLabel(imagePullSecret, command,appServiceId, info, version, releaseName, app, "", false)
+	return addLabel(imagePullSecret, command, appServiceId, info, version, releaseName, app, "", false)
 }
 
 func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
@@ -920,7 +935,7 @@ func labelTestObject(info *resource.Info,
 	version string,
 	label string) (runtime.Object, error) {
 
-	return addLabel(imagePullSecret, 0,0, info, version, releaseName, app, label, true)
+	return addLabel(imagePullSecret, 0, 0, info, version, releaseName, app, label, true)
 }
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {
