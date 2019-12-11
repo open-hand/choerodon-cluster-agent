@@ -240,9 +240,6 @@ type persistentVolume struct {
 
 func (s *persistentVolume) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
 	var k8sResources []k8sResource
-	if namespace != "choerodon" {
-		return nil, nil
-	}
 	persistentVolumes, err := c.client.PersistentVolumes().List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
@@ -250,7 +247,7 @@ func (s *persistentVolume) getResources(c *Cluster, namespace string) ([]k8sReso
 
 	for i := range persistentVolumes.Items {
 		pv := persistentVolumes.Items[i]
-		if pv.Labels[model.ReleaseLabel] == "" && pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] == fmt.Sprintf(model.PvLabelValueFormat, kube.ClusterId) {
+		if pv.Labels[model.ReleaseLabel] == "" && pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] == fmt.Sprintf(model.PvLabelValueFormat, kube.ClusterId) && pv.Labels[model.EnvLabel] == namespace {
 			k8sResources = append(k8sResources, makePersistentVolumeK8sResource(&persistentVolumes.Items[i]))
 		}
 	}

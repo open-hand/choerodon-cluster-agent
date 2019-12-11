@@ -655,11 +655,12 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
 	case "PersistentVolumeClaim":
-		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
-		l[model.NameLabel] = obj.GetName()
+		l[model.PvcLabel] 	= fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
+		l[model.NameLabel] 	= obj.GetName()
 	case "PersistentVolume":
-		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
-		l[model.NameLabel] = obj.GetName()
+		l[model.EnvLabel] 	= info.Namespace
+		l[model.PvLabel] 	= fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
+		l[model.NameLabel] 	= obj.GetName()
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil

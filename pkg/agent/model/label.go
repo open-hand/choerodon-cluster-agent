@@ -12,9 +12,10 @@ const (
 	CommandLabel        = "choeroodn.io/command"
 	AppServiceIdLabel   = "choeroodn.io/app-service-id"
 	TestLabel           = "choerodon.io/test"
+	EnvLabel            = "choerodon.io/env"
 	PvLabel             = "choerodon.io/pv"
 	NameLabel           = "choerodon.io/name"
 	PvcLabel            = "choerodon.io/pvc"
-	PvLabelValueFormat  = "pv-%d"
-	PvcLabelValueFormat = "pvc-%d"
+	PvLabelValueFormat  = "pv-cluster-%d"
+	PvcLabelValueFormat = "pvc-cluster-%d"
 )
