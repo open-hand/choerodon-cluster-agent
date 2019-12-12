@@ -555,7 +555,7 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelRepoObj(info, version)
+		obj, err := labelRepoObj(info, namespace, version)
 
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
@@ -636,7 +636,7 @@ func (c *client) LabelObjects(namespace string,
 }
 
 // todo: what this do for ??
-func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
+func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Object, error) {
 
 	obj := info.Object.(*unstructured.Unstructured)
 
@@ -658,7 +658,7 @@ func labelRepoObj(info *resource.Info, version string) (runtime.Object, error) {
 		l[model.PvcLabel] 	= fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
 		l[model.NameLabel] 	= obj.GetName()
 	case "PersistentVolume":
-		l[model.EnvLabel] 	= info.Namespace
+		l[model.EnvLabel] 	= namespace
 		l[model.PvLabel] 	= fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
 		l[model.NameLabel] 	= obj.GetName()
 	default:
