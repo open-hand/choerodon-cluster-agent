@@ -58,6 +58,7 @@ var (
 		hooks.PostRollback:       release.Hook_POST_ROLLBACK,
 		hooks.ReleaseTestSuccess: release.Hook_RELEASE_TEST_SUCCESS,
 		hooks.ReleaseTestFailure: release.Hook_RELEASE_TEST_FAILURE,
+		hooks.CRDInstall: release.Hook_CRD_INSTALL,
 	}
 )
 
@@ -209,8 +210,17 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		return nil, err
 	}
 	chartRequested.Values.Raw = newChartValues
+
+	var hooks []*release.Hook
+	var manifestDoc *bytes.Buffer
+	var manifestDocs = []string{}
+	var newTemplates = []*chart.Template{}
+
+	if request.ChartName == "prometheus-operator" {
+		goto prometheus
+	}
 	//这一步 将请求的values 和 chart包中的values合并  这个时候已经成型。
-	hooks, manifestDoc, err := c.renderManifests(
+	hooks, manifestDoc, err = c.renderManifests(
 		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
@@ -220,9 +230,9 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		glog.V(1).Infof("sort error...")
 		return nil, err
 	}
-    //资源清单列表 如 pod（pod竟然提前渲染出来？） ，service deployment 的对应的yaml文件
-	manifestDocs := []string{}
-	newTemplates := []*chart.Template{}
+    //service deployment 等的对应的yaml文件
+	//manifestDocs := []string{}
+	//newTemplates := []*chart.Template{}
 
 	if manifestDoc != nil {
 		manifestDocs = append(manifestDocs, manifestDoc.String())
@@ -256,10 +266,11 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 			newTemplates = append(newTemplates, newTemplate)
 		}
 	}
-
 	chartRequested.Templates = newTemplates
 	chartRequested.Dependencies = []*chart.Chart{}
 	chartRequested.Values.Raw = oldValues
+
+	prometheus:
 	//最终安装
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,

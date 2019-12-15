@@ -19,6 +19,18 @@ func InstallJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 	if req.Namespace == "" {
 		req.Namespace = cmd.Namespace()
 	}
+
+	//如果是prometheus 那么就不进行下面这些花里胡哨的步骤，直接安装
+	if req.ChartName == "prometheus-operator" {
+		installPrometheusCmd := &model.Packet{
+			Key:     cmd.Key,
+			Type:    model.HelmReleaseInstallResourceInfo,
+			Payload: cmd.Payload,
+		}
+		newCmds = append(newCmds, installPrometheusCmd)
+		return newCmds,nil
+	}
+
 	//这个hooks 是干嘛的呢？
 	hooks, err := opts.HelmClient.PreInstallRelease(&req)
 	if err != nil {
