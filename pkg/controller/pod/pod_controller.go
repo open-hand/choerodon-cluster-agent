@@ -105,7 +105,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	if instance.Labels[model.ReleaseLabel] != "" && instance.Labels[model.TestLabel] == "" {
 		glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
 		responseChan <- newPodRep(instance)
-	} else if instance.Labels[model.TestLabel] == r.args.PlatformCode {
+	} else if instance.Labels[model.TestLabel] == r.args.PlatformCode && instance.Labels[model.TestLabel] != "" {
 		// 测试执行Job pod状态变更
 		responseChan <- newTestPodRep(instance)
 	}
