@@ -16,22 +16,19 @@ func InstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 	if req.Namespace == "" {
 		req.Namespace = cmd.Namespace()
 	}
-	opts.HelmClient.InstallRelease(&req)
-	return nil,nil
-	//resp, err :=
-	//if err != nil {
-	//	return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
-	//}
-	//respB, err := json.Marshal(resp)
-	//if err != nil {
-	//	return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
-	//}
-	//return nil, &model.Packet{
-	//	Key:     cmd.Key,
-	//	Type:    model.HelmReleaseInstallResourceInfo,
-	//	Payload: string(respB),
-	//}
-
+	resp, err := opts.HelmClient.InstallRelease(&req)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	respB, err := json.Marshal(resp)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.HelmReleaseInstallResourceInfo,
+		Payload: string(respB),
+	}
 }
 
 

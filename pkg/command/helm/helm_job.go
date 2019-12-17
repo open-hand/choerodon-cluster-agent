@@ -64,6 +64,16 @@ func UpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 	if req.Namespace == "" {
 		req.Namespace = cmd.Namespace()
 	}
+	//如果是prometheus 那么就不进行下面这些花里胡哨的步骤，直接安装
+	if req.ChartName == "prometheus-operator" {
+		installPrometheusCmd := &model.Packet{
+			Key:     cmd.Key,
+			Type:    model.HelmReleaseUpgradeResourceInfo,
+			Payload: cmd.Payload,
+		}
+		newCmds = append(newCmds, installPrometheusCmd)
+		return newCmds,nil
+	}
 	//这是在干嘛
 	hooks, err := opts.HelmClient.PreUpgradeRelease(&req)
 	if err != nil {

@@ -278,6 +278,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		helm.ValueOverrides([]byte(request.Values)),
 		helm.ReleaseName(request.ReleaseName),
 	)
+
 	if err != nil {
 		newError := fmt.Errorf("install release %s: %v", request.ReleaseName, err)
 		if installReleaseResp != nil {
@@ -305,7 +306,13 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		glog.Infof("kubectl %s", kubectlPath)
 		kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
 
-		err = kubectlApplier.ApplySingleObj("kube-system", getCertManagerIssuerData())
+		err = kubectlApplier.ApplySingleObj("choerodon", getCertManagerIssuerData())
+	}
+	//数据量太大
+
+	if rls.ChartName == "prometheus-operator" {
+		rls.Hooks = nil
+		rls.Resources = nil
 	}
 	return rls, err
 }
@@ -596,7 +603,16 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 
 	chartutil.ProcessRequirementsEnabled(chartRequested, &chart.Config{Raw: request.Values})
 
-	hooks, manifestDoc, err := c.renderManifests(
+	var hooks []*release.Hook
+	var manifestDoc *bytes.Buffer
+	manifestDocs := []string{}
+	newTemplates := []*chart.Template{}
+
+	if request.ChartName == "prometheus-operator" {
+		goto prometheus
+	}
+
+	hooks, manifestDoc, err = c.renderManifests(
 		request.Namespace,
 		chartRequested,
 		request.ReleaseName,
@@ -607,8 +623,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 		return nil, err
 	}
 
-	manifestDocs := []string{}
-	newTemplates := []*chart.Template{}
+
 
 	if manifestDoc != nil {
 		manifestDocs = append(manifestDocs, manifestDoc.String())
@@ -635,6 +650,8 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 		chartRequested.Dependencies = []*chart.Chart{}
 	}
 
+	prometheus:
+
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,
 		chartRequested,
@@ -659,6 +676,10 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 	}
 	rls.Commit = request.Commit
 	rls.Command = request.Command
+	if rls.ChartName == "prometheus-operator" {
+		rls.Hooks = nil
+		rls.Resources = nil
+	}
 	return rls, nil
 }
 
@@ -682,6 +703,10 @@ func (c *client) DeleteRelease(request *DeleteReleaseRequest) (*Release, error) 
 		request.ReleaseName,
 		helm.DeletePurge(true),
 	)
+	//if strings.Contains(request.ReleaseName,"prometheus-operator") {
+	//	c.kubeClient.GetKubeClient()
+	//}
+
 	if err != nil {
 		return nil, fmt.Errorf("delete release %s: %v", request.ReleaseName, err)
 	}
