@@ -174,6 +174,8 @@ func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHo
 }
 
 func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error) {
+
+
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -217,6 +219,14 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	var newTemplates = []*chart.Template{}
 
 	if request.ChartName == "prometheus-operator" {
+		kubectlPath, err := exec.LookPath("kubectl")
+		if err != nil {
+			glog.Fatal(err)
+		}
+		glog.Infof("kubectl %s", kubectlPath)
+		kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
+
+		kubectlApplier.DeletePrometheusCrd()
 		goto prometheus
 	}
 	//这一步 将请求的values 和 chart包中的values合并  这个时候已经成型。
@@ -703,9 +713,9 @@ func (c *client) DeleteRelease(request *DeleteReleaseRequest) (*Release, error) 
 		request.ReleaseName,
 		helm.DeletePurge(true),
 	)
-	//if strings.Contains(request.ReleaseName,"prometheus-operator") {
-	//	c.kubeClient.GetKubeClient()
-	//}
+	if strings.Contains(request.ReleaseName,"prometheus-operator") {
+		c.kubeClient.GetKubeClient().ExtensionsV1beta1().RESTClient().Delete().Name("memcacheds.cache.example.com").Resource("CustomResourceDefinition")
+	}
 
 	if err != nil {
 		return nil, fmt.Errorf("delete release %s: %v", request.ReleaseName, err)

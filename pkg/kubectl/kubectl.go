@@ -99,6 +99,24 @@ func (c *Kubectl) ApplySingleObj(namespace string, resourceFile string) error {
 	return nil
 }
 
+func (c *Kubectl) DeletePrometheusCrd() error {
+	args := []string{"delete", "crd","prometheuses.monitoring.coreos.com prometheusrules.monitoring.coreos.com servicemonitors.monitoring.coreos.com podmonitors.monitoring.coreos.com alertmanagers.monitoring.coreos.com "}
+	cmd := c.kubectlCommand(args...)
+	stderr := &bytes.Buffer{}
+	cmd.Stderr = stderr
+	stdout := &bytes.Buffer{}
+	cmd.Stdout = stdout
+
+	begin := time.Now()
+	err := cmd.Run()
+	glog.Infof("kubectl %s , took %v, err: %v, output: %s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
+	if err != nil {
+		err = errors.Wrap(errors.New(strings.TrimSpace(stderr.String())), "running kubectl")
+		return err
+	}
+	return nil
+}
+
 func (c *Kubectl) Describe(namespace, sourceKind, sourceName string) (info string) {
 	return c.describe(namespace, sourceKind, sourceName)
 }
