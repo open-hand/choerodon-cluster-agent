@@ -6,13 +6,15 @@ package helm
 
 import (
 	"fmt"
+	"github.com/ghodss/yaml"
+	"github.com/vinkdong/gox/log"
+	"k8s.io/helm/pkg/manifest"
 	"os"
 	"path"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"k8s.io/client-go/discovery"
 	"k8s.io/helm/pkg/chartutil"
@@ -178,6 +180,8 @@ func newKindSorter(m []tiller.Manifest, s tiller.SortOrder) *kindSorter {
 	}
 }
 
+type Manifest = manifest.Manifest
+
 func (file *manifestFile) sort(result *result) error {
 	for _, m := range file.entries {
 		var entry util.SimpleHead
@@ -188,12 +192,8 @@ func (file *manifestFile) sort(result *result) error {
 			return e
 		}
 
-		if entry.Version != "" && !file.apis.Has(entry.Version) {
-			return fmt.Errorf("apiVersion %q in %s is not available", entry.Version, file.path)
-		}
-
 		if !hasAnyAnnotation(entry) {
-			result.generic = append(result.generic, tiller.Manifest{
+			result.generic = append(result.generic, Manifest{
 				Name:    file.path,
 				Content: m,
 				Head:    &entry,
@@ -203,7 +203,7 @@ func (file *manifestFile) sort(result *result) error {
 
 		hookTypes, ok := entry.Metadata.Annotations[hooks.HookAnno]
 		if !ok {
-			result.generic = append(result.generic, tiller.Manifest{
+			result.generic = append(result.generic, Manifest{
 				Name:    file.path,
 				Content: m,
 				Head:    &entry,
@@ -235,27 +235,32 @@ func (file *manifestFile) sort(result *result) error {
 		}
 
 		if isUnknownHook {
-			glog.Infof("info: skipping unknown hook: %q", hookTypes)
+			log.Infof("info: skipping unknown hook: %q", hookTypes)
 			continue
 		}
 
 		result.hooks = append(result.hooks, h)
 
-		isKnownDeletePolices := false
-		dps, ok := entry.Metadata.Annotations[hooks.HookDeleteAnno]
-		if ok {
-			for _, dp := range strings.Split(dps, ",") {
-				dp = strings.ToLower(strings.TrimSpace(dp))
-				p, exist := deletePolices[dp]
-				if exist {
-					isKnownDeletePolices = true
-					h.DeletePolicies = append(h.DeletePolicies, p)
-				}
+		operateAnnotationValues(entry, hooks.HookDeleteAnno, func(value string) {
+			policy, exist := deletePolices[value]
+			if exist {
+				h.DeletePolicies = append(h.DeletePolicies, policy)
+			} else {
+				log.Infof("info: skipping unknown hook delete policy: %q", value)
 			}
-			if !isKnownDeletePolices {
-				glog.Infof("info: skipping unknown hook delete policy: %q", dps)
-			}
-		}
+		})
+
+		// Only check for delete timeout annotation if there is a deletion policy.
+		//if len(h.DeletePolicies) > 0 {
+		//	//h.DeleteTimeout = defaultHookDeleteTimeoutInSeconds
+		//	operateAnnotationValues(entry, hooks.HookDeleteTimeoutAnno, func(value string) {
+		//		timeout, err := strconv.ParseInt(value, 10, 64)
+		//		if err != nil || timeout < 0 {
+		//			log.Infof("info: ignoring invalid hook delete timeout value: %q", value)
+		//		}
+		//		//h.DeleteTimeout = timeout
+		//	})
+		//}
 	}
 
 	return nil
@@ -279,4 +284,13 @@ func calculateHookWeight(entry util.SimpleHead) int32 {
 	}
 
 	return int32(hw)
+}
+
+func operateAnnotationValues(entry util.SimpleHead, annotation string, operate func(p string)) {
+	if dps, ok := entry.Metadata.Annotations[annotation]; ok {
+		for _, dp := range strings.Split(dps, ",") {
+			dp = strings.ToLower(strings.TrimSpace(dp))
+			operate(dp)
+		}
+	}
 }

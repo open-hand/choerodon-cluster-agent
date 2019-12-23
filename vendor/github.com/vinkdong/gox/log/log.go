@@ -13,6 +13,7 @@ import (
 const ClrEnd = "\x1b[0m"
 const ClrDEBUG = "\x1b[37;2m"
 const ClrSuccess = "\x1b[32;2m"
+const ClrWarn = "\x1b[33;2m"
 
 var debug = false
 var std = New(os.Stdout, "", log.LstdFlags)
@@ -194,4 +195,15 @@ func Successf(format string, a ...interface{}) {
 	tmp := fmt.Sprintf(format, a...)
 	success := fmt.Sprintf("[INFO] %v", tmp)
 	std.Output(2, success, ClrSuccess)
+}
+
+func Warn(l interface{}) {
+	warn := fmt.Sprintf("[WARN] %v", l)
+	std.Output(2, warn, ClrWarn)
+}
+
+func Warnf(format string, a ...interface{}) {
+	tmp := fmt.Sprintf(format, a...)
+	warn := fmt.Sprintf("[WARN] %v", tmp)
+	std.Output(2, warn, ClrWarn)
 }

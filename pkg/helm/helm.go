@@ -262,11 +262,13 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 			request.ChartVersion,
 			request.AppServiceId,
 		)
+		var manifestBytes []byte
 		if err != nil {
-			return nil, fmt.Errorf("label objects: %v", err)
+			//return nil, fmt.Errorf("label objects: %v", err)
+			manifestBytes = []byte(manifestToInsert)
+		} else {
+			manifestBytes = []byte(replaceValue(string(newManifestBuf.Bytes()), valuesMap))
 		}
-		//渲染templates下的所有模版。
-		manifestBytes := []byte(replaceValue(string(newManifestBuf.Bytes()), valuesMap))
 		//fmt.Println(string(manifestBytes))
 		if index == 0 {
 			newTemplate := &chart.Template{Name: request.ReleaseName, Data: manifestBytes}

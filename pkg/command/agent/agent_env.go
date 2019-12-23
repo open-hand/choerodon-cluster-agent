@@ -106,7 +106,7 @@ func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	if err := opts.HelmClient.DeleteNamespaceReleases(env.Namespace); err != nil {
 		glog.V(1).Info(err)
 	}
-	if skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True";skipCheckNamespace{
+	if skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True"; skipCheckNamespace {
 
 	} else if err := opts.KubeClient.DeleteNamespace(env.Namespace); err != nil {
 		glog.V(1).Info(err)
