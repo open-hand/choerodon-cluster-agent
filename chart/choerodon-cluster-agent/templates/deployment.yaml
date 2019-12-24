@@ -1,5 +1,5 @@
 kind: Deployment
-apiVersion: extensions/v1beta1
+apiVersion: {{ include "app.deployment.apiVersion" . }}
 metadata:
   name: {{ .Release.Name }}
   labels:
