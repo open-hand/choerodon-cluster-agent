@@ -33,7 +33,7 @@ func syncStatefulSet(ctx *Context) error {
 
 		instances, err := ctx.KubeClient.GetKubeClient().AppsV1().StatefulSets(ns).List(metav1.ListOptions{})
 		if err != nil {
-			glog.Warning("StatefulSets v1 not support on your cluster ",err)
+			glog.Fatal("List StatefulSets err:",err)
 		} else {
 			var podList []string
 			for _, statefulset := range instances.Items {
@@ -65,9 +65,9 @@ func syncReplicaSet(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
 
-		rsList, err := ctx.KubeClient.GetKubeClient().ExtensionsV1beta1().ReplicaSets(ns).List(metav1.ListOptions{})
+		rsList, err := ctx.KubeClient.GetKubeClient().AppsV1().ReplicaSets(ns).List(metav1.ListOptions{})
 		if err != nil {
-			glog.Fatal("can not list resource, no rabc bind, exit !")
+			glog.Fatal("List ReplicaSets err:",err)
 		} else {
 			var resourceSyncList []string
 			for _, resource := range rsList.Items {
@@ -81,7 +81,7 @@ func syncReplicaSet(ctx *Context) error {
 			}
 			content, err := json.Marshal(resourceList)
 			if err != nil {
-				glog.Fatal("marshal ReplicaSet list error")
+				glog.Fatal("marshal ReplicaSet list error:", err)
 			} else {
 				response := &model.Packet{
 					Key:     fmt.Sprintf("env:%s", ns),
