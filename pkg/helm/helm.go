@@ -9,6 +9,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/rest"
 	"os"
 	"os/exec"
@@ -183,10 +184,20 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	if releaseContentResp != nil {
 		return nil, fmt.Errorf("release %s already exist", request.ReleaseName)
 	}
-    //将chart包下载下来   *chart Chart 按照我的理解，是和一个chart包目录一一对应
-	chartRequested, err := getChart(request.RepoURL, request.ChartName, request.ChartVersion)
+
+	// release名字不应该和是DNS1123Subdomain
+	if msgs := validation.IsDNS1123Subdomain(request.ReleaseName); request.ReleaseName != "" && len(msgs) > 0 {
+		return nil, fmt.Errorf("release name %s is invalid: %s", request.ReleaseName, strings.Join(msgs, ";"))
+	}
+	//todo username and password
+	cp, err := locateChartPath(request.RepoURL, "", "", request.ChartName, request.ChartVersion, false, "",
+		"", "", "")
 	if err != nil {
-		return nil, fmt.Errorf("load chart: %v", err)
+		return nil, err
+	}
+	chartRequested, err := chartutil.Load(cp)
+	if err != nil {
+		return nil, err
 	}
     //解决chart包依赖？  //
 	chartutil.ProcessRequirementsEnabled(chartRequested, &chart.Config{Raw: request.Values})
@@ -213,70 +224,37 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	}
 	chartRequested.Values.Raw = newChartValues
 
-	var hooks []*release.Hook
-	var manifestDoc *bytes.Buffer
-	var manifestDocs = []string{}
-	var newTemplates = []*chart.Template{}
-
-	if request.ChartName == "prometheus-operator" {
-		kubectlPath, err := exec.LookPath("kubectl")
-		if err != nil {
-			glog.Fatal(err)
-		}
-		glog.Infof("kubectl %s", kubectlPath)
-		kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
-
-		kubectlApplier.DeletePrometheusCrd()
-		goto prometheus
-	}
-	//这一步 将请求的values 和 chart包中的values合并  这个时候已经成型。
-	hooks, manifestDoc, err = c.renderManifests(
-		request.Namespace,
+	files, err := c.renderFiles(request.Namespace,
 		chartRequested,
 		request.ReleaseName,
 		newValues,
 		1)
-	if err != nil {
-		glog.V(1).Infof("sort error...")
-		return nil, err
-	}
-    //service deployment 等的对应的yaml文件
-	//manifestDocs := []string{}
-	//newTemplates := []*chart.Template{}
 
-	if manifestDoc != nil {
-		manifestDocs = append(manifestDocs, manifestDoc.String())
-	}
-	for _, hook := range hooks {
-		manifestDocs = append(manifestDocs, hook.Manifest)
-	}
+	newTemplates := []*chart.Template{}
 
-	//成形后，加入label标志
-	for index, manifestToInsert := range manifestDocs {
+	for filename, f := range files {
 		newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace,
 			request.Command,
 			request.ImagePullSecrets,
-			manifestToInsert,
+			f,
 			request.ReleaseName,
 			request.ChartName,
 			request.ChartVersion,
 			request.AppServiceId,
 		)
-		var manifestBytes []byte
+		var newFile []byte
 		if err != nil {
 			//return nil, fmt.Errorf("label objects: %v", err)
-			manifestBytes = []byte(manifestToInsert)
+			newFile = []byte(f)
 		} else {
-			manifestBytes = []byte(replaceValue(string(newManifestBuf.Bytes()), valuesMap))
+			newFile = []byte(replaceValue(string(newManifestBuf), valuesMap))
 		}
-		//fmt.Println(string(manifestBytes))
-		if index == 0 {
-			newTemplate := &chart.Template{Name: request.ReleaseName, Data: manifestBytes}
-			newTemplates = append(newTemplates, newTemplate)
-		} else {
-			newTemplate := &chart.Template{Name: "hook" + strconv.Itoa(index), Data: manifestBytes}
-			newTemplates = append(newTemplates, newTemplate)
-		}
+
+		//add {{ }} when get {{ }}
+		var re = regexp.MustCompile(`(\{\{[^}^}]*\}\})`)
+		b := re.ReplaceAll(newFile, []byte("{{`$1`}}"))
+		newTemplate := &chart.Template{Name: filename, Data: b}
+		newTemplates = append(newTemplates, newTemplate)
 	}
 	chartRequested.Templates = newTemplates
 	chartRequested.Dependencies = []*chart.Chart{}
@@ -651,10 +629,10 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 				return nil, fmt.Errorf("label objects: %v", err)
 			}
 			if index == 0 {
-				newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf.Bytes()}
+				newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf}
 				newTemplates = append(newTemplates, newTemplate)
 			} else {
-				newTemplate := &chart.Template{Name: "hook" + strconv.Itoa(index), Data: newManifestBuf.Bytes()}
+				newTemplate := &chart.Template{Name: "hook" + strconv.Itoa(index), Data: newManifestBuf}
 				newTemplates = append(newTemplates, newTemplate)
 			}
 		}
@@ -767,12 +745,12 @@ func (c *client) StartRelease(request *StartReleaseRequest) (*StartReleaseRespon
 	return resp, nil
 }
 
-func (c *client) renderManifests(
+func (c *client) renderFiles(
 	namespace string,
 	chartRequested *chart.Chart,
 	releaseName string,
 	values string,
-	revision int) ([]*release.Hook, *bytes.Buffer, error) {
+	revision int) (map[string]string, error) {
 	env := tillerenv.New()
 
 	ts := timeconv.Now()
@@ -787,18 +765,18 @@ func (c *client) renderManifests(
 
 	discoveryInterface, err := c.kubeClient.GetDiscoveryClient()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	caps, err := capabilities(discoveryInterface)
 
 	valuesToRender, err := chartutil.ToRenderValuesCaps(chartRequested, valuesConfig, options, caps)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if err != nil {
 		glog.V(1).Infof("unmarshal error...")
-		return nil, nil, err
+		return nil, err
 	}
 
 	renderer := env.EngineYard.Default()
@@ -809,7 +787,21 @@ func (c *client) renderManifests(
 			glog.Infof("warning: %s requested non-existent template engine %s", chartRequested.Metadata.Name, chartRequested.Metadata.Engine)
 		}
 	}
-	files, err := renderer.Render(chartRequested, valuesToRender)
+	return renderer.Render(chartRequested, valuesToRender)
+}
+
+func (c *client) renderManifests(
+	namespace string,
+	chartRequested *chart.Chart,
+	releaseName string,
+	values string,
+	revision int) ([]*release.Hook, *bytes.Buffer, error) {
+	files, err := c.renderFiles(namespace, chartRequested, releaseName, values, revision)
+	discoveryInterface, err := c.kubeClient.GetDiscoveryClient()
+	caps, err := capabilities(discoveryInterface)
+	if err != nil {
+		return nil, nil, err
+	}
 	if err != nil {
 		glog.V(1).Infof("render error...")
 		return nil, nil, err

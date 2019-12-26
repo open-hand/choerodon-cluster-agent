@@ -52,7 +52,7 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, appServiceId int64) (*bytes.Buffer, error)
+	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string) ([]byte, error)
 	LabelTestObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
@@ -612,7 +612,7 @@ func (c *client) LabelObjects(namespace string,
 	manifest string,
 	releaseName string,
 	app string,
-	version string, appServiceId int64) (*bytes.Buffer, error) {
+	version string) ([]byte, error) {
 	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -634,8 +634,7 @@ func (c *client) LabelObjects(namespace string,
 		newManifestBuf.WriteString("\n---\n")
 		newManifestBuf.Write(objB)
 	}
-
-	return newManifestBuf, nil
+	return newManifestBuf.Bytes(), nil
 }
 
 // todo: what this do for ??
