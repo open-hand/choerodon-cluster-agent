@@ -8,6 +8,7 @@ import (
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
@@ -121,7 +122,14 @@ func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8s
 
 	var k8sResources []k8sResource
 	for i := range instances.Items {
-		k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
+		release := instances.Items[i]
+		if namespace == "choerodon" {
+			if release.Labels[model.C7NHelmReleaseClusterLabel] == strconv.Itoa(int(kube.ClusterId)) {
+				k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
+			}
+		} else {
+			k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
+		}
 	}
 
 	return k8sResources, nil

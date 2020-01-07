@@ -654,6 +654,9 @@ func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Objec
 		l[model.NetworkLabel] = "ingress"
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
+		if namespace == "choerodon" {
+			l[model.C7NHelmReleaseClusterLabel] = strconv.Itoa(int(ClusterId))
+		}
 	case "PersistentVolumeClaim":
 		l[model.PvcLabel] 	= fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
 		l[model.NameLabel] 	= obj.GetName()
