@@ -75,6 +75,7 @@ type Client interface {
 const testContainer string = "automation-test"
 
 var AgentVersion string
+var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationController", "Job"}
 
 type client struct {
 	cmdutil.Factory
@@ -407,15 +408,17 @@ func (c *client) StopResources(namespace string, manifest string) error {
 	clientSet := c.GetKubeClient()
 
 	for _, info := range result {
-		s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
-		if err != nil {
-			return err
-		}
-		s.Spec.Replicas = 0
+		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+			s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			s.Spec.Replicas = 0
 
-		_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
-		if err != nil {
-			return err
+			_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -658,12 +661,12 @@ func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Objec
 			l[model.C7NHelmReleaseClusterLabel] = strconv.Itoa(int(ClusterId))
 		}
 	case "PersistentVolumeClaim":
-		l[model.PvcLabel] 	= fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
-		l[model.NameLabel] 	= obj.GetName()
+		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
+		l[model.NameLabel] = obj.GetName()
 	case "PersistentVolume":
-		l[model.EnvLabel] 	= namespace
-		l[model.PvLabel] 	= fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
-		l[model.NameLabel] 	= obj.GetName()
+		l[model.EnvLabel] = namespace
+		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
+		l[model.NameLabel] = obj.GetName()
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
@@ -951,4 +954,13 @@ func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *co
 		return nil, err
 	}
 	return c.client.CoreV1().Secrets(namespace).Update(secret)
+}
+
+func inArray(expectedResourceKind []string, kind string) bool {
+	for _, item := range expectedResourceKind {
+		if item == kind {
+			return true
+		}
+	}
+	return false
 }
