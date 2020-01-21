@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/prometheus"
 	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -61,6 +62,8 @@ var (
 		hooks.ReleaseTestFailure: release.Hook_RELEASE_TEST_FAILURE,
 		hooks.CRDInstall: release.Hook_CRD_INSTALL,
 	}
+
+	expectedResourceKind = []string{"Deployment", "ReplicaSet", "Pod"}
 )
 
 type Client interface {
@@ -175,8 +178,7 @@ func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHo
 }
 
 func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error) {
-
-
+	// 查看指定名称的helm实例是否存在
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -185,11 +187,13 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		return nil, fmt.Errorf("release %s already exist", request.ReleaseName)
 	}
 
-	// release名字不应该和是DNS1123Subdomain
+	// release名字不应该是DNS1123Subdomain
 	if msgs := validation.IsDNS1123Subdomain(request.ReleaseName); request.ReleaseName != "" && len(msgs) > 0 {
 		return nil, fmt.Errorf("release name %s is invalid: %s", request.ReleaseName, strings.Join(msgs, ";"))
 	}
 	//todo username and password
+
+	// 查找chart包的位置
 	cp, err := locateChartPath(request.RepoURL, "", "", request.ChartName, request.ChartVersion, false, "",
 		"", "", "")
 	if err != nil {
@@ -199,7 +203,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	if err != nil {
 		return nil, err
 	}
-    //解决chart包依赖？  //
+	// 移除未启用的chart依赖
 	chartutil.ProcessRequirementsEnabled(chartRequested, &chart.Config{Raw: request.Values})
     //request中是提交的vlaues
     //chartRequested中的是原来chart包中的values
@@ -210,6 +214,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	}
 	valuesMap := make(map[string]string)
 	valuesMap = getValuesMap(cm, valuesMap)
+
 	// chart包的vlaues
 	oldValues := chartRequested.Values.Raw
     //这一步将chart包中的vlaues去除注释
@@ -224,7 +229,19 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	}
 	chartRequested.Values.Raw = newChartValues
 
-	files, err := c.renderFiles(request.Namespace,
+	if request.ChartName == "prometheus-operator" {
+		kubectlPath, err := exec.LookPath("kubectl")
+		if err != nil {
+			glog.Fatal(err)
+		}
+		glog.Infof("kubectl %s", kubectlPath)
+		kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
+
+		kubectlApplier.DeletePrometheusCrd()
+	}
+
+	// 获得经过渲染的文件名和文件内容
+	files, _ := c.renderFiles(request.Namespace,
 		chartRequested,
 		request.ReleaseName,
 		newValues,
@@ -253,15 +270,28 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		//add {{ }} when get {{ }}
 		var re = regexp.MustCompile(`(\{\{[^}^}]*\}\})`)
 		b := re.ReplaceAll(newFile, []byte("{{`$1`}}"))
+
+		// 兼容prometheus的添加标签后不能正确解析模板
+		if filename == "prometheus-operator/templates/prometheus/rules-1.14/prometheus.yaml" {
+			t := prometheus.PrometheusRule{}
+			err = yaml.Unmarshal(b, &t)
+			if err != nil {
+				glog.Info(err.Error())
+			}
+			t.ApiVersion = "monitoring.coreos.com/v1"
+			t.Spec.Groups[0].Rules[12].Annotations["description"] = "Prometheus {{`{{$labels.namespace}}`}}/{{`{{$labels.pod}}`}} remote write desired shards calculation wants to run {{`{{ printf $value }}`}} shards, which is more than the max of {{print `{{ printf ` \"`\" `prometheus_remote_storage_shards_max{instance=\"%s\",job=\"{{ $prometheusJob }}\",namespace=\"{{ $namespace }}\"}` \"`\" ` $labels.instance | query | first | value }}`}}."
+			result, err := yaml.Marshal(t)
+			if err != nil {
+				glog.Info(err.Error())
+			}
+			b = result
+		}
 		newTemplate := &chart.Template{Name: filename, Data: b}
 		newTemplates = append(newTemplates, newTemplate)
 	}
 	chartRequested.Templates = newTemplates
 	chartRequested.Dependencies = []*chart.Chart{}
 	chartRequested.Values.Raw = oldValues
-
-	prometheus:
-	//最终安装
 	installReleaseResp, err := c.helmClient.InstallReleaseFromChart(
 		chartRequested,
 		request.Namespace,
@@ -598,10 +628,6 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 	manifestDocs := []string{}
 	newTemplates := []*chart.Template{}
 
-	if request.ChartName == "prometheus-operator" {
-		goto prometheus
-	}
-
 	hooks, manifestDoc, err = c.renderManifests(
 		request.Namespace,
 		chartRequested,
@@ -622,25 +648,27 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 		manifestDocs = append(manifestDocs, hook.Manifest)
 	}
 
-	if request.ChartName != "choerodon-cluster-agent" {
-		for index, manifestToInsert := range manifestDocs {
-			newManifestBuf, err := c.kubeClient.LabelObjects(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion,request.AppServiceId)
-			if err != nil {
-				return nil, fmt.Errorf("label objects: %v", err)
-			}
-			if index == 0 {
-				newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf}
-				newTemplates = append(newTemplates, newTemplate)
-			} else {
-				newTemplate := &chart.Template{Name: "hook" + strconv.Itoa(index), Data: newManifestBuf}
-				newTemplates = append(newTemplates, newTemplate)
-			}
+	for index, manifestToInsert := range manifestDocs {
+		var newManifestBuf []byte
+		var err error
+		if strings.Contains(request.ChartName, "prometheus-operator") {
+			newManifestBuf, err = c.kubeClient.LabelObjectsForPrometheusUpdate(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.AppServiceId)
+		} else {
+			newManifestBuf, err = c.kubeClient.LabelObjects(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.AppServiceId)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("label objects: %v", err)
+		}
+		if index == 0 {
+			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf}
+			newTemplates = append(newTemplates, newTemplate)
+		} else {
+			newTemplate := &chart.Template{Name: "hook" + strconv.Itoa(index), Data: newManifestBuf}
+			newTemplates = append(newTemplates, newTemplate)
 		}
 		chartRequested.Templates = newTemplates
 		chartRequested.Dependencies = []*chart.Chart{}
 	}
-
-	prometheus:
 
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
 		request.ReleaseName,
@@ -763,13 +791,16 @@ func (c *client) renderFiles(
 	}
 	valuesConfig := &chart.Config{Raw: values}
 
+	// 获取kube发现接口
 	discoveryInterface, err := c.kubeClient.GetDiscoveryClient()
 	if err != nil {
 		return nil, err
 	}
 
+	// 获取kubeapi版本、集群版本、tiller版本
 	caps, err := capabilities(discoveryInterface)
 
+	// 获得渲染template的数据结构
 	valuesToRender, err := chartutil.ToRenderValuesCaps(chartRequested, valuesConfig, options, caps)
 	if err != nil {
 		return nil, err
@@ -787,6 +818,8 @@ func (c *client) renderFiles(
 			glog.Infof("warning: %s requested non-existent template engine %s", chartRequested.Metadata.Name, chartRequested.Metadata.Engine)
 		}
 	}
+
+	// 获得经过渲染的文件名和文件内容
 	return renderer.Render(chartRequested, valuesToRender)
 }
 
@@ -902,9 +935,12 @@ func getEnvInfo(values string) (error, string, int) {
 
 func cmForChart(chart *chart.Chart) (string, error) {
 	results := []string{}
+	// 取出所有的ConfigMap对象
 	if err := labelChartsConfigMap(chart, &results); err != nil {
 		return "", err
 	}
+
+	//将所有的ConfigMap对象进行合并
 	return mergeConfigMap(results), nil
 }
 
@@ -915,6 +951,10 @@ func getValuesMap(cms string, vMap map[string]string) map[string]string {
 	}
 
 	valueIndex := strings.Index(cms, "}}")
+	for valueIndex < keyIndex {
+		cms = cms[valueIndex+2:]
+		valueIndex = strings.Index(cms, "}}")
+	}
 	value := cms[keyIndex : valueIndex+2]
 
 	key := cms[:keyIndex]
@@ -1053,7 +1093,16 @@ func labelConfigMap(tmp string, releaseName string) (string, error) {
 func mergeConfigMap(cms []string) string {
 	result := ""
 	for _, cm := range cms {
-		result = "\n---\n" + cm
+		result = result + "\n---\n" + cm
 	}
-	return result
+	return strings.Trim(result, "\n---\n")
+}
+
+func inArray(expectedResourceKind []string, kind string) bool {
+	for _, item := range expectedResourceKind {
+		if item == kind {
+			return true
+		}
+	}
+	return false
 }

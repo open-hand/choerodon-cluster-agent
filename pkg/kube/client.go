@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/prometheus"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"io"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -52,7 +54,8 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string) ([]byte, error)
+	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, appServiceId int64) ([]byte, error)
+	LabelObjectsForPrometheusUpdate(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, appServiceId int64) ([]byte, error)
 	LabelTestObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
@@ -612,7 +615,8 @@ func (c *client) LabelObjects(namespace string,
 	manifest string,
 	releaseName string,
 	app string,
-	version string) ([]byte, error) {
+	version string, appServiceId int64) ([]byte, error) {
+	// 将原始yaml格式的文件转换成易操作的k8s通用对象
 	result, err := c.BuildUnstructured(namespace, manifest)
 	if err != nil {
 		return nil, fmt.Errorf("build unstructured: %v", err)
@@ -621,7 +625,7 @@ func (c *client) LabelObjects(namespace string,
 	newManifestBuf := bytes.NewBuffer(nil)
 	for _, info := range result {
 
-		// add object and pod template label
+		// 给指定的对象加上标签
 		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version, appServiceId)
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
@@ -633,6 +637,60 @@ func (c *client) LabelObjects(namespace string,
 		}
 		newManifestBuf.WriteString("\n---\n")
 		newManifestBuf.Write(objB)
+	}
+	return newManifestBuf.Bytes(), nil
+}
+
+func (c *client) LabelObjectsForPrometheusUpdate(namespace string,
+	command int,
+	imagePullSecret []core_v1.LocalObjectReference,
+	manifest string,
+	releaseName string,
+	app string,
+	version string, appServiceId int64) ([]byte, error) {
+	// 将原始yaml格式的文件转换成易操作的k8s通用对象
+	result, err := c.BuildUnstructured(namespace, manifest)
+	if err != nil {
+		return nil, fmt.Errorf("build unstructured: %v", err)
+	}
+
+	newManifestBuf := bytes.NewBuffer(nil)
+	for _, info := range result {
+		if info.Name == "" {
+
+		}
+		// 给指定的对象加上标签
+		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version, appServiceId)
+		if err != nil {
+			return nil, fmt.Errorf("label object: %v", err)
+		}
+
+		objB, err := yaml.Marshal(obj)
+		if err != nil {
+			return nil, fmt.Errorf("yaml marshal: %v", err)
+		}
+		//add {{ }} when get {{ }}
+		var re = regexp.MustCompile(`(\{\{[^{^{^}^}]*\}\})`)
+		b := re.ReplaceAll(objB, []byte("{{`$1`}}"))
+
+		// 兼容prometheus的添加标签后不能正确解析模板
+		if info.Object.GetObjectKind().GroupVersionKind().Kind == "PrometheusRule" && info.Name == releaseName+"-"+"prometheus" {
+			t := prometheus.PrometheusRule{}
+			err = yaml.Unmarshal(b, &t)
+			if err != nil {
+				glog.Info(err.Error())
+			}
+			t.ApiVersion = "monitoring.coreos.com/v1"
+			t.Spec.Groups[0].Rules[12].Annotations["description"] = "Prometheus {{`{{$labels.namespace}}`}}/{{`{{$labels.pod}}`}} remote write desired shards calculation wants to run {{`{{ printf $value }}`}} shards, which is more than the max of {{print `{{ printf ` \"`\" `prometheus_remote_storage_shards_max{instance=\"%s\",job=\"{{ $prometheusJob }}\",namespace=\"{{ $namespace }}\"}` \"`\" ` $labels.instance | query | first | value }}`}}."
+			result, err := yaml.Marshal(t)
+			if err != nil {
+				glog.Info(err.Error())
+
+			}
+			b = result
+		}
+		newManifestBuf.WriteString("\n---\n")
+		newManifestBuf.Write(b)
 	}
 	return newManifestBuf.Bytes(), nil
 }
@@ -677,7 +735,6 @@ func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Objec
 
 func nestedLocalObjectReferences(obj map[string]interface{}, fields ...string) ([]core_v1.LocalObjectReference, bool, error) {
 	val, found, err := unstructured.NestedFieldNoCopy(obj, fields...)
-	fmt.Println(val)
 	if !found || err != nil {
 		return nil, found, err
 	}
