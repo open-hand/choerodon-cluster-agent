@@ -60,7 +60,7 @@ var (
 		hooks.PostRollback:       release.Hook_POST_ROLLBACK,
 		hooks.ReleaseTestSuccess: release.Hook_RELEASE_TEST_SUCCESS,
 		hooks.ReleaseTestFailure: release.Hook_RELEASE_TEST_FAILURE,
-		hooks.CRDInstall: release.Hook_CRD_INSTALL,
+		hooks.CRDInstall:         release.Hook_CRD_INSTALL,
 	}
 
 	expectedResourceKind = []string{"Deployment", "ReplicaSet", "Pod"}
@@ -605,7 +605,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 			Values:           request.Values,
 			ReleaseName:      request.ReleaseName,
 			Namespace:        request.Namespace,
-			Command:          request.Command,  // 多填
+			Command:          request.Command, // 多填
 			AppServiceId:     request.AppServiceId,
 			ImagePullSecrets: request.ImagePullSecrets,
 		}
@@ -639,35 +639,35 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 		return nil, err
 	}
 
-
-
 	if manifestDoc != nil {
 		manifestDocs = append(manifestDocs, manifestDoc.String())
 	}
 	for _, hook := range hooks {
 		manifestDocs = append(manifestDocs, hook.Manifest)
 	}
-
-	for index, manifestToInsert := range manifestDocs {
-		var newManifestBuf []byte
-		var err error
-		if strings.Contains(request.ChartName, "prometheus-operator") {
-			newManifestBuf, err = c.kubeClient.LabelObjectsForPrometheusUpdate(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.AppServiceId)
-		} else {
-			newManifestBuf, err = c.kubeClient.LabelObjects(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.AppServiceId)
+	// 如果是agent升级，则跳过添加标签这一步，因为agent原本是直接在集群中安装的没有对应标签，如果在这里加标签k8s会报错
+	if request.ChartName != "choerodon-cluster-agent" {
+		for index, manifestToInsert := range manifestDocs {
+			var newManifestBuf []byte
+			var err error
+			if strings.Contains(request.ChartName, "prometheus-operator") {
+				newManifestBuf, err = c.kubeClient.LabelObjectsForPrometheusUpdate(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.AppServiceId)
+			} else {
+				newManifestBuf, err = c.kubeClient.LabelObjects(request.Namespace, request.Command, request.ImagePullSecrets, manifestToInsert, request.ReleaseName, request.ChartName, request.ChartVersion, request.AppServiceId)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("label objects: %v", err)
+			}
+			if index == 0 {
+				newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf}
+				newTemplates = append(newTemplates, newTemplate)
+			} else {
+				newTemplate := &chart.Template{Name: "hook" + strconv.Itoa(index), Data: newManifestBuf}
+				newTemplates = append(newTemplates, newTemplate)
+			}
+			chartRequested.Templates = newTemplates
+			chartRequested.Dependencies = []*chart.Chart{}
 		}
-		if err != nil {
-			return nil, fmt.Errorf("label objects: %v", err)
-		}
-		if index == 0 {
-			newTemplate := &chart.Template{Name: request.ReleaseName, Data: newManifestBuf}
-			newTemplates = append(newTemplates, newTemplate)
-		} else {
-			newTemplate := &chart.Template{Name: "hook" + strconv.Itoa(index), Data: newManifestBuf}
-			newTemplates = append(newTemplates, newTemplate)
-		}
-		chartRequested.Templates = newTemplates
-		chartRequested.Dependencies = []*chart.Chart{}
 	}
 
 	updateReleaseResp, err := c.helmClient.UpdateReleaseFromChart(
@@ -721,7 +721,7 @@ func (c *client) DeleteRelease(request *DeleteReleaseRequest) (*Release, error) 
 		request.ReleaseName,
 		helm.DeletePurge(true),
 	)
-	if strings.Contains(request.ReleaseName,"prometheus-operator") {
+	if strings.Contains(request.ReleaseName, "prometheus-operator") {
 		c.kubeClient.GetKubeClient().ExtensionsV1beta1().RESTClient().Delete().Name("memcacheds.cache.example.com").Resource("CustomResourceDefinition")
 	}
 
