@@ -1,6 +1,9 @@
 package namespace
 
-import "sync"
+import (
+	"github.com/golang/glog"
+	"sync"
+)
 
 type Namespaces struct {
 	m map[string]bool
@@ -29,6 +32,12 @@ func (nsSet *Namespaces) Remove(ns string) {
 }
 
 func (nsSet *Namespaces) Contain(ns string) bool {
+	defer func() {
+		err := recover() // recover() 捕获panic异常，获得程序执行权。
+		if err != nil {
+			glog.Info(err) // runtime error: index out of range
+		}
+	}()
 	nsSet.RLock()
 	defer nsSet.RUnlock()
 	_, ok := nsSet.m[ns]
