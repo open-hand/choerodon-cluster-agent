@@ -262,7 +262,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			glog.V(1).Info(err)
 		}
 
-		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), mgrs, kubectlApplier, kubectlDescriber)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetCrdClient(), mgrs, kubectlApplier, kubectlDescriber)
 	}
 	workerManager := agent.NewWorkerManager(
 		mgrs,

@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/apis/certmanager/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -30,6 +31,7 @@ func init() {
 	resourceKinds["secret"] = &secret{}
 	resourceKinds["persistentvolumeclaim"] = &persistentVolumeClaim{}
 	resourceKinds["persistentvolume"] = &persistentVolume{}
+	resourceKinds["certificate"] = &certificateKind{}
 }
 
 type k8sResource struct {
@@ -37,6 +39,36 @@ type k8sResource struct {
 	apiVersion string
 	kind       string
 	name       string
+}
+
+// ==============================================
+// certificate
+type certificateKind struct {
+}
+
+func (dk *certificateKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
+	var k8sResources []k8sResource
+	if namespace == "c7ncd-staging-test" {
+		certificates, err := c.client.Certificates(namespace).List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+
+		for i := range certificates.Items {
+			k8sResources = append(k8sResources, makeCertificateK8sResource(&certificates.Items[i]))
+		}
+	}
+
+	return k8sResources, nil
+}
+func makeCertificateK8sResource(certificate *v1alpha1.Certificate) k8sResource {
+	return k8sResource{
+		apiVersion: "v1alpha1",
+		kind:       "Certificate",
+		name:       certificate.Name,
+		k8sObject:  certificate,
+	}
 }
 
 // ==============================================

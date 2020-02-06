@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/client/clientset/versioned"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/prometheus"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
@@ -67,6 +68,7 @@ type Client interface {
 	DeleteNamespace(namespace string) error
 	GetSecret(namespace string, secretName string) (string, error)
 	GetKubeClient() *kubernetes.Clientset
+	GetCrdClient() *versioned.Clientset
 	GetRESTConfig() (*rest.Config, error)
 	IsReleaseJobRun(namespace, releaseName string) bool
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
@@ -82,13 +84,22 @@ var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationCont
 
 type client struct {
 	cmdutil.Factory
-	client *kubernetes.Clientset
+	client    *kubernetes.Clientset
+	crdClient *versioned.Clientset
 }
 
 func NewClient(f cmdutil.Factory) (Client, error) {
 	kubeClient, err := f.KubernetesClientSet()
 	if err != nil {
 		return nil, fmt.Errorf("get kubernetes client: %v", err)
+	}
+	restConfig, err := f.ToRESTConfig()
+	if err != nil {
+		return nil, fmt.Errorf("get restConfig: %v", err)
+	}
+	crdClient, err := versioned.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("get crd client: %v", err)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
@@ -97,8 +108,9 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 		return nil, fmt.Errorf("error building c7n clientset: %v", err)
 	}
 	return &client{
-		Factory: f,
-		client:  kubeClient,
+		Factory:   f,
+		client:    kubeClient,
+		crdClient: crdClient,
 	}, nil
 }
 
@@ -135,6 +147,10 @@ func (c *client) GetDiscoveryClient() (discovery.DiscoveryInterface, error) {
 
 func (c *client) GetKubeClient() *kubernetes.Clientset {
 	return c.client
+}
+
+func (c *client) GetCrdClient() *versioned.Clientset {
+	return c.crdClient
 }
 
 func (c *client) BuildUnstructured(namespace string, manifest string) (Result, error) {
