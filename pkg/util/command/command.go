@@ -27,7 +27,7 @@ type Opts struct {
 	Wg                *sync.WaitGroup
 	CrChan            *channel.CRChan
 	GitConfig         git.Config
-	Envs              []model.EnvParas `json:"envs,omitempty"`
+	AgentInitOps      *model.AgentInitOptions
 	HelmClient        helm.Client
 	PlatformCode      string
 	WsClient          websocket.Client

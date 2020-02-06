@@ -125,7 +125,7 @@ func (w *workerManager) runWorker() {
 						Wg:                w.wg,
 						CrChan:            w.chans,
 						GitConfig:         w.gitConfig,
-						Envs:              w.agentInitOps.Envs,
+						AgentInitOps:      w.agentInitOps,
 						HelmClient:        w.helmClient,
 						PlatformCode:      w.platformCode,
 						WsClient:          w.appClient,

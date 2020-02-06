@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
+	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -24,7 +25,7 @@ func (g *GitOps) PrepareSSHKeys(envs []model.EnvParas, opts *commandutil.Opts) e
 
 	for _, envPara := range envs {
 
-		//写入deploy key
+		//写入deploy key(也就是拉取gitlab仓库需要的ssh-key)
 		if err := writeSSHkey(envPara.Namespace, envPara.GitRsaKey); err != nil {
 			return err
 		}
@@ -101,7 +102,10 @@ func writeSshConfig(content string) error {
 	filename := "/etc/ssh/ssh_config"
 	var f *os.File
 	if checkFileIsExist(filename) { //如果文件存在
-		os.Remove(filename)
+		err := os.Remove(filename)
+		if err != nil {
+			glog.Info(err)
+		}
 	}
 	f, err := os.OpenFile(filename, os.O_CREATE, 0666)
 	if err != nil {
