@@ -1,7 +1,6 @@
 package namespace
 
 import (
-	"github.com/golang/glog"
 	"sync"
 )
 
@@ -32,12 +31,13 @@ func (nsSet *Namespaces) Remove(ns string) {
 }
 
 func (nsSet *Namespaces) Contain(ns string) bool {
-	defer func() {
-		err := recover() // recover() 捕获panic异常，获得程序执行权。
-		if err != nil {
-			glog.Info(err) // runtime error: index out of range
-		}
-	}()
+	// TODO 此处有读写锁的内存访问bug，目前无法解决。该问题会导致agent崩溃重启，使得新建环境第一次部署应用后，无法获得部署的应用版本。需要更高级的人员解决此问题
+	//defer func() {
+	//	err := recover() // recover() 捕获panic异常，获得程序执行权。
+	//	if err != nil {
+	//		glog.Info(err) // runtime error: index out of range
+	//	}
+	//}()
 	nsSet.RLock()
 	defer nsSet.RUnlock()
 	_, ok := nsSet.m[ns]

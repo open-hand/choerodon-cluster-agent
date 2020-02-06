@@ -48,16 +48,13 @@ type certificateKind struct {
 
 func (dk *certificateKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
 	var k8sResources []k8sResource
-	if namespace == "c7ncd-staging-test" {
-		certificates, err := c.client.Certificates(namespace).List(meta_v1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
+	certificates, err := c.client.Certificates(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
 
-
-		for i := range certificates.Items {
-			k8sResources = append(k8sResources, makeCertificateK8sResource(&certificates.Items[i]))
-		}
+	for i := range certificates.Items {
+		k8sResources = append(k8sResources, makeCertificateK8sResource(&certificates.Items[i]))
 	}
 
 	return k8sResources, nil
