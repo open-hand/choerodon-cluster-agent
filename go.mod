@@ -64,7 +64,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/technosophos/moniker v0.0.0-20170130192447-4d1d2a7d4b69 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
-	github.com/vinkdong/gox v0.0.0-20190712090641-4439945197a4
+	github.com/vinkdong/gox v0.0.0-20191217071044-432e0b72e0f8
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect
 	github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 // indirect
 	go.etcd.io/bbolt v1.3.3 // indirect

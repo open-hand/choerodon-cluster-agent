@@ -9,6 +9,7 @@ import (
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
+	"os"
 )
 
 // todo reuse this code
@@ -20,10 +21,12 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, err)
 	}
 
-	if err = opts.KubeClient.GetNamespace(agentInitOpts.Envs[0].Namespace); err == nil && agentInitOpts.Envs[0].Namespace != "choerodon" {
+	skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True"
+
+	if err = opts.KubeClient.GetNamespace(agentInitOpts.Envs[0].Namespace); err == nil && agentInitOpts.Envs[0].Namespace != "choerodon" && !skipCheckNamespace {
 		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, errors.New("env already exist"))
 	}
-	opts.Envs = append(opts.Envs, agentInitOpts.Envs[0])
+	opts.AgentInitOps.Envs = append(opts.AgentInitOps.Envs, agentInitOpts.Envs[0])
 
 	namespace := agentInitOpts.Envs[0].Namespace
 	opts.Namespaces.Add(namespace)
@@ -37,7 +40,7 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 	g := gitops.New(opts.Wg, opts.GitConfig, opts.GitRepos, opts.KubeClient, opts.Cluster, opts.CrChan)
 	g.GitHost = agentInitOpts.GitHost
 
-	if err := g.PrepareSSHKeys(opts.Envs, opts); err != nil {
+	if err := g.PrepareSSHKeys(opts.AgentInitOps.Envs, opts); err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
@@ -91,22 +94,27 @@ func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 
 	newEnvs := make([]model.EnvParas, 0)
 
-	for index, envPara := range opts.Envs {
+	for index, envPara := range opts.AgentInitOps.Envs {
 
 		if envPara.Namespace == env.Namespace {
-			newEnvs = append(opts.Envs[0:index], opts.Envs[index+1:]...)
+			newEnvs = append(opts.AgentInitOps.Envs[0:index], opts.AgentInitOps.Envs[index+1:]...)
 		}
 	}
 	opts.Mgrs.Remove(env.Namespace)
-	opts.Envs = newEnvs
+	opts.AgentInitOps.Envs = newEnvs
+
+	opts.GitRepos[env.Namespace].SyncChan <- struct{}{}
+	opts.GitRepos[env.Namespace].RefreshChan <- struct{}{}
+	delete(opts.GitRepos, env.Namespace)
 
 	if err := opts.HelmClient.DeleteNamespaceReleases(env.Namespace); err != nil {
 		glog.V(1).Info(err)
 	}
-	if err := opts.KubeClient.DeleteNamespace(env.Namespace); err != nil {
+	if skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True"; skipCheckNamespace {
+
+	} else if err := opts.KubeClient.DeleteNamespace(env.Namespace); err != nil {
 		glog.V(1).Info(err)
 	}
-
 	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.EnvDeleteSucceed,

@@ -243,6 +243,8 @@ github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8 h1:3SVOIvH7Ae1KRYy
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/vinkdong/gox v0.0.0-20190712090641-4439945197a4 h1:2UTx/WF+1hUOh8G4XksKiZly+iNf65Hb+Rav2vLcmWo=
 github.com/vinkdong/gox v0.0.0-20190712090641-4439945197a4/go.mod h1:vu7Gr4sUfwq+0MEpUtUx3jxbiWtZqHTFhj+r2uzn1WM=
+github.com/vinkdong/gox v0.0.0-20191217071044-432e0b72e0f8 h1:CKpU42h1JopjbTu+u793vjSI1gkpIl7LqOBkeUeOxv4=
+github.com/vinkdong/gox v0.0.0-20191217071044-432e0b72e0f8/go.mod h1:vu7Gr4sUfwq+0MEpUtUx3jxbiWtZqHTFhj+r2uzn1WM=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 h1:eY9dn8+vbi4tKz5Qo6v2eYzo7kUS51QINcR5jNpbZS8=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xlab/handysort v0.0.0-20150421192137-fb3537ed64a1 h1:j2hhcujLRHAg872RWAV5yaUrEjHEObwDv3aImCaNLek=

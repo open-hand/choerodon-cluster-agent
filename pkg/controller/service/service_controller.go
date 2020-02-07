@@ -98,7 +98,7 @@ func (r *ReconcileService) Reconcile(request reconcile.Request) (reconcile.Resul
 				err = r.deleteInstancedService(instance)
 			}
 			responseChan <- newServiceDelRep(request.Name, request.Namespace)
-			glog.Warningf("service '%s' in work queue no longer exists", instance)
+			glog.Warningf("service '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, err
 		}
 		// Error reading the object - requeue the request.

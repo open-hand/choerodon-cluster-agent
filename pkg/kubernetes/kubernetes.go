@@ -6,6 +6,8 @@ package kubernetes
 
 import (
 	"bytes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/client/clientset/versioned"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/client/clientset/versioned/typed/certmanager/v1alpha1"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"sync"
 
@@ -23,6 +25,7 @@ import (
 type extendedClient struct {
 	v1core.CoreV1Interface
 	v1beta1extensions.ExtensionsV1beta1Interface
+	v1alpha1.CertmanagerV1alpha1Interface
 }
 
 type ChangeSet struct {
@@ -67,6 +70,7 @@ type Cluster struct {
 // NewCluster returns a usable cluster.
 func NewCluster(
 	clientset k8sclient.Interface,
+	crdClientSet versioned.Interface,
 	mgrs *operatorutil.MgrList,
 	applier Applier,
 	describer Describer) *Cluster {
@@ -75,6 +79,7 @@ func NewCluster(
 		client: extendedClient{
 			clientset.CoreV1(),
 			clientset.ExtensionsV1beta1(),
+			crdClientSet.Certmanager(),
 		},
 		mgrs:      mgrs,
 		applier:   applier,
@@ -141,7 +146,6 @@ func (c *Cluster) Sync(namespace string, spec SyncDef) error {
 			}
 		}
 	}
-
 
 	c.mu.Lock()
 	defer c.mu.Unlock()

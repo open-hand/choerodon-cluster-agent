@@ -17,7 +17,7 @@ func DeletePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.P
 	var req DeletePodInfo
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
-		glog.V(1).Info("[wzl] Unmarshal err: ",err)
+		glog.V(1).Info("Unmarshal err: ",err)
 		return nil, nil
 	}
 
@@ -26,7 +26,7 @@ func DeletePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.P
 	//vlog.Successf("namespace: %s",namespace)
 	err = opts.KubeClient.GetKubeClient().CoreV1().Pods(namespace).Delete(podName, &metav1.DeleteOptions{})
 	if err !=nil {
-		glog.V(1).Info("[wzl] delete pod err: ",err)
+		glog.V(1).Info("Delete pod err: ",err)
 		return nil, &model.Packet{
 			Key:     cmd.Key,
 			Type:    model.DeletePod,

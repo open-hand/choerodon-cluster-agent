@@ -58,11 +58,11 @@ func (g *GitOps) listenEnvs() {
 		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, g.GitHost, envPara.Namespace, 1)}
 		repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(g.gitConfig.GitPollInterval))
 		g.Wg.Add(1)
-		repoStopChan := make(chan struct{}, 1)
 		// to wait create env git repo
 		time.Sleep(10 * time.Second)
 		go func() {
-			err := repo.Start(g.stopCh, repoStopChan, g.Wg)
+			// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
+			err := repo.Start(g.stopCh, repo.RefreshChan, g.Wg)
 			if err != nil {
 				glog.Errorf("git repo start failed", err)
 			}
@@ -70,7 +70,7 @@ func (g *GitOps) listenEnvs() {
 		g.syncSoon[envPara.Namespace] = make(chan struct{}, 1)
 		g.gitRepos[envPara.Namespace] = repo
 		g.Wg.Add(1)
-		go g.syncLoop(g.stopCh, envPara.Namespace, repoStopChan, g.Wg)
+		go g.syncLoop(g.stopCh, envPara.Namespace, repo.SyncChan, g.Wg)
 	}
 }
 

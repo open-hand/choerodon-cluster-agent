@@ -33,7 +33,7 @@ func syncStatefulSet(ctx *Context) error {
 
 		instances, err := ctx.KubeClient.GetKubeClient().AppsV1().StatefulSets(ns).List(metav1.ListOptions{})
 		if err != nil {
-			glog.Fatal("List StatefulSets err:",err)
+			glog.Warning("StatefulSets v1 not support on your cluster ", err)
 		} else {
 			var podList []string
 			for _, statefulset := range instances.Items {
@@ -67,7 +67,7 @@ func syncReplicaSet(ctx *Context) error {
 
 		rsList, err := ctx.KubeClient.GetKubeClient().AppsV1().ReplicaSets(ns).List(metav1.ListOptions{})
 		if err != nil {
-			glog.Fatal("List ReplicaSets err:",err)
+			glog.Fatal(err)
 		} else {
 			var resourceSyncList []string
 			for _, resource := range rsList.Items {

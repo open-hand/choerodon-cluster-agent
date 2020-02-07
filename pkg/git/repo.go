@@ -61,8 +61,10 @@ type Repo struct {
 	err    error
 	dir    string
 
-	notify chan struct{}
-	C      chan struct{}
+	notify      chan struct{}
+	C           chan struct{}
+	RefreshChan chan struct{}
+	SyncChan    chan struct{}
 }
 
 type Option interface {
@@ -82,13 +84,15 @@ func NewRepo(origin Remote, env string, opts ...Option) *Repo {
 		status = RepoNoConfig
 	}
 	r := &Repo{
-		origin:   origin,
-		status:   status,
-		interval: defaultInterval,
-		err:      nil,
-		Env:      env,
-		notify:   make(chan struct{}, 1), // `1` so that Notify doesn't block
-		C:        make(chan struct{}, 1), // `1` so we don't block on completing a refresh
+		origin:      origin,
+		status:      status,
+		interval:    defaultInterval,
+		err:         nil,
+		Env:         env,
+		notify:      make(chan struct{}, 1), // `1` so that Notify doesn't block
+		C:           make(chan struct{}, 1), // `1` so we don't block on completing a refresh
+		SyncChan:    make(chan struct{}, 1),
+		RefreshChan: make(chan struct{}, 1),
 	}
 	for _, opt := range opts {
 		opt.apply(r)
@@ -175,6 +179,7 @@ func (r *Repo) errorIfNotReady() error {
 func (r *Repo) Revision(ctx context.Context, ref string) (string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	// 检查本地配置库是否准备好
 	if err := r.errorIfNotReady(); err != nil {
 		return "", err
 	}
@@ -201,7 +206,7 @@ func (r *Repo) CommitsBetween(ctx context.Context, ref1, ref2, path string) ([]C
 
 // Start begins synchronising the repo by cloning it, then fetching
 // the required tags and so on.
-func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, done *sync.WaitGroup) error {
+func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}, done *sync.WaitGroup) error {
 	defer done.Done()
 
 	for {
@@ -222,12 +227,14 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 			glog.Errorf("env: %s repo no config", r.Env)
 			return nil
 		case RepoNew:
+			// 获得操作系统的临时目录
 			rootdir, err := ioutil.TempDir(os.TempDir(), MirrorRepoPrefix)
 			if err != nil {
 				return err
 			}
 
 			ctx, cancel := context.WithTimeout(bg, opTimeout)
+			// 克隆配置库(注意git clone --mirror的作用是只拉下.git的内容，正式的代码文件并不会拉取下来)
 			dir, err = mirror(ctx, rootdir, url)
 			cancel()
 			if err == nil {
@@ -238,6 +245,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 				cancel()
 				r.mu.Unlock()
 			}
+			//如果一切顺利，将状态设置为已克隆状态，继续循环
 			if err == nil {
 				r.setStatus(RepoCloned, nil)
 				continue // with new status, skipping timer
@@ -249,6 +257,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 
 		case RepoCloned:
 			ctx, cancel := context.WithTimeout(bg, opTimeout)
+			// 检查是否能够向远程分支提交tag
 			err := checkPush(ctx, dir, url)
 			cancel()
 			if err == nil {
@@ -265,7 +274,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 			r.setStatus(RepoCloned, err)
 
 		case RepoReady:
-			if err := r.refreshLoop(shutdown, repoShutdown); err != nil {
+			if err := r.refreshLoop(shutdown, repoRefreshShutdown); err != nil {
 				glog.Errorf("env: %s repo ready: %v", r.Env, err)
 				r.setStatus(RepoNew, err)
 				continue // with new status, skipping timer
@@ -275,11 +284,12 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoShutdown <-chan struct{}, don
 		tryAgain := time.NewTimer(10 * time.Second)
 		select {
 		case <-shutdown:
+			glog.Info("env:%s stop refreshLoop")
 			if !tryAgain.Stop() {
 				<-tryAgain.C
 			}
 			return nil
-		case <-repoShutdown:
+		case <-repoRefreshShutdown:
 			if !tryAgain.Stop() {
 				<-tryAgain.C
 			}
@@ -305,7 +315,7 @@ func (r *Repo) Refresh(ctx context.Context) error {
 	return nil
 }
 
-func (r *Repo) refreshLoop(shutdown <-chan struct{}, repoShutdown <-chan struct{}) error {
+func (r *Repo) refreshLoop(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}) error {
 	gitPoll := time.NewTimer(r.interval)
 	for {
 		select {
@@ -314,10 +324,11 @@ func (r *Repo) refreshLoop(shutdown <-chan struct{}, repoShutdown <-chan struct{
 				<-gitPoll.C
 			}
 			return nil
-		case <-repoShutdown:
+		case <-repoRefreshShutdown:
 			if !gitPoll.Stop() {
 				<-gitPoll.C
 			}
+			repoRefreshShutdown <- struct{}{}
 			return nil
 		case <-gitPoll.C:
 			r.Notify()
@@ -340,6 +351,7 @@ func (r *Repo) refreshLoop(shutdown <-chan struct{}, repoShutdown <-chan struct{
 }
 
 // fetch gets updated refs, and associated objects, from the upstream.
+// 获得origin分支的tag
 func (r *Repo) fetch(ctx context.Context) error {
 	if err := fetch(ctx, r.dir, "origin"); err != nil {
 		return err

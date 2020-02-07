@@ -5,14 +5,18 @@
 package helm
 
 import (
+	"errors"
 	"fmt"
+	"github.com/ghodss/yaml"
+	"github.com/vinkdong/gox/log"
+	"k8s.io/helm/pkg/manifest"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"k8s.io/client-go/discovery"
 	"k8s.io/helm/pkg/chartutil"
@@ -178,6 +182,8 @@ func newKindSorter(m []tiller.Manifest, s tiller.SortOrder) *kindSorter {
 	}
 }
 
+type Manifest = manifest.Manifest
+
 func (file *manifestFile) sort(result *result) error {
 	for _, m := range file.entries {
 		var entry util.SimpleHead
@@ -188,12 +194,8 @@ func (file *manifestFile) sort(result *result) error {
 			return e
 		}
 
-		if entry.Version != "" && !file.apis.Has(entry.Version) {
-			return fmt.Errorf("apiVersion %q in %s is not available", entry.Version, file.path)
-		}
-
 		if !hasAnyAnnotation(entry) {
-			result.generic = append(result.generic, tiller.Manifest{
+			result.generic = append(result.generic, Manifest{
 				Name:    file.path,
 				Content: m,
 				Head:    &entry,
@@ -203,7 +205,7 @@ func (file *manifestFile) sort(result *result) error {
 
 		hookTypes, ok := entry.Metadata.Annotations[hooks.HookAnno]
 		if !ok {
-			result.generic = append(result.generic, tiller.Manifest{
+			result.generic = append(result.generic, Manifest{
 				Name:    file.path,
 				Content: m,
 				Head:    &entry,
@@ -235,27 +237,32 @@ func (file *manifestFile) sort(result *result) error {
 		}
 
 		if isUnknownHook {
-			glog.Infof("info: skipping unknown hook: %q", hookTypes)
+			log.Infof("info: skipping unknown hook: %q", hookTypes)
 			continue
 		}
 
 		result.hooks = append(result.hooks, h)
 
-		isKnownDeletePolices := false
-		dps, ok := entry.Metadata.Annotations[hooks.HookDeleteAnno]
-		if ok {
-			for _, dp := range strings.Split(dps, ",") {
-				dp = strings.ToLower(strings.TrimSpace(dp))
-				p, exist := deletePolices[dp]
-				if exist {
-					isKnownDeletePolices = true
-					h.DeletePolicies = append(h.DeletePolicies, p)
-				}
+		operateAnnotationValues(entry, hooks.HookDeleteAnno, func(value string) {
+			policy, exist := deletePolices[value]
+			if exist {
+				h.DeletePolicies = append(h.DeletePolicies, policy)
+			} else {
+				log.Infof("info: skipping unknown hook delete policy: %q", value)
 			}
-			if !isKnownDeletePolices {
-				glog.Infof("info: skipping unknown hook delete policy: %q", dps)
-			}
-		}
+		})
+
+		// Only check for delete timeout annotation if there is a deletion policy.
+		//if len(h.DeletePolicies) > 0 {
+		//	//h.DeleteTimeout = defaultHookDeleteTimeoutInSeconds
+		//	operateAnnotationValues(entry, hooks.HookDeleteTimeoutAnno, func(value string) {
+		//		timeout, err := strconv.ParseInt(value, 10, 64)
+		//		if err != nil || timeout < 0 {
+		//			log.Infof("info: ignoring invalid hook delete timeout value: %q", value)
+		//		}
+		//		//h.DeleteTimeout = timeout
+		//	})
+		//}
 	}
 
 	return nil
@@ -279,4 +286,91 @@ func calculateHookWeight(entry util.SimpleHead) int32 {
 	}
 
 	return int32(hw)
+}
+
+func operateAnnotationValues(entry util.SimpleHead, annotation string, operate func(p string)) {
+	if dps, ok := entry.Metadata.Annotations[annotation]; ok {
+		for _, dp := range strings.Split(dps, ",") {
+			dp = strings.ToLower(strings.TrimSpace(dp))
+			operate(dp)
+		}
+	}
+}
+
+// locateChartPath looks for a chart directory in known places, and returns either the full path or an error.
+//
+// This does not ensure that the chart is well-formed; only that the requested filename exists.
+//
+// Order of resolution:
+// - current working directory
+// - if path is absolute or begins with '.', error out here
+// - chart repos in $HELM_HOME
+// - URL
+//
+// If 'verify' is true, this will attempt to also verify the chart.
+func locateChartPath(repoURL, username, password, name, version string, verify bool, keyring,
+	certFile, keyFile, caFile string) (string, error) {
+	name = strings.TrimSpace(name)
+	version = strings.TrimSpace(version)
+	if fi, err := os.Stat(name); err == nil {
+		abs, err := filepath.Abs(name)
+		if err != nil {
+			return abs, err
+		}
+		if verify {
+			if fi.IsDir() {
+				return "", errors.New("cannot verify a directory")
+			}
+			if _, err := downloader.VerifyChart(abs, keyring); err != nil {
+				return "", err
+			}
+		}
+		return abs, nil
+	}
+	if filepath.IsAbs(name) || strings.HasPrefix(name, ".") {
+		return name, fmt.Errorf("path %q not found", name)
+	}
+
+	crepo := filepath.Join(settings.Home.Repository(), name)
+	if _, err := os.Stat(crepo); err == nil {
+		return filepath.Abs(crepo)
+	}
+
+	dl := downloader.ChartDownloader{
+		HelmHome: settings.Home,
+		Out:      os.Stdout,
+		Keyring:  keyring,
+		Getters:  getter.All(settings),
+		Username: username,
+		Password: password,
+	}
+	if verify {
+		dl.Verify = downloader.VerifyAlways
+	}
+	if repoURL != "" {
+		chartURL, err := repo.FindChartInAuthRepoURL(repoURL, username, password, name, version,
+			certFile, keyFile, caFile, getter.All(settings))
+		if err != nil {
+			return "", err
+		}
+		name = chartURL
+	}
+
+	if _, err := os.Stat(settings.Home.Archive()); os.IsNotExist(err) {
+		os.MkdirAll(settings.Home.Archive(), 0744)
+	}
+
+	filename, _, err := dl.DownloadTo(name, version, settings.Home.Archive())
+	if err == nil {
+		lname, err := filepath.Abs(filename)
+		if err != nil {
+			return filename, err
+		}
+		log.Infof("Fetched %s to %s\n", name, filename)
+		return lname, nil
+	} else if settings.Debug {
+		return filename, err
+	}
+
+	return filename, fmt.Errorf("failed to download %q (hint: running `helm repo update` may help)", name)
 }

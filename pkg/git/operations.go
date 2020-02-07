@@ -2,6 +2,7 @@
 // Use of this source code is governed by a Apache License Version 2.0 license
 // that can be found at https://github.com/weaveworks/flux/blob/master/LICENSE
 
+// 注意，这里面的这些方法看不懂作用是什么的，根据方法里面的参数，在某个git管理的项目下执行就能知道效果是什么了
 package git
 
 import (
@@ -173,6 +174,7 @@ func noteRevList(ctx context.Context, workingDir, notesRef string) (map[string]s
 }
 
 // Get the commit hash for a reference
+// 获取某一分支的提交commit, ref变量指定分支名称
 func refRevision(ctx context.Context, path, ref string) (string, error) {
 	out := &bytes.Buffer{}
 	if err := execGitCmd(ctx, path, out, "rev-list", "--max-count", "1", ref); err != nil {

@@ -20,11 +20,15 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 	// We want to sync at least every `SyncInterval`. Being told to
 	// sync, or completing a job, may intervene (in which case,
 	// reschedule the next sync).
+
+	//NewTimer 创建一个 Timer，它会在最少过去时间段 d 后到期，向其自身的 C 字段发送当时的时间
+	// 周期定时器，倒计时结束后会发出信号，让agent自动同步远程代码
 	syncTimer := time.NewTimer(g.syncInterval)
 
 	// Keep track of current HEAD, so we can know when to treat a repo
 	// mirror notification as a change. Otherwise, we'll just sync
 	// every timer tick as well as every mirror refresh.
+	// 这个表示agent已经同步过最新的commit
 	syncHead := ""
 
 	// Ask for a sync
@@ -41,6 +45,7 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 			g.AskForSync(namespace)
 		case <-g.gitRepos[namespace].C:
 			ctx, cancel := context.WithTimeout(context.Background(), g.gitTimeout)
+			// 获得devops-sync这个tag最新的提交commit,作为最新的提交记录
 			newSyncHead, err := g.gitRepos[namespace].Revision(ctx, g.gitConfig.DevOpsTag)
 			cancel()
 			if err != nil {
@@ -48,11 +53,15 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 				continue
 			}
 			glog.Infof("env: %s get refreshed event for git repository %s, branch %s, HEAD %s, previous HEAD %s", namespace, g.gitRepos[namespace].Origin().URL, g.gitConfig.Branch, newSyncHead, syncHead)
+			//如果agent同步到commit和远程仓库的devops-sync这个tag的最新提交不一致，表明配置库有变化，需要进行同步操作
 			if newSyncHead != syncHead {
+				// 将agent的同步commit更新为最新的，即与devops-sync这个tag的最新提交
 				syncHead = newSyncHead
+				// 让agent开始同步
 				g.AskForSync(namespace)
 			}
 		case <-g.syncSoon[namespace]:
+			// 猜测如果syncTimer停止失败，那么timer会继续倒计时，等待timer计时结束
 			if !syncTimer.Stop() {
 				select {
 				case <-syncTimer.C:
@@ -62,6 +71,7 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 			if err := g.doSync(namespace); err != nil {
 				glog.Errorf("%s do sync: %v", namespace, err)
 			}
+			// 再次开启倒计时
 			syncTimer.Reset(g.syncInterval)
 		}
 	}
@@ -81,6 +91,7 @@ func (g *GitOps) doSync(namespace string) error {
 		var err error
 		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
 		defer cancel()
+		// 把devops-sync这个tag下的配置库拉下来
 		working, err = g.gitRepos[namespace].Clone(ctx, g.gitConfig)
 		if err != nil {
 			return err
@@ -89,11 +100,13 @@ func (g *GitOps) doSync(namespace string) error {
 	}
 
 	// For comparison later.
+	// 就是agent同步过的最新的commit
 	oldTagRev, err := working.SyncRevision(ctx)
 	if err != nil && !isUnknownRevision(err) {
 		return err
 	}
 
+	// 配置库devops-sync最新的commit,即是配置库的最新commit
 	newTagRev, err := working.DevOpsSyncRevision(
 		ctx)
 	if err != nil {
@@ -103,6 +116,7 @@ func (g *GitOps) doSync(namespace string) error {
 	// Get a map of all resources defined in  therepo
 	manifests := &kubernetes.Manifests{}
 
+	// 载入配置库中的所有资源
 	allResources, files, err := manifests.LoadManifests(namespace, working.Dir(), working.ManifestDir())
 	if err != nil {
 		return errors.Wrap(err, "loading resources from repo")
@@ -112,19 +126,24 @@ func (g *GitOps) doSync(namespace string) error {
 
 	var initialSync bool
 
+	// oldTagRev为空表示这是第一次同步配置库
 	if oldTagRev == "" {
 		initialSync = true
 	}
 
 	// Figure out which service IDs changed in this release
+
+	// 与上一次同步的结果进行比较，得出还未同步的文件
 	changedResources := map[string]resource.Resource{}
+
 	filesCommits := make([]FileCommit, 0)
 	fileCommitMap := map[string]string{}
 
 	if initialSync {
-		// no synctag, We are syncing everything from scratch
+		// 配置库是第一次进行同步，所有的资源都纳入需要同步的范畴
 		changedResources = allResources
 		for _, file := range files {
+			// 获得指定文件的最后一次提交记录
 			commit, err := working.FileLastCommit(ctx, file)
 			if err != nil {
 				glog.Errorf("get file commit error : v%", err)
@@ -134,7 +153,7 @@ func (g *GitOps) doSync(namespace string) error {
 			fileCommitMap[file] = commit
 		}
 	} else {
-
+		// 不是第一次同步，则需要与上一次同步的结果进行比较，得出还未同步的文件
 		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
 		changedFiles, fileList, err := working.ChangedFiles(ctx, oldTagRev)
 		if err == nil && len(changedFiles) > 0 {
@@ -159,6 +178,7 @@ func (g *GitOps) doSync(namespace string) error {
 
 	for key, k8sResource := range changedResources {
 
+		// 给所有发生变化的资源添加label
 		k8sResourceBuff, err := g.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
 		if err != nil {
 			glog.Errorf("label of object error ", err)
@@ -172,6 +192,8 @@ func (g *GitOps) doSync(namespace string) error {
 			changedResources[key] = obj
 		}
 	}
+
+	// 开始同步
 	err = Sync(namespace, manifests, allResources, changedResources, g.cluster)
 
 	if err != nil {
@@ -192,6 +214,7 @@ func (g *GitOps) doSync(namespace string) error {
 
 	// update notes and emit events for applied commits
 
+	// 更新出错的文件的提交commit
 	for i, _ := range syncErrors {
 		if fileCommitMap[syncErrors[i].Path] != "" {
 			syncErrors[i].Commit = fileCommitMap[syncErrors[i].Path]
@@ -246,13 +269,14 @@ func (g *GitOps) doSync(namespace string) error {
 	// Move the tag and push it so we know how far we've gotten.
 	{
 		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
+		// 将远程配置库agent-sync的tag更新到和devops-sync的tag一致
 		err := working.MoveSyncTagAndPush(ctx, newTagRev, "Sync pointer")
 		cancel()
 		if err != nil {
 			return err
 		}
 	}
-	// repo refresh
+	// 再次拉取远程仓库，刷新本地仓库
 	{
 		glog.Infof("%s tag: %s, old: %s, new: %s", namespace, g.gitConfig.SyncTag, oldTagRev, newTagRev)
 		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
@@ -265,6 +289,8 @@ func (g *GitOps) doSync(namespace string) error {
 // Sync synchronises the cluster to the files in a directory
 func Sync(namespace string, m *kubernetes.Manifests, repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, clus *kubernetes.Cluster) error {
 	// Get a map of resources defined in the cluster
+
+	// 取出集群中存在的且被agent进行管理的资源
 	clusterBytes, err := clus.Export(namespace)
 
 	if err != nil {
@@ -282,13 +308,17 @@ func Sync(namespace string, m *kubernetes.Manifests, repoResources map[string]re
 	// no-op.
 	sync := kubernetes.SyncDef{}
 
+	// 比较得出配置库被删掉但还没同步的资源
 	for id, res := range clusterResources {
 		prepareSyncDelete(repoResources, id, res, &sync)
 	}
 
+	// 比较得出配置库中新增或更新的资源
 	for _, res := range changedResources {
 		prepareSyncApply(res, &sync)
 	}
+
+	// 将更新同步到集群
 	return clus.Sync(namespace, sync)
 }
 

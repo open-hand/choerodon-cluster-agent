@@ -102,7 +102,7 @@ func (c *Kubectl) ApplySingleObj(namespace string, resourceFile string) error {
 }
 
 func (c *Kubectl) DeletePrometheusCrd() error {
-	args := []string{"delete", "crd","prometheuses.monitoring.coreos.com","prometheusrules.monitoring.coreos.com","servicemonitors.monitoring.coreos.com","podmonitors.monitoring.coreos.com","alertmanagers.monitoring.coreos.com"}
+	args := []string{"delete", "crd", "prometheuses.monitoring.coreos.com", "prometheusrules.monitoring.coreos.com", "servicemonitors.monitoring.coreos.com", "podmonitors.monitoring.coreos.com", "alertmanagers.monitoring.coreos.com"}
 	cmd := c.kubectlCommand(args...)
 	stderr := &bytes.Buffer{}
 	cmd.Stderr = stderr
