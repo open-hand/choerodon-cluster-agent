@@ -103,6 +103,10 @@ func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	opts.Mgrs.Remove(env.Namespace)
 	opts.AgentInitOps.Envs = newEnvs
 
+	opts.GitRepos[env.Namespace].SyncChan <- struct{}{}
+	opts.GitRepos[env.Namespace].RefreshChan <- struct{}{}
+	delete(opts.GitRepos, env.Namespace)
+
 	if err := opts.HelmClient.DeleteNamespaceReleases(env.Namespace); err != nil {
 		glog.V(1).Info(err)
 	}

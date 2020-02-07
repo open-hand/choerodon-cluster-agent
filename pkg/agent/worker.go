@@ -166,8 +166,8 @@ func (w *workerManager) monitorCertMgr() {
 		if err != nil {
 			return
 		}
-		if podStatus!=podStatusTmp {
-			podStatusTmp=podStatus
+		if podStatus != podStatusTmp {
+			podStatusTmp = podStatus
 			w.chans.ResponseChan <- &model.Packet{
 				Key:     "cluster:" + strconv.Itoa(w.clusterId),
 				Type:    model.CertManagerStatus,
@@ -185,13 +185,13 @@ func (w *workerManager) getPodStatus() (string, error) {
 		LabelSelector: "choerodon.io/release=choerodon-cert-manager",
 	})
 	if err != nil {
-		glog.V(1).Info("[wzl] namespace kube-system dont have the cert-mgr")
-		return "exception",err
+		glog.V(1).Info("Namespace kube-system dont have the cert-mgr")
+		return "exception", err
 	}
 
-	if len(podListOld.Items)>0 {
-		glog.V(1).Info("[wzl] the  old cert-mgr pod  is running in the kube-system")
-		return "running",nil
+	if len(podListOld.Items) > 0 {
+		glog.V(1).Info("The old cert-mgr pod  is running in the kube-system")
+		return "running", nil
 	}
 	//新版本从这开始--
 	//这个方法从找podList开始，原因是： 如果pod直接被删除，那么名字会更换
@@ -200,23 +200,22 @@ func (w *workerManager) getPodStatus() (string, error) {
 		LabelSelector: "choerodon.io/release=choerodon-cert-manager",
 	})
 	if err != nil {
-		glog.V(1).Info("[wzl] get cert-mgr pod by selector err: ", err)
-		return "exception",err
+		glog.V(1).Info("Get cert-mgr pod by selector err: ", err)
+		return "exception", err
 	}
 	if len(podList.Items) == 0 {
-		glog.V(1).Info("[wzl] the  cert-mgr pod status is deleted")
-		return "deleted",err
+		glog.V(1).Info("The cert-mgr pod status is deleted")
+		return "deleted", err
 	}
 	if len(podList.Items) > 1 {
-		glog.V(1).Info("[wzl] the cert-mgr pod got by selector Is not the only")
-		return "",err
+		glog.V(1).Info("The cert-mgr pod got by selector Is not the only")
+		return "", err
 	}
 
 	podName := podList.Items[0].Name
-	//glog.V(1).Info("+++++++++++++++++++=====",podName)
 	pod, err := w.kubeClient.GetKubeClient().CoreV1().Pods(namespace).Get(podName, metav1.GetOptions{})
 	if err != nil {
-		glog.V(1).Info("[wzl] get  pod status by podName err: ", err)
+		glog.V(1).Info("Get pod status by podName err: ", err)
 		return "", err
 	}
 	podStatus := fmt.Sprintf("%s", pod.Status.Phase)

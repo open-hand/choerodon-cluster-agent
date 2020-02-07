@@ -19,6 +19,6 @@ func init() {
 
 	Funcs.Add(model.ResourceDescribe, kubernetes.Describe)
 
-	//[wzl] 11.20新增删除pod方法
+	// 11.20新增删除pod方法
 	Funcs.Add(model.DeletePod, kubernetes.DeletePod)
 }
