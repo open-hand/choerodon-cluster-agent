@@ -6,8 +6,8 @@ package kubernetes
 
 import (
 	"bytes"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/client/clientset/versioned"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/client/clientset/versioned/typed/certmanager/v1alpha1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned/typed/certmanager/v1alpha1"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"sync"
 

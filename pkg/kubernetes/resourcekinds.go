@@ -3,7 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/apis/certmanager/v1alpha1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/apis/certmanager/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"

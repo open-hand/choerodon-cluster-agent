@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/client/clientset/versioned"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/prometheus"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
