@@ -14,7 +14,7 @@ limitations under the License.
 package api
 
 import (
-	"github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/apis/certmanager/install"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/apis/certmanager/install"
 	"k8s.io/apimachinery/pkg/apimachinery/announced"
 	"k8s.io/apimachinery/pkg/apimachinery/registered"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

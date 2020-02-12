@@ -16,8 +16,8 @@ limitations under the License.
 package versioned
 
 import (
+	certmanagerv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned/typed/certmanager/v1alpha1"
 	glog "github.com/golang/glog"
-	certmanagerv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/crd_client/certificate/client/clientset/versioned/typed/certmanager/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
