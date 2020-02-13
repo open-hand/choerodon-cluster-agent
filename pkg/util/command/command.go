@@ -9,6 +9,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"sync"
@@ -32,4 +33,5 @@ type Opts struct {
 	PlatformCode      string
 	WsClient          websocket.Client
 	Token             string
+	PolarisConfig     *config.Configuration
 }

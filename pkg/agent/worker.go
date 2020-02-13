@@ -6,6 +6,7 @@ import (
 	agentsync "github.com/choerodon/choerodon-cluster-agent/pkg/agent/sync"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"strconv"
@@ -45,6 +46,7 @@ type workerManager struct {
 	platformCode       string
 	syncAll            bool
 	mgrs               *operatorutil.MgrList
+	polarisConfig      *config.Configuration
 }
 
 func NewWorkerManager(
@@ -64,7 +66,8 @@ func NewWorkerManager(
 	stop <-chan struct{},
 	token string,
 	platformCode string,
-	syncAll bool) *workerManager {
+	syncAll bool,
+	polarisConfig *config.Configuration) *workerManager {
 	return &workerManager{
 		chans:              chans,
 		helmClient:         helmClient,
@@ -85,6 +88,7 @@ func NewWorkerManager(
 		platformCode:       platformCode,
 		syncAll:            syncAll,
 		mgrs:               mgrs,
+		polarisConfig:      polarisConfig,
 	}
 }
 
@@ -131,6 +135,7 @@ func (w *workerManager) runWorker() {
 						WsClient:          w.appClient,
 						Token:             w.token,
 						Mgrs:              w.mgrs,
+						PolarisConfig:     w.polarisConfig,
 					}
 					newCmds, resp = processCmdFunc(opts, cmd)
 				} else {
@@ -221,10 +226,3 @@ func (w *workerManager) getPodStatus() (string, error) {
 	podStatus := fmt.Sprintf("%s", pod.Status.Phase)
 	return podStatus, nil
 }
-
-
-
-
-
-
-

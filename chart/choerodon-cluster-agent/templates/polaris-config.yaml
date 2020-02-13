@@ -1,0 +1,541 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cm-polaris-config
+data:
+  config: |-
+    displayName: "choerodon-polaris"
+    checks:
+      # resources
+      cpuRequestsMissing: warning
+      cpuLimitsMissing: warning
+      memoryRequestsMissing: warning
+      memoryLimitsMissing: warning
+      # images
+      tagNotSpecified: error
+      pullPolicyNotAlways: ignore
+      # healthChecks
+      readinessProbeMissing: warning
+      livenessProbeMissing: warning
+      # networking
+      hostNetworkSet: warning
+      hostPortSet: warning
+      # security
+      hostIPCSet: error
+      hostPIDSet: error
+      notReadOnlyRootFileSystem: warning
+      privilegeEscalationAllowed: error
+      runAsRootAllowed: warning
+      runAsPrivileged: error
+      dangerousCapabilities: error
+      insecureCapabilities: warning
+    controllersToScan:
+      - Deployments
+      - StatefulSets
+      - DaemonSets
+      - CronJobs
+      - Jobs
+      - ReplicationControllers
+    exemptions:
+      - controllerNames:
+          - dns-controller
+          - datadog-datadog
+          - kube-flannel-ds
+          - kube2iam
+          - aws-iam-authenticator
+          - datadog
+          - kube2iam
+        rules:
+          - hostNetworkSet
+      - controllerNames:
+          - aws-iam-authenticator
+          - aws-cluster-autoscaler
+          - kube-state-metrics
+          - dns-controller
+          - external-dns
+          - dnsmasq
+          - autoscaler
+          - kubernetes-dashboard
+          - install-cni
+          - kube2iam
+        rules:
+          - readinessProbeMissing
+          - livenessProbeMissing
+      - controllerNames:
+          - aws-iam-authenticator
+          - nginx-ingress-controller
+          - nginx-ingress-default-backend
+          - aws-cluster-autoscaler
+          - kube-state-metrics
+          - dns-controller
+          - external-dns
+          - kubedns
+          - dnsmasq
+          - autoscaler
+          - tiller
+          - kube2iam
+        rules:
+          - runAsRootAllowed
+      - controllerNames:
+          - aws-iam-authenticator
+          - nginx-ingress-controller
+          - nginx-ingress-default-backend
+          - aws-cluster-autoscaler
+          - kube-state-metrics
+          - dns-controller
+          - external-dns
+          - kubedns
+          - dnsmasq
+          - autoscaler
+          - tiller
+          - kube2iam
+        rules:
+          - notReadOnlyRootFileSystem
+      - controllerNames:
+          - cert-manager
+          - dns-controller
+          - kubedns
+          - dnsmasq
+          - autoscaler
+          - insights-agent-goldilocks-vpa-install
+        rules:
+          - cpuRequestsMissing
+          - cpuLimitsMissing
+          - memoryRequestsMissing
+          - memoryLimitsMissing
+      - controllerNames:
+          - kube2iam
+          - kube-flannel-ds
+        rules:
+          - runAsPrivileged
+      - controllerNames:
+          - kube-hunter
+        rules:
+          - hostPIDSet
+      - controllerNames:
+          - polaris
+          - kube-hunter
+          - goldilocks
+          - insights-agent-goldilocks-vpa-install
+        rules:
+          - notReadOnlyRootFileSystem
+      - controllerNames:
+          - insights-agent-goldilocks-controller
+        rules:
+          - livenessProbeMissing
+          - readinessProbeMissing
+      - controllerNames:
+          - insights-agent-goldilocks-vpa-install
+          - kube-hunter
+        rules:
+          - runAsRootAllowed
+
+  cpuLimitsMissing: |-
+    successMessage: CPU limits are set
+    failureMessage: CPU limits should be set
+    category: Resources
+    target: Container
+    containers:
+      exclude:
+      - initContainer
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      required:
+      - resources
+      properties:
+        resources:
+          type: object
+          required:
+          - limits
+          properties:
+            limits:
+              type: object
+              required:
+              - cpu
+              properties:
+                cpu:
+                  type: string
+                  not:
+                    const: ''
+
+  cpuRequestsMissing: |-
+    successMessage: CPU requests are set
+    failureMessage: CPU requests should be set
+    category: Resources
+    target: Container
+    containers:
+      exclude:
+      - initContainer
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      required:
+      - resources
+      properties:
+        resources:
+          type: object
+          required:
+          - requests
+          properties:
+            requests:
+              type: object
+              required:
+              - cpu
+              properties:
+                cpu:
+                  type: string
+                  not:
+                    const: ''
+
+  dangerousCapabilities: |-
+    successMessage: Container does not have any dangerous capabilities
+    failureMessage: Container should not have dangerous capabilities
+    category: Security
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      properties:
+        securityContext:
+          type: object
+          properties:
+            capabilities:
+              type: object
+              properties:
+                add:
+                  type: array
+                  not:
+                    contains:
+                      const: ALL
+                  not:
+                    contains:
+                      const: SYS_ADMIN
+                  not:
+                    contains:
+                      const: NET_ADMIN
+
+  hostIPCSet: |-
+    successMessage: Host IPC is not configured
+    failureMessage: Host IPC should not be configured
+    category: Security
+    target: Pod
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      properties:
+        hostIPC:
+          not:
+            const: true
+
+  hostNetworkSet: |-
+    successMessage: Host network is not configured
+    failureMessage: Host network should not be configured
+    category: Networking
+    target: Pod
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      properties:
+        hostNetwork:
+          not:
+            const: true
+
+  hostPIDSet: |-
+    successMessage: Host PID is not configured
+    failureMessage: Host PID should not be configured
+    category: Security
+    target: Pod
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      properties:
+        hostPID:
+          not:
+            const: true
+
+  hostPortSet: |-
+    successMessage: Host port is not configured
+    failureMessage: Host port should not be configured
+    category: Networking
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      required:
+      properties:
+        ports:
+          type: array
+          items:
+            properties:
+              hostPort:
+                const: 0
+
+  insecureCapabilities: |-
+    successMessage: Container does not have any insecure capabilities
+    failureMessage: Container should not have insecure capabilities
+    category: Security
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      properties:
+        securityContext:
+          type: object
+          properties:
+            capabilities:
+              type: object
+              properties:
+                add:
+                  enum:
+                  - CHOWN
+                  - DAC_OVERRIDE
+                  - FSETID
+                  - FOWNER
+                  - MKNOD
+                  - NET_RAW
+                  - SETGID
+                  - SETUID
+                  - SETFCAP
+                  - SETPCAP
+                  - NET_BIND_SERVICE
+                  - SYS_CHROOT
+                  - KILL
+                  - AUDIT_WRITE
+
+  livenessProbeMissing: |-
+    successMessage: Liveness probe is configured
+    failureMessage: Liveness probe should be configured
+    category: Health Checks
+    controllers:
+      exclude:
+      - Job
+      - CronJob
+    containers:
+      exclude:
+      - initContainer
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      required:
+      - livenessProbe
+      properties:
+        livenessProbe:
+          type: object
+          not:
+            const: null
+
+  memoryLimitsMissing: |-
+    successMessage: Memory limits are set
+    failureMessage: Memory limits should be set
+    category: Resources
+    target: Container
+    containers:
+      exclude:
+      - initContainer
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      required:
+      - resources
+      properties:
+        resources:
+          type: object
+          required:
+          - limits
+          properties:
+            limits:
+              type: object
+              required:
+              - memory
+              properties:
+                memory:
+                  type: string
+                  not:
+                    const: ''
+
+  notReadOnlyRootFileSystem: |-
+    successMessage: Filesystem is read only
+    failureMessage: Filesystem should be read only
+    category: Security
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      required:
+      - securityContext
+      properties:
+        securityContext:
+          required:
+          - readOnlyRootFilesystem
+          properties:
+            readOnlyRootFilesystem:
+              const: true
+
+  privilegeEscalationAllowed: |-
+    successMessage: Privilege escalation not allowed
+    failureMessage: Privilege escalation should not be allowed
+    category: Security
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      properties:
+        securityContext:
+          properties:
+            allowPrivilegeEscalation:
+              not:
+                const: true
+
+  pullPolicyNotAlways: |-
+    successMessage: Image pull policy is "Always"
+    failureMessage: Image pull policy should be "Always"
+    category: Images
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      required:
+      - imagePullPolicy
+      properties:
+        imagePullPolicy:
+          const: Always
+
+  readinessProbeMissing: |-
+    successMessage: Readiness probe is configured
+    failureMessage: Readiness probe should be configured
+    category: Health Checks
+    controllers:
+      exclude:
+      - Job
+      - CronJob
+    containers:
+      exclude:
+      - initContainer
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      required:
+      - readinessProbe
+      properties:
+        readinessProbe:
+          type: object
+          not:
+            const: null
+
+  runAsPrivileged: |-
+    successMessage: Not running as privileged
+    failureMessage: Should not be running as privileged
+    category: Security
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      properties:
+        securityContext:
+          properties:
+            privileged:
+              not:
+                const: true
+
+  runAsRootAllowed: |-
+    successMessage: Is not allowed to run as root
+    failureMessage: Should not be allowed to run as root
+    category: Security
+    target: Container
+    schemaTarget: Pod
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      definitions:
+        goodSecurityContext:
+          type: object
+          anyOf:
+          - required:
+            - runAsUser
+            properties:
+              runAsUser:
+                minimum: 1
+          - required:
+            - runAsNonRoot
+            properties:
+              runAsNonRoot:
+                const: true
+        notBadSecurityContext:
+          type: object
+          properties:
+            runAsUser:
+              minimum: 1
+            runAsNonRoot:
+              const: true
+      type: object
+      anyOf:
+      # non-root specified at pod-level, and not overridden at container level
+      - required:
+        - securityContext
+        properties:
+          securityContext:
+            $ref: "#/definitions/goodSecurityContext"
+          containers:
+            type: array
+            items:
+              properties:
+                securityContext:
+                  $ref: "#/definitions/notBadSecurityContext"
+      # non-root specified at container level
+      - properties:
+          containers:
+            type: array
+            items:
+              required:
+              - securityContext
+              properties:
+                securityContext:
+                  $ref: "#/definitions/goodSecurityContext"
+
+  tagNotSpecified: |-
+    successMessage: Image tag is specified
+    failureMessage: Image tag should be specified
+    category: Images
+    target: Container
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      required:
+      - image
+      allOf:
+      - properties:
+          image:
+            pattern: ^.+:.+$
+      - properties:
+          image:
+            not:
+              pattern: ^.+:latest$
+
+  memoryRequestsMissing: |-
+    successMessage: Memory requests are set
+    failureMessage: Memory requests should be set
+    category: Resources
+    target: Container
+    containers:
+      exclude:
+        - initContainer
+    schema:
+      '$schema': http://json-schema.org/draft-07/schema
+      type: object
+      required:
+        - resources
+      properties:
+        resources:
+          type: object
+          required:
+            - requests
+          properties:
+            requests:
+              type: object
+              required:
+                - memory
+              properties:
+                memory:
+                  type: string
+                  not:
+                    const: ''

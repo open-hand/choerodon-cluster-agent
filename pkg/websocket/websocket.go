@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// urlStr:devops的websocket地址
 func dial(urlStr string, token Token) (*websocket.Conn, error) {
 	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {

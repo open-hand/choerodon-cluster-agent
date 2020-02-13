@@ -14,6 +14,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
@@ -80,6 +81,7 @@ type AgentOptions struct {
 	kubernetesKubectl  string
 	statusSyncInterval time.Duration
 	syncAll            bool
+	polarisFile        string
 }
 
 var log = logf.Log.WithName("cmd")
@@ -264,6 +266,11 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetCrdClient(), mgrs, kubectlApplier, kubectlDescriber)
 	}
+	polarisConfig, err := config.ParseFile(o.polarisFile)
+	if err != nil {
+		glog.Error(err)
+		os.Exit(0)
+	}
 	workerManager := agent.NewWorkerManager(
 		mgrs,
 		crChan,
@@ -282,6 +289,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.Token,
 		o.PlatformCode,
 		o.syncAll,
+		&polarisConfig,
 	)
 
 	go workerManager.Start()
@@ -329,6 +337,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.gitTimeOut, "git-timeout", 1*time.Minute, "git time out")
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
 	fs.BoolVar(&o.syncAll, "sync-all", false, "sync all or change")
+	fs.StringVar(&o.polarisFile, "polaris-file", "", "the polaris config file")
 }
 
 func checkKube(client *k8sclient.Clientset) {

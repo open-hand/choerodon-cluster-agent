@@ -13,13 +13,12 @@ const (
 	EnvCreate        = "env_create"
 
 	// Components
-	CertManagerInstall      = "cert_manager_install"
-	CertManagerStatus       = "cert_manager_status"
-	CertManagerUninstall      = "cert_manager_uninstall"
+	CertManagerInstall   = "cert_manager_install"
+	CertManagerStatus    = "cert_manager_status"
+	CertManagerUninstall = "cert_manager_uninstall"
 	//CertManagerUninstallStatus = "cert_manager_uninstall_status"
 	// pod
 	DeletePod = "delete_pod"
-
 
 	// helm
 	// HelmReleaseUpgrade 以前用于升级agent及重新部署实例，现仅用于升级agent
@@ -101,4 +100,9 @@ const (
 	Upgrade                 = "upgrade"
 
 	CertManagerInfo = "cert_manager_info"
+
+	// polaris
+	PolarisRequest       = "polaris_scan_cluster"
+	PolarisRequestFailed = "polaris_request_failed"
+	PolarisResponse      = "polaris"
 )
