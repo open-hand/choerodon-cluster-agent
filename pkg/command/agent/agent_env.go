@@ -54,6 +54,7 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		HelmClient:   opts.HelmClient,
 		KubeClient:   opts.KubeClient,
 		PlatformCode: opts.PlatformCode,
+		Namespaces:   opts.Namespaces,
 	}
 	mgr, err := operator.New(cfg, namespace, args)
 	if err != nil {
