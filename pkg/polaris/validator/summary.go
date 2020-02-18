@@ -6,9 +6,9 @@ import (
 
 // CountSummary provides a high level overview of success, warnings, and errors.
 type CountSummary struct {
-	Successes uint
-	Warnings  uint
-	Errors    uint
+	Successes uint `json:"successes"`
+	Warnings  uint `json:"warnings"`
+	Errors    uint `json:"errors"`
 }
 
 // CountSummaryByCategory is a map from category to CountSummary
