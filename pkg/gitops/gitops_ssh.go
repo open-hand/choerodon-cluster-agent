@@ -104,7 +104,7 @@ func writeSshConfig(content string) error {
 	if checkFileIsExist(filename) { //如果文件存在
 		err := os.Remove(filename)
 		if err != nil {
-			glog.Info(err)
+			glog.Info(err.Error())
 		}
 	}
 	f, err := os.OpenFile(filename, os.O_CREATE, 0666)

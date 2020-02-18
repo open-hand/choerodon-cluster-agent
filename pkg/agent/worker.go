@@ -174,7 +174,7 @@ func (w *workerManager) monitorCertMgr() {
 		if podStatus != podStatusTmp {
 			podStatusTmp = podStatus
 			w.chans.ResponseChan <- &model.Packet{
-				Key:     "cluster:" + strconv.Itoa(w.clusterId),
+				Key:     "cluster:" + strconv.Itoa(int(kube.ClusterId)),
 				Type:    model.CertManagerStatus,
 				Payload: `{"status":"` + podStatus + `"}`,
 			}

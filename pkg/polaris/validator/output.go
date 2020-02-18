@@ -25,41 +25,36 @@ const (
 
 // AuditData contains all the data from a full Polaris audit
 type AuditData struct {
-	PolarisOutputVersion string
-	AuditTime            string
-	SourceType           string
-	SourceName           string
-	DisplayName          string
-	ClusterInfo          ClusterInfo
-	Results              []ControllerResult
-}
-
-type ResponseInfo struct {
-	AuditData AuditData
-	Summary   CountSummary
+	PolarisOutputVersion string             `json:"polarisOutputVersion"`
+	AuditTime            string             `json:"auditTime"`
+	SourceType           string             `json:"sourceType"`
+	SourceName           string             `json:"sourceName"`
+	DisplayName          string             `json:"displayName"`
+	ClusterInfo          ClusterInfo        `json:"clusterInfo"`
+	Results              []ControllerResult `json:"results"`
 }
 
 // ClusterInfo contains Polaris results as well as some high-level stats
 type ClusterInfo struct {
-	Version                string
-	Nodes                  int
-	Pods                   int
-	Namespaces             int
-	Deployments            int
-	StatefulSets           int
-	DaemonSets             int
-	Jobs                   int
-	CronJobs               int
-	ReplicationControllers int
+	Version                string `json:"version"`
+	Nodes                  int    `json:"nodes"`
+	Pods                   int    `json:"pods"`
+	Namespaces             int    `json:"namespaces"`
+	Deployments            int    `json:"deployments"`
+	StatefulSets           int    `json:"statefulSets"`
+	DaemonSets             int    `json:"daemonSets"`
+	Jobs                   int    `json:"jobs"`
+	CronJobs               int    `json:"cronCobs"`
+	ReplicationControllers int    `json:"replicationControllers"`
 }
 
 // ResultMessage is the result of a given check
 type ResultMessage struct {
-	ID       string
-	Message  string
-	Success  bool
-	Severity config.Severity
-	Category string
+	ID       string          `json:"id"`
+	Message  string          `json:"message"`
+	Success  bool            `json:"success"`
+	Severity config.Severity `json:"severity"`
+	Category string          `json:"category"`
 }
 
 // ResultSet contiains the results for a set of checks
@@ -67,22 +62,22 @@ type ResultSet map[string]ResultMessage
 
 // ControllerResult provides results for a controller
 type ControllerResult struct {
-	Name      string
-	Namespace string
-	Kind      string
-	Results   ResultSet
-	PodResult PodResult
+	Name      string    `json:"name"`
+	Namespace string    `json:"namespace"`
+	Kind      string    `json:"kind"`
+	Results   ResultSet `json:"results"`
+	PodResult PodResult `json:"podResult"`
 }
 
 // PodResult provides a list of validation messages for each pod.
 type PodResult struct {
-	Name             string
-	Results          ResultSet
-	ContainerResults []ContainerResult
+	Name             string            `json:"name"`
+	Results          ResultSet         `json:"results"`
+	ContainerResults []ContainerResult `json:"containerResults"`
 }
 
 // ContainerResult provides a list of validation messages for each container.
 type ContainerResult struct {
-	Name    string
-	Results ResultSet
+	Name    string    `json:"name"`
+	Results ResultSet `json:"results"`
 }
