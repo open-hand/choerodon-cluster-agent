@@ -53,4 +53,11 @@ spec:
           protocol: TCP
         resources:
 {{ toYaml .Values.resources | indent 12 }}
+        volumeMounts:
+          - mountPath: "/polaris"
+            name: cm-polaris-config
+      volumes:
+        - name: cm-polaris-config
+          configMap:
+            name: cm-polaris-config
       serviceAccountName: {{ if .Values.rbac.create }}"{{ .Release.Name }}"{{ else }}"{{ .Values.rbac.serviceAccountName }}"{{ end }}

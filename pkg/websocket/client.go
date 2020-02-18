@@ -52,6 +52,8 @@ type appClient struct {
 	clusterId      int32
 }
 
+// Token 参数里面的token
+// endPoint devops的websocket地址
 func NewClient(
 	t Token,
 	endpoint string,

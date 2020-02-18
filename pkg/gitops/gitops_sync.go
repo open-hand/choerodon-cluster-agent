@@ -61,7 +61,7 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 				g.AskForSync(namespace)
 			}
 		case <-g.syncSoon[namespace]:
-			// 猜测如果syncTimer停止失败，那么timer会继续倒计时，等待timer计时结束
+			// 猜测 如果syncTimer停止失败，那么timer会继续倒计时，等待timer计时结束
 			if !syncTimer.Stop() {
 				select {
 				case <-syncTimer.C:
