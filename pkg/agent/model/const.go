@@ -102,7 +102,9 @@ const (
 	CertManagerInfo = "cert_manager_info"
 
 	// polaris
-	PolarisRequest       = "polaris_scan_cluster"
-	PolarisRequestFailed = "polaris_request_failed"
-	PolarisResponse      = "polaris"
+	PolarisRequest = "polaris_scan_cluster"
+
+	// clusterInfo
+	ClusterGetInfo       = "cluster_info"
+	ClusterGetInfoFailed = "cluster_info_failed"
 )
