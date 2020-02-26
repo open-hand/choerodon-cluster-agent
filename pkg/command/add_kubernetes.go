@@ -19,6 +19,8 @@ func init() {
 
 	Funcs.Add(model.ResourceDescribe, kubernetes.Describe)
 
-	// 11.20新增删除pod方法
+	// 新增删除pod方法
 	Funcs.Add(model.DeletePod, kubernetes.DeletePod)
+
+	Funcs.Add(model.DeletePersistentVolumeClaimByLabels,kubernetes.DeletePvcByLabels)
 }
