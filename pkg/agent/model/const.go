@@ -79,15 +79,16 @@ const (
 	PodMetricsSync = "pod_metrics_sync"
 
 	// kubernetes
-	KubernetesGetLogs                 = "kubernetes_get_logs"
-	KubernetesGetLogsFailed           = "kubernetes_get_logs_failed"
-	KubernetesExec                    = "kubernetes_exec"
-	KubernetesExecFailed              = "kubernetes_exec_failed"
-	OperatePodCount                   = "operate_pod_count"
-	OperatePodCountFailed             = "operate_pod_count_failed"
-	OperatePodCountSuccess            = "operate_pod_count_succeed"
-	OperateDockerRegistrySecret       = "operate_docker_registry_secret"
-	OperateDockerRegistrySecretFailed = "operate_docker_registry_secret_failed"
+	KubernetesGetLogs                   = "kubernetes_get_logs"
+	KubernetesGetLogsFailed             = "kubernetes_get_logs_failed"
+	KubernetesExec                      = "kubernetes_exec"
+	KubernetesExecFailed                = "kubernetes_exec_failed"
+	OperatePodCount                     = "operate_pod_count"
+	OperatePodCountFailed               = "operate_pod_count_failed"
+	OperatePodCountSuccess              = "operate_pod_count_succeed"
+	OperateDockerRegistrySecret         = "operate_docker_registry_secret"
+	OperateDockerRegistrySecretFailed   = "operate_docker_registry_secret_failed"
+	DeletePersistentVolumeClaimByLabels = "delete_persistent_volume_claim_by_labels"
 
 	// git ops
 	GitOpsSync       = "git_ops_sync"

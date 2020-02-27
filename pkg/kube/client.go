@@ -690,7 +690,7 @@ func (c *client) LabelObjectsForPrometheusUpdate(namespace string,
 		b := re.ReplaceAll(objB, []byte("{{`$1`}}"))
 
 		// 兼容prometheus的添加标签后不能正确解析模板
-		if info.Object.GetObjectKind().GroupVersionKind().Kind == "PrometheusRule" && info.Name == releaseName+"-"+"prometheus" {
+		if info.Object.GetObjectKind().GroupVersionKind().Kind == "PrometheusRule" && info.Name == "c7n-prometheus-prometheus" {
 			t := prometheus.PrometheusRule{}
 			err = yaml.Unmarshal(b, &t)
 			if err != nil {

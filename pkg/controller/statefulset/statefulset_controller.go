@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/command/kubernetes"
+	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 	v1 "k8s.io/api/apps/v1"
 	"k8s.io/api/apps/v1beta1"
-
-	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strings"
 )
 
 var log = logf.Log.WithName("controller_statefulset")
@@ -90,12 +91,25 @@ func (r *ReconcileStatefulSet) Reconcile(request reconcile.Request) (reconcile.R
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling StatefulSet")
 
+	commandChan := r.args.CrChan.CommandChan
 	// Fetch the StatefulSet instance
 	instance := &v1.StatefulSet{}
 	responseChan := r.args.CrChan.ResponseChan
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
+			if strings.Contains(request.Name, "c7n-prometheus") {
+				switch request.Name {
+				// 如果是prometheus的prometheus，则删除其创建的PVC
+				case "prometheus-c7n-prometheus-prometheus":
+					pvcInfo := kubernetes.DeletePvcInfo{Namespace: request.Namespace, Labels: map[string]string{"app": "prometheus"}}
+					commandChan <- deletePvcCmd(pvcInfo)
+					// 如果是prometheus的alertmanager，则删除其创建的PVC
+				case "alertmanager-c7n-prometheus-alertmanager":
+					pvcInfo := kubernetes.DeletePvcInfo{Namespace: request.Namespace, Labels: map[string]string{"app": "alertmanager"}}
+					commandChan <- deletePvcCmd(pvcInfo)
+				}
+			}
 			responseChan <- newPodDelRep(request.Name, request.Namespace)
 			glog.Warningf("pod '%s' in work queue no longer exists", instance.Name)
 			return reconcile.Result{}, nil
@@ -129,5 +143,19 @@ func newPodRep(instance *v1.StatefulSet) *model.Packet {
 		Key:     fmt.Sprintf("env:%s.release:%s.StatefulSet:%s", instance.Namespace, release, instance.Name),
 		Type:    model.ResourceUpdate,
 		Payload: string(payload),
+	}
+}
+
+// delete pvc command
+func deletePvcCmd(pvcInfo kubernetes.DeletePvcInfo) *model.Packet {
+	reqBytes, err := json.Marshal(pvcInfo)
+	if err != nil {
+		glog.Error(err)
+		return nil
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.PersistentVolumeClaimLabels:%s", pvcInfo.Namespace, pvcInfo.Labels),
+		Type:    model.DeletePersistentVolumeClaimByLabels,
+		Payload: string(reqBytes),
 	}
 }
