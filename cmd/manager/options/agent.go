@@ -147,6 +147,13 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	shutdown := make(chan struct{})
 	shutdownWg := &sync.WaitGroup{}
 
+	// graceful shutdown
+	defer func() {
+		glog.Errorf("exiting %s", <-errChan)
+		close(shutdown)
+		shutdownWg.Wait()
+	}()
+
 	// init helm env settings
 	helm.InitEnvSettings()
 
@@ -200,13 +207,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		c := make(chan os.Signal)
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 		errChan <- fmt.Errorf("%s", <-c)
-	}()
-
-	// graceful shutdown
-	defer func() {
-		glog.Errorf("exiting %s", <-errChan)
-		close(shutdown)
-		shutdownWg.Wait()
 	}()
 
 	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan, o.ClusterId)
