@@ -143,7 +143,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	// init a channel to receive commands
 	crChan := channel.NewCRChannel(100, 1000)
 
-	errChan := make(chan error)
+	errChan := make(chan error, 1)
 	shutdown := make(chan struct{})
 	shutdownWg := &sync.WaitGroup{}
 
