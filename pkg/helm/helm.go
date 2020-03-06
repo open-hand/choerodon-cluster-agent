@@ -62,8 +62,6 @@ var (
 		hooks.ReleaseTestFailure: release.Hook_RELEASE_TEST_FAILURE,
 		hooks.CRDInstall:         release.Hook_CRD_INSTALL,
 	}
-
-	expectedResourceKind = []string{"Deployment", "ReplicaSet", "Pod"}
 )
 
 type Client interface {
@@ -1096,13 +1094,4 @@ func mergeConfigMap(cms []string) string {
 		result = result + "\n---\n" + cm
 	}
 	return strings.Trim(result, "\n---\n")
-}
-
-func inArray(expectedResourceKind []string, kind string) bool {
-	for _, item := range expectedResourceKind {
-		if item == kind {
-			return true
-		}
-	}
-	return false
 }
