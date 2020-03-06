@@ -7,6 +7,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -97,6 +98,10 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	if strings.Contains(instance.Labels["release"], "prometheus-operator") {
+		return reconcile.Result{}, nil
 	}
 
 	if instance.Labels[model.ReleaseLabel] != "" {
