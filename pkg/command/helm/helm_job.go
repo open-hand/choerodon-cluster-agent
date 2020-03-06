@@ -2,9 +2,13 @@ package helm
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
+	"github.com/golang/glog"
+	"strings"
+	"time"
 )
 
 //helm 安装
@@ -28,12 +32,37 @@ func InstallJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 			Payload: cmd.Payload,
 		}
 		newCmds = append(newCmds, installPrometheusCmd)
-		return newCmds,nil
+		return newCmds, nil
 	}
 
 	//这个hooks 是干嘛的呢？
 	hooks, err := opts.HelmClient.PreInstallRelease(&req)
 	if err != nil {
+		// 如果是EOF错误，则是chart包下载或者读取问题，再重新执行安装操作，如果失败次数达到5次，则安装失败
+		if strings.Contains(err.Error(), "EOF") {
+			glog.Errorf("type:%s release:%s  err: EOF,try to reinstall", model.HelmInstallJobInfo, req.ReleaseName)
+			if req.FailedCount == 5 {
+				glog.Infof("type:%s release:%s install failed With 5 times retry", model.HelmInstallJobInfo, req.ReleaseName)
+				return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, fmt.Errorf("install failed With 5 times retry,err:%v", req.LasttimeFailedInstallErr))
+			} else {
+				req.FailedCount++
+				req.LasttimeFailedInstallErr = err.Error()
+				reqBytes, err := json.Marshal(req)
+				if err != nil {
+					return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+				}
+				packet := &model.Packet{
+					Key:     fmt.Sprintf("env:%s.release:%s", req.Namespace, req.ReleaseName),
+					Type:    model.HelmInstallJobInfo,
+					Payload: string(reqBytes),
+				}
+				// 等待10s
+				time.Sleep(10 * time.Second)
+				glog.Infof("type:%s release:%s  resend install command", model.HelmInstallJobInfo, req.ReleaseName)
+				opts.CrChan.CommandChan <- packet
+				return nil, nil
+			}
+		}
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	hooksJsonB, err := json.Marshal(hooks)
@@ -72,7 +101,7 @@ func UpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 			Payload: cmd.Payload,
 		}
 		newCmds = append(newCmds, installPrometheusCmd)
-		return newCmds,nil
+		return newCmds, nil
 	}
 	//这是在干嘛
 	hooks, err := opts.HelmClient.PreUpgradeRelease(&req)

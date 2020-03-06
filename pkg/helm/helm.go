@@ -205,8 +205,8 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	}
 	// 移除未启用的chart依赖
 	chartutil.ProcessRequirementsEnabled(chartRequested, &chart.Config{Raw: request.Values})
-    //request中是提交的vlaues
-    //chartRequested中的是原来chart包中的values
+	//request中是提交的values
+	//chartRequested中的是原来chart包中的values
 
 	cm, err := cmForChart(chartRequested)
 	if err != nil {
@@ -217,7 +217,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 
 	// chart包的vlaues
 	oldValues := chartRequested.Values.Raw
-    //这一步将chart包中的vlaues去除注释
+	//这一步将chart包中的values去除注释
 	err, newChartValues := removeStringValues(chartRequested.Values.Raw)
 	if err != nil {
 		return nil, err

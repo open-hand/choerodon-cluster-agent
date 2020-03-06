@@ -5,16 +5,18 @@ import (
 )
 
 type InstallReleaseRequest struct {
-	RepoURL          string                         `json:"repoURL,omitempty"`
-	ChartName        string                         `json:"chartName,omitempty"`
-	ChartVersion     string                         `json:"chartVersion,omitempty"`
-	Values           string                         `json:"values,omitempty"`
-	ReleaseName      string                         `json:"releaseName,omitempty"`
-	Commit           string                         `json:"commit,omitempty"`
-	Command          int                            `json:"command,omitempty"`
-	Namespace        string                         `json:"namespace,omitempty"`
-	AppServiceId     int64                          `json:"appServiceId,omitempty"`
-	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	RepoURL                  string                         `json:"repoURL,omitempty"`
+	ChartName                string                         `json:"chartName,omitempty"`
+	ChartVersion             string                         `json:"chartVersion,omitempty"`
+	Values                   string                         `json:"values,omitempty"`
+	ReleaseName              string                         `json:"releaseName,omitempty"`
+	Commit                   string                         `json:"commit,omitempty"`
+	Command                  int                            `json:"command,omitempty"`
+	Namespace                string                         `json:"namespace,omitempty"`
+	AppServiceId             int64                          `json:"appServiceId,omitempty"`
+	ImagePullSecrets         []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	FailedCount              int                            `json:"failedCount,omitempty"`
+	LasttimeFailedInstallErr string                         `json:"lasttimeFailedInstallErr"`
 }
 
 type TestReleaseRequest struct {
@@ -60,7 +62,7 @@ type Release struct {
 	Resources    []*ReleaseResource `json:"resources,omitempty"`
 	Config       string             `json:"config,omitempty"`
 	Commit       string             `json:"commit,omitempty"`
-	Command      int                 `json:"command,omitempty"`
+	Command      int                `json:"command,omitempty"`
 }
 
 type ReleaseResource struct {
@@ -91,7 +93,6 @@ type UpgradeReleaseRequest struct {
 	Namespace        string                         `json:"namespace,omitempty"`
 	AppServiceId     int64                          `json:"appServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-
 }
 
 type RollbackReleaseRequest struct {
@@ -140,5 +141,3 @@ type CertManagerInfo struct {
 	Namespace   string `json:"namespace,omitempty"`
 	Version     string `json:"version,omitempty"`
 }
-
-

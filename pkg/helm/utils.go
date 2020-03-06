@@ -8,27 +8,26 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ghodss/yaml"
-	"github.com/vinkdong/gox/log"
-	"k8s.io/helm/pkg/manifest"
-	"os"
-	"path"
-	"path/filepath"
-	"sort"
-	"strconv"
-	"strings"
-
 	"github.com/golang/glog"
+	"github.com/vinkdong/gox/log"
 	"k8s.io/client-go/discovery"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/downloader"
 	"k8s.io/helm/pkg/getter"
 	"k8s.io/helm/pkg/hooks"
+	"k8s.io/helm/pkg/manifest"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 	"k8s.io/helm/pkg/proto/hapi/release"
 	util "k8s.io/helm/pkg/releaseutil"
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/helm/pkg/tiller"
 	"k8s.io/helm/pkg/version"
+	"os"
+	"path"
+	"path/filepath"
+	"sort"
+	"strconv"
+	"strings"
 )
 
 type result struct {
@@ -57,7 +56,6 @@ func getChart(
 		Getters:  getter.All(settings),
 		Verify:   downloader.VerifyNever,
 	}
-
 	certFile := ""
 	keyFile := ""
 	caFile := ""
