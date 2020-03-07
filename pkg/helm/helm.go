@@ -62,8 +62,6 @@ var (
 		hooks.ReleaseTestFailure: release.Hook_RELEASE_TEST_FAILURE,
 		hooks.CRDInstall:         release.Hook_CRD_INSTALL,
 	}
-
-	expectedResourceKind = []string{"Deployment", "ReplicaSet", "Pod"}
 )
 
 type Client interface {
@@ -205,8 +203,8 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	}
 	// 移除未启用的chart依赖
 	chartutil.ProcessRequirementsEnabled(chartRequested, &chart.Config{Raw: request.Values})
-    //request中是提交的vlaues
-    //chartRequested中的是原来chart包中的values
+	//request中是提交的values
+	//chartRequested中的是原来chart包中的values
 
 	cm, err := cmForChart(chartRequested)
 	if err != nil {
@@ -217,7 +215,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 
 	// chart包的vlaues
 	oldValues := chartRequested.Values.Raw
-    //这一步将chart包中的vlaues去除注释
+	//这一步将chart包中的values去除注释
 	err, newChartValues := removeStringValues(chartRequested.Values.Raw)
 	if err != nil {
 		return nil, err
@@ -1096,13 +1094,4 @@ func mergeConfigMap(cms []string) string {
 		result = result + "\n---\n" + cm
 	}
 	return strings.Trim(result, "\n---\n")
-}
-
-func inArray(expectedResourceKind []string, kind string) bool {
-	for _, item := range expectedResourceKind {
-		if item == kind {
-			return true
-		}
-	}
-	return false
 }

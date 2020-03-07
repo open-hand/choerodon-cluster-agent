@@ -2,9 +2,13 @@ package helm
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
+	"github.com/golang/glog"
+	"strings"
+	"time"
 )
 
 func InstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
@@ -19,6 +23,31 @@ func InstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 
 	resp, err := opts.HelmClient.InstallRelease(&req)
 	if err != nil {
+		// 如果是EOF错误，则是chart包下载或者读取问题，再重新执行安装操作，如果失败次数达到5次，则安装失败
+		if strings.Contains(err.Error(), "EOF") {
+			glog.Errorf("type:%s release:%s err:EOF,try to reinstall", model.HelmReleaseInstallResourceInfo, req.ReleaseName)
+			if req.FailedCount == 5 {
+				glog.Infof("type:%s release:%s  install failed With 5 times retry", model.HelmReleaseInstallResourceInfo, req.ReleaseName)
+				return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, fmt.Errorf("install failed With 3 times retry,err:%v", req.LasttimeFailedInstallErr))
+			} else {
+				req.FailedCount++
+				req.LasttimeFailedInstallErr = err.Error()
+				reqBytes, err := json.Marshal(req)
+				if err != nil {
+					return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+				}
+				packet := &model.Packet{
+					Key:     fmt.Sprintf("env:%s.release:%s", req.Namespace, req.ReleaseName),
+					Type:    model.HelmReleaseInstallResourceInfo,
+					Payload: string(reqBytes),
+				}
+				// 等待10s
+				time.Sleep(10 * time.Second)
+				glog.Infof("type:%s release:%s  resend install command", model.HelmReleaseInstallResourceInfo, req.ReleaseName)
+				opts.CrChan.CommandChan <- packet
+				return nil, nil
+			}
+		}
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 	respB, err := json.Marshal(resp)
@@ -32,7 +61,6 @@ func InstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 	}
 
 }
-
 
 func RollbackHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.RollbackReleaseRequest
@@ -111,4 +139,3 @@ func InstallCertManager(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	return DeleteHelmRelease(opts, cmd)
 }
-

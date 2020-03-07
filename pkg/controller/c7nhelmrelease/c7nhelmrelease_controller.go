@@ -154,12 +154,12 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 				yaml.Unmarshal(data, &deployment)
 				if deployment.Kind == "Deployment" {
 					commandId, _ = strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
-					appServiceId,_ = strconv.ParseInt(deployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel],10,64)
+					appServiceId, _ = strconv.ParseInt(deployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel], 10, 64)
 					break
 				}
 			}
 		}
-        //这边 devops那边已经做判断，所以这段代码相当于，忽略不计
+		//这边 devops那边已经做判断，所以这段代码相当于，忽略不计
 		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId && instance.Spec.AppServiceId == appServiceId {
 			glog.Infof("release %s chart、version、values、commandId、appserviceid not change", rls.Name)
 			payload, _ := json.Marshal(rls)
@@ -186,6 +186,7 @@ func installHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pa
 		Namespace:        instance.Namespace,
 		AppServiceId:     instance.Spec.AppServiceId,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
+		FailedCount:      0,
 	}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
