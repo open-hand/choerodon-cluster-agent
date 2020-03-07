@@ -29,10 +29,10 @@ resources:
   # lines,adjust them as necessary,and remove the curly braces after 'resources:'.
   limits:
     # cpu: 100m
-    memory: 512Mi
+    memory: 1024Mi
   requests:
     # cpu: 100m
-    memory: 256Mi
+    memory: 768Mi
 
 hostAliases: []
 #  - ip: "127.0.0.1"
