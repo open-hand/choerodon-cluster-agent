@@ -284,7 +284,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 		tryAgain := time.NewTimer(10 * time.Second)
 		select {
 		case <-shutdown:
-			glog.Info("env:%s stop refreshLoop")
+			glog.Info("env:%s stop refreshLoop", r.Env)
 			if !tryAgain.Stop() {
 				<-tryAgain.C
 			}
