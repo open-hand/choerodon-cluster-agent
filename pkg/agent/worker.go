@@ -5,6 +5,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	agentsync "github.com/choerodon/choerodon-cluster-agent/pkg/agent/sync"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
@@ -140,7 +140,7 @@ func (w *workerManager) runWorker() {
 					newCmds, resp = processCmdFunc(opts, cmd)
 				} else {
 					err := fmt.Errorf("type %s not exist", cmd.Type)
-					glog.V(1).Info(err.Error())
+					glog.Info(err.Error())
 				}
 
 				if newCmds != nil {
@@ -180,7 +180,6 @@ func (w *workerManager) monitorCertMgr() {
 			}
 		}
 	}
-
 }
 
 //得到pod的状态

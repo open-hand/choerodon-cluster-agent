@@ -86,7 +86,7 @@ func (r *ReconcilePersistentVolumeClaim) Reconcile(request reconcile.Request) (r
 	if err != nil {
 		if errors.IsNotFound(err) {
 			responseChan <- newPersistentVolumeClaimDelRep(request.Name, request.Namespace)
-			glog.Warningf("persistentVolumeClaim '%s' in work queue no longer exists", pvc)
+			glog.Warningf("persistentVolumeClaim '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

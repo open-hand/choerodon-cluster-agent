@@ -31,6 +31,9 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 	namespace := agentInitOpts.Envs[0].Namespace
 	opts.Namespaces.Add(namespace)
 	if namespace != "choerodon" {
+		//err := createNamespace(opts, namespace, []string{})
+		//if err == nil {
+		//	return nil, commandutil.NewResponseError(cmd.Key, cmd.Type, err)
 		ns, _ := createNamespace(opts.KubeClient, namespace)
 		if ns == nil {
 			glog.V(1).Infof("create namespace %s failed", namespace)

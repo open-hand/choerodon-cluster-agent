@@ -97,7 +97,7 @@ func (r *ReconcileReplicaSet) Reconcile(request reconcile.Request) (reconcile.Re
 		if errors.IsNotFound(err) {
 
 			responseChan <- newReplicaSetDelRep(request.Name, request.Namespace)
-			glog.Warningf("Rs '%s' in work queue no longer exists", instance.Name)
+			glog.Warningf("Rs '%s' in work queue no longer exists", request.Name)
 
 			return reconcile.Result{}, nil
 		}

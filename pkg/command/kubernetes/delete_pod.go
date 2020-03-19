@@ -23,7 +23,6 @@ func DeletePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.P
 
 	namespace := req.Namespace
 	podName :=req.PodName
-	//vlog.Successf("namespace: %s",namespace)
 	err = opts.KubeClient.GetKubeClient().CoreV1().Pods(namespace).Delete(podName, &metav1.DeleteOptions{})
 	if err !=nil {
 		glog.V(1).Info("Delete pod err: ",err)

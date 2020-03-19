@@ -42,7 +42,7 @@ func (r *ReconcileServicePod) GetPodServices(pod *v1.Pod) ([]v1.Service, error) 
 	opts := &client.ListOptions{
 		Namespace: pod.Namespace,
 	}
-	if err := r.client.List(context.TODO(), opts, services); err != nil {
+	if err := r.client.List(context.TODO(), services, opts); err != nil {
 		return nil, err
 	}
 

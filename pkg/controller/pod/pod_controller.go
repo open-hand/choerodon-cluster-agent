@@ -95,7 +95,7 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	if err != nil {
 		if errors.IsNotFound(err) {
 			responseChan <- newPodDelRep(request.Name, request.Namespace)
-			glog.Warningf("pod '%s' in work queue no longer exists", instance.Name)
+			glog.Warningf("pod '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 

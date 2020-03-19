@@ -78,7 +78,11 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 				} else {
 					role = strings.Join(roles, ",")
 				}
-				reqs, limit := getPodsTotalRequestsAndLimits(podList)
+				reqs, limit, err := getPodsTotalRequestsAndLimits(podList)
+				if err != nil {
+					glog.Errorf("failed to get pods total request and limits: %v", err)
+					continue
+				}
 				CpuLimit := limit["cpu"]
 				CpuRequest := reqs["cpu"]
 				MemoryRequest := reqs["memory"]
@@ -125,13 +129,20 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 	}
 }
 
-func getPodsTotalRequestsAndLimits(podList *corev1.PodList) (reqs map[corev1.ResourceName]resource.Quantity, limits map[corev1.ResourceName]resource.Quantity) {
+func getPodsTotalRequestsAndLimits(podList *corev1.PodList) (reqs map[corev1.ResourceName]resource.Quantity, limits map[corev1.ResourceName]resource.Quantity, err error) {
 	reqs, limits = map[corev1.ResourceName]resource.Quantity{}, map[corev1.ResourceName]resource.Quantity{}
 	for _, pod := range podList.Items {
-		podReqs, podLimits := PodRequestsAndLimits(&pod)
+		podReqs, podLimits, err := PodRequestsAndLimits(&pod)
+		if err != nil {
+			return nil, nil, err
+		}
 		for podReqName, podReqValue := range podReqs {
 			if value, ok := reqs[podReqName]; !ok {
-				reqs[podReqName] = *podReqValue.Copy()
+				quantity, err := quantityCopy(&podReqValue)
+				if err != nil {
+					return nil, nil, err
+				}
+				reqs[podReqName] = *quantity
 			} else {
 				value.Add(podReqValue)
 				reqs[podReqName] = value
@@ -139,7 +150,11 @@ func getPodsTotalRequestsAndLimits(podList *corev1.PodList) (reqs map[corev1.Res
 		}
 		for podLimitName, podLimitValue := range podLimits {
 			if value, ok := limits[podLimitName]; !ok {
-				limits[podLimitName] = *podLimitValue.Copy()
+				quantity, err := quantityCopy(&podLimitValue)
+				if err != nil {
+					return nil, nil, err
+				}
+				limits[podLimitName] = *quantity
 			} else {
 				value.Add(podLimitValue)
 				limits[podLimitName] = value
@@ -148,45 +163,71 @@ func getPodsTotalRequestsAndLimits(podList *corev1.PodList) (reqs map[corev1.Res
 	}
 	return
 }
-func PodRequestsAndLimits(pod *corev1.Pod) (reqs, limits corev1.ResourceList) {
+func PodRequestsAndLimits(pod *corev1.Pod) (reqs, limits corev1.ResourceList, err error) {
 	reqs, limits = corev1.ResourceList{}, corev1.ResourceList{}
 	for _, container := range pod.Spec.Containers {
-		addResourceList(reqs, container.Resources.Requests)
-		addResourceList(limits, container.Resources.Limits)
+		err = addResourceList(reqs, container.Resources.Requests)
+		if err != nil {
+			return nil, nil, err
+		}
+		err = addResourceList(limits, container.Resources.Limits)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	// init containers define the minimum of any resource
 	for _, container := range pod.Spec.InitContainers {
-		maxResourceList(reqs, container.Resources.Requests)
-		maxResourceList(limits, container.Resources.Limits)
+		err = maxResourceList(reqs, container.Resources.Requests)
+		if err != nil {
+			return nil, nil, err
+		}
+		err = maxResourceList(limits, container.Resources.Limits)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	return
 }
 
 // addResourceList adds the resources in newList to list
-func addResourceList(list, new corev1.ResourceList) {
+func addResourceList(list, new corev1.ResourceList) error {
 	for name, quantity := range new {
 		if value, ok := list[name]; !ok {
-			list[name] = *quantity.Copy()
+			quantity, err := quantityCopy(&quantity)
+			if err != nil {
+				return err
+			}
+			list[name] = *quantity
 		} else {
 			value.Add(quantity)
 			list[name] = value
 		}
 	}
+	return nil
 }
 
 // maxResourceList sets list to the greater of list/newList for every resource
 // either list
-func maxResourceList(list, new corev1.ResourceList) {
+func maxResourceList(list, new corev1.ResourceList) error {
 	for name, quantity := range new {
 		if value, ok := list[name]; !ok {
-			list[name] = *quantity.Copy()
+			quantity, err := quantityCopy(&quantity)
+			if err != nil {
+				return err
+			}
+			list[name] = *quantity
 			continue
 		} else {
 			if quantity.Cmp(value) > 0 {
-				list[name] = *quantity.Copy()
+				quantity, err := quantityCopy(&quantity)
+				if err != nil {
+					return err
+				}
+				list[name] = *quantity
 			}
 		}
 	}
+	return nil
 }
 
 func findNodeRoles(node *corev1.Node) []string {
@@ -203,4 +244,17 @@ func findNodeRoles(node *corev1.Node) []string {
 		}
 	}
 	return roles.List()
+}
+
+func quantityCopy(q *resource.Quantity) (*resource.Quantity, error) {
+	data, err := q.Marshal()
+	if err != nil {
+		return nil, err
+	}
+	quantity := &resource.Quantity{}
+	err = quantity.Unmarshal(data)
+	if err != nil {
+		return nil, err
+	}
+	return quantity, nil
 }

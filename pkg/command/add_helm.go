@@ -12,7 +12,10 @@ func init() {
 
 	Funcs.Add(model.HelmReleaseInstallResourceInfo, helm.InstallHelmRelease)
 	Funcs.Add(model.HelmReleaseUpgradeResourceInfo, helm.UpgradeHelmRelease)
-	Funcs.Add(model.HelmReleaseRollback, helm.RollbackHelmRelease)
+
+	// TODO devops 没有使用此功能，注释掉，等待以后有相关业务再处理
+	//Funcs.Add(model.HelmReleaseRollback, helm.RollbackHelmRelease)
+
 	Funcs.Add(model.HelmReleaseDelete, helm.DeleteHelmRelease)
 
 	Funcs.Add(model.HelmInstallJobInfo, helm.InstallJobInfo)
@@ -20,7 +23,10 @@ func init() {
 
 	Funcs.Add(model.HelmReleaseStart, helm.StartHelmRelease)
 	Funcs.Add(model.HelmReleaseStop, helm.StopHelmRelease)
-	Funcs.Add(model.HelmReleaseGetContent, helm.GetHelmReleaseContent)
+
+	// TODO devops 没有使用此功能，注释掉，等待以后有相关业务再处理
+	//Funcs.Add(model.HelmReleaseGetContent, helm.GetHelmReleaseContent)
+
 	Funcs.Add(model.ResourceStatusSync, helm.SyncStatus)
 
 	Funcs.Add(model.TestExecute, helm.ExecuteTestRelease)

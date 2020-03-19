@@ -37,6 +37,9 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	nsList := []string{}
 	for _, envPara := range agentInitOpts.Envs {
 		nsList = append(nsList, envPara.Namespace)
+		//err := createNamespace(opts, envPara.Namespace, envPara.Releases)
+		//if err != nil {
+		//	return nil, commandutil.NewResponseError(cmd.Key, cmd.Type, err)
 		ns, _ := createNamespace(opts.KubeClient, envPara.Namespace)
 		if ns == nil {
 			glog.V(1).Infof("create namespace %s failed", envPara)
@@ -61,7 +64,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		PlatformCode: opts.PlatformCode,
 	}
 
-	testManagerNamespace := "choerodon-test"
+	testManagerNamespace := helm.TestNamespace
 	nsList = append(nsList, testManagerNamespace)
 	for _, ns := range nsList {
 		if opts.Mgrs.IsExist(ns) {
@@ -175,3 +178,85 @@ func createNamespace(kubeClient kube.Client, namespace string) (*v1.Namespace, e
 		},
 	})
 }
+
+// 检查命名空间是否存在，不存在则创建，添加helm标签同时调用helm升级函数，将helm实例从helm2升级到helm3
+// 如果命名空间存在则检查labels，是否设置 "helm":"helm3"
+// 未设置helm标签，则添加helm标签并调用helm升级函数，将helm实例从helm2升级到helm3
+//func createNamespace(opts *commandutil.Opts, namespaceName string, releases []string) error {
+//	ns, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Get(namespaceName, metav1.GetOptions{})
+//	// 如果命名空间不存在的话，则创建
+//	if errors.IsNotFound(err) {
+//		_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&v1.Namespace{
+//			ObjectMeta: metav1.ObjectMeta{
+//				Name:   namespaceName,
+//				Labels: map[string]string{"helm": "helm3"},
+//			},
+//		})
+//		if err != nil {
+//			return err
+//		}
+//	}
+//
+//	labels := ns.Labels
+//	// 如果命名空间存在，则检查labels标签
+//	if _, ok := labels["helm"]; !ok {
+//		return update(opts, releases, namespaceName, labels)
+//	} else {
+//		return nil
+//	}
+//}
+//
+//func update(opts *commandutil.Opts, releases []string, namespaceName string, labels map[string]string) error {
+//	releaseCount := len(releases)
+//	if releaseCount != 0 {
+//		for i := 0; i < releaseCount; i++ {
+//			getReleaseRequest := &helm.GetReleaseContentRequest{
+//				ReleaseName: releases[i],
+//				Namespace:   namespaceName,
+//			}
+//
+//			// 查看该实例是否已经升级到helm3
+//			_, err := opts.HelmClient.GetRelease(getReleaseRequest)
+//			if err != nil {
+//				if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
+//					err = upgrade.RunConvert(releases[i])
+//					if err != nil {
+//						return err
+//					}
+//				} else {
+//					return err
+//				}
+//			}
+//		}
+//
+//		upgradedReleases, err := opts.HelmClient.ListRelease(namespaceName)
+//		if err != nil {
+//			return err
+//		}
+//		if len(upgradedReleases) != releaseCount {
+//			return fmt.Errorf("env %s : failed to upgrade helm2 to helm3 ", namespaceName)
+//		}
+//
+//		// 将每个实例的helm2版本信息移除
+//		for i := 0; i < releaseCount; i++ {
+//			upgrade.RunCleanup(releases[i])
+//		}
+//	}
+//
+//	if labels == nil {
+//		labels = make(map[string]string)
+//	}
+//
+//	labels["helm"] = "helm3"
+//	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Update(&v1.Namespace{
+//		ObjectMeta: metav1.ObjectMeta{
+//			Name:   namespaceName,
+//			Labels: map[string]string{"helm": "helm3"},
+//		},
+//	})
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
+

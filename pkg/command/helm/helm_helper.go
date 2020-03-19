@@ -57,30 +57,6 @@ func StopHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *m
 	}
 }
 
-func GetHelmReleaseContent(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	var req helm.GetReleaseContentRequest
-	err := json.Unmarshal([]byte(cmd.Payload), &req)
-	if err != nil {
-		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
-	}
-	resp, err := opts.HelmClient.GetReleaseContent(&req)
-	if err != nil {
-		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
-	}
-	if err != nil {
-		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
-	}
-	respB, err := json.Marshal(resp)
-	if err != nil {
-		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
-	}
-	return nil, &model.Packet{
-		Key:     cmd.Key,
-		Type:    model.HelmReleaseGetContent,
-		Payload: string(respB),
-	}
-}
-
 func GetC7nHelmRelease(mgrs *operatorutil.MgrList, namespace string, releaseName string) (*v1alpha1.C7NHelmRelease, error) {
 
 	if mgrs == nil {
@@ -243,3 +219,28 @@ func newSyncResponse(name, reType, commit, status string, id int32, ) *helm.Sync
 		ResourceStatus: status,
 	}
 }
+
+// TODO devops 没有使用此功能，注释掉，等待以后有相关业务再处理
+//func GetHelmReleaseContent(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+//	var req helm.GetReleaseContentRequest
+//	err := json.Unmarshal([]byte(cmd.Payload), &req)
+//	if err != nil {
+//		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
+//	}
+//	resp, err := opts.HelmClient.GetReleaseContent(&req)
+//	if err != nil {
+//		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
+//	}
+//	if err != nil {
+//		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
+//	}
+//	respB, err := json.Marshal(resp)
+//	if err != nil {
+//		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseGetContentFailed, err)
+//	}
+//	return nil, &model.Packet{
+//		Key:     cmd.Key,
+//		Type:    model.HelmReleaseGetContent,
+//		Payload: string(respB),
+//	}
+//}

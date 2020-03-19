@@ -70,6 +70,7 @@ type EnvParas struct {
 	EnvId     int32  `json:"envId,omitempty"`
 	GitRsaKey string `json:"gitRsaKey,omitempty"`
 	GitUrl    string `json:"gitUrl,omitempty"`
+	Releases []string `json:"instances,omitempty"`
 }
 
 type UpgradeInfo struct {

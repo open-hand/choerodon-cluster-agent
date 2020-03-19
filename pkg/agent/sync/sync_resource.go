@@ -238,7 +238,6 @@ func Run(ctx *Context) {
 			select {
 			case <-ctx.StopCh:
 				close(ctx.stopCh)
-			case <-ctx.stopCh:
 				return
 			}
 		}

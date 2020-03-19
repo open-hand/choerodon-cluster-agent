@@ -26,6 +26,19 @@ type Logger struct {
 	buf    []byte     // for accumulating text to write
 }
 
+func (l *Logger) Write(p []byte) (n int, err error) {
+	l.buf = append(l.buf, p...)
+	return l.out.Write(p)
+}
+
+func (l *Logger) String() string {
+	return string(l.buf[:])
+}
+
+func (l *Logger) Bytes() []byte {
+	return l.buf
+}
+
 func New(out io.Writer, prefix string, flag int) *Logger {
 	return &Logger{out: out, prefix: prefix, flag: flag}
 }

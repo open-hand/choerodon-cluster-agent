@@ -34,7 +34,7 @@ func (r *ReconcileService) checkInstancedService(service *v1.Service) error {
 		LabelSelector: selector,
 		Namespace:     service.Namespace,
 	}
-	if err := r.client.List(context.TODO(), opts, pods); err != nil {
+	if err := r.client.List(context.TODO(), pods, opts); err != nil {
 		return err
 	}
 

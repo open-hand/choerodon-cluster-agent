@@ -20,18 +20,16 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
-	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strconv"
 	"sync"
 	"syscall"
@@ -84,21 +82,12 @@ type AgentOptions struct {
 	polarisFile        string
 }
 
-var log = logf.Log.WithName("cmd")
-
 func printVersion() {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+	glog.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
+	glog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 }
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
-
-	//pflag.CommandLine.AddFlagSet(zap.FlagSet())
-	// Add flags registered by imported packages (e.g. glog and
-	// controller-runtime)
-	//pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
-	//pflag.Parse()
-	logf.SetLogger(zap.Logger())
 
 	options := NewAgentOptions()
 	cmd := &cobra.Command{
@@ -134,6 +123,9 @@ func NewAgentOptions() *AgentOptions {
 }
 
 func Run(o *AgentOptions, f cmdutil.Factory) {
+
+	printVersion()
+
 	kube.ClusterId = o.ClusterId
 	if o.PrintVersion {
 		fmt.Println(version.GetVersion())
@@ -152,27 +144,24 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		glog.Errorf("exiting %s", <-errChan)
 		close(shutdown)
 		shutdownWg.Wait()
+		glog.Info("exit in 5 seconds")
+		time.Sleep(5 * time.Second)
+	}()
+	// receive system int or term signal, send to err channel
+	go func() {
+		c := make(chan os.Signal)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		errChan <- fmt.Errorf("%s", <-c)
 	}()
 
-	// init helm env settings
-	helm.InitEnvSettings()
-
 	// --------------- operator sdk start  -----------------  //
-
-	// Get a config to talk to the apiserver
-	//cfg, err := config.GetConfig()
-	//if err != nil {
-	//	log.Error(err, "")
-	//	os.Exit(1)
-	//}
-
 	ctx := context.TODO()
 
 	// Become the leader before proceeding
 	err := leader.Become(ctx, "c7n-agent-lock-"+strconv.Itoa(int(o.ClusterId)))
 	if err != nil {
-		log.Error(err, "")
-		os.Exit(1)
+		errChan <- err
+		return
 	}
 
 	cfg, _ := f.ToRESTConfig()
@@ -187,9 +176,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		return
 	}
 
-	glog.Infof("Starting connect to tiller...")
 	helmClient := helm.NewClient(kubeClient, cfg)
-	glog.Infof("Tiller connect success")
 
 	// todo: improve check k8s is working
 	checkKube(kubeClient.GetKubeClient())
@@ -199,21 +186,16 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	// 需要listen de namespaces
 	namespaces := agentnamespace.NewNamespaces()
 
-	log.Info("Starting the Cmd.")
+	glog.Info("Starting the Cmd.")
 	// --------------- operator sdk end  -----------------  //
-
-	// receive system int or term signal, send to err channel
-	go func() {
-		c := make(chan os.Signal)
-		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
-		errChan <- fmt.Errorf("%s", <-c)
-	}()
 
 	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan, o.ClusterId)
 	if err != nil {
 		errChan <- err
 		return
 	}
+
+	shutdownWg.Add(1)
 	go appClient.Loop(shutdown, shutdownWg)
 
 	//gitRemote := git.Remote{URL: o.gitURL}
@@ -235,12 +217,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		HelmClient: helmClient,
 		CrChan:     crChan,
 		StopCh:     shutdown,
-	}
-
-	cfg, err = f.ToRESTConfig()
-	if err != nil {
-		log.Error(err, "")
-		os.Exit(127)
 	}
 
 	//ctx.StartControllers()
@@ -268,8 +244,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	}
 	polarisConfig, err := config.ParseFile(o.polarisFile)
 	if err != nil {
-		glog.Error(err)
-		os.Exit(0)
+		errChan <- err
+		return
 	}
 	workerManager := agent.NewWorkerManager(
 		mgrs,
@@ -293,12 +269,10 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	)
 
 	go workerManager.Start()
-	shutdownWg.Add(1)
 
 	go func() {
 		errChan <- http.ListenAndServe(o.Listen, nil)
 	}()
-
 }
 
 func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {

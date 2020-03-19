@@ -52,7 +52,7 @@ type TestReleaseStatus struct {
 //安装或者升级 返回值。
 type Release struct {
 	Name         string             `json:"name,omitempty"`
-	Revision     int32              `json:"revision,omitempty"`
+	Revision     int                `json:"revision,omitempty"`
 	Namespace    string             `json:"namespace,omitempty"`
 	Status       string             `json:"status,omitempty"`
 	ChartName    string             `json:"chartName,omitempty"`
@@ -78,7 +78,7 @@ type ReleaseHook struct {
 	Name        string `json:"name,omitempty"`
 	Kind        string `json:"kind,omitempty"`
 	Manifest    string `json:"manifest,omitempty"`
-	Weight      int32  `json:"weight,omitempty"`
+	Weight      int    `json:"weight,omitempty"`
 	ReleaseName string `json:"releaseName,omitempty"`
 }
 
@@ -102,6 +102,7 @@ type RollbackReleaseRequest struct {
 
 type DeleteReleaseRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
 }
 
 type StopReleaseRequest struct {
@@ -111,6 +112,7 @@ type StopReleaseRequest struct {
 
 type StopReleaseResponse struct {
 	ReleaseName string `json:"releaseName,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
 }
 
 type StartReleaseRequest struct {
@@ -125,6 +127,7 @@ type StartReleaseResponse struct {
 type GetReleaseContentRequest struct {
 	ReleaseName string `json:"releaseName,omitempty"`
 	Version     int32  `json:"version,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
 }
 
 type SyncRequest struct {
