@@ -8,8 +8,9 @@ import (
 	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
+	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
-	v1 "k8s.io/api/apps/v1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -145,15 +146,26 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		// 现在是获取集群中对应实例的deployment, 而helm2.x版本是从release.manifest中获取的，可能不是集群中最新的状态。
 		var commandId int = 0
 		var appServiceId int64 = 0
-		deployment := &v1.Deployment{}
-		err := r.client.Get(context.TODO(), request.NamespacedName, deployment)
-		if errors.IsNotFound(err) {
-			glog.Warningf("deployment of release %s no longer exists", rls.Name)
-			responseChan <- newReleaseSyncFailRep(instance, fmt.Sprintf("deployment of release %s no longer exists", rls.Name))
-			return reconcile.Result{}, nil
+		results := strings.Split(rls.Manifest, "---")
+		for _, result := range results {
+			// 找到第一个deployment对象，根据name取出集群中的deployment，然后获得commandId和appServiceId信息
+			if result != "" && result != "\n" {
+				data := []byte(result)
+				manifestDeployment := &v1beta1.Deployment{}
+				clusterDeployment := &v1beta1.Deployment{}
+				yaml.Unmarshal(data, manifestDeployment)
+				objectKey := client.ObjectKey{Namespace: request.Namespace, Name: manifestDeployment.ObjectMeta.Name}
+				err := r.client.Get(context.TODO(), objectKey, clusterDeployment)
+				if errors.IsNotFound(err) {
+					glog.Warningf("deployment of release %s no longer exists", rls.Name)
+					responseChan <- newReleaseSyncFailRep(instance, fmt.Sprintf("deployment of release %s no longer exists", rls.Name))
+					return reconcile.Result{}, nil
+				}
+				commandId, _ = strconv.Atoi(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
+				appServiceId, _ = strconv.ParseInt(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel], 10, 64)
+				break
+			}
 		}
-		commandId, _ = strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
-		appServiceId, _ = strconv.ParseInt(deployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel], 10, 64)
 		//这边 devops那边已经做判断，所以这段代码相当于，忽略不计
 		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId && instance.Spec.AppServiceId == appServiceId {
 			glog.Infof("release %s chart、version、values、commandId、appserviceid not change", rls.Name)
