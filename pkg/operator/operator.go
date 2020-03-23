@@ -1,13 +1,11 @@
 package operator
 
 import (
-	"fmt"
 	apis "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/controller"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/operator-framework/operator-sdk/pkg/restmapper"
 	"k8s.io/client-go/rest"
-	"runtime"
 	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
@@ -35,9 +33,6 @@ func New(cfg *rest.Config, namespace string, args *controllerutil.Args) (crmanag
 
 	mgr, err := NewMgr(cfg, namespace)
 	if err != nil {
-		var buf [4096]byte
-		n := runtime.Stack(buf[:], false)
-		fmt.Printf("==> %s\n", string(buf[:n]))
 		return nil, err
 	}
 	log.Info("Registering Components.")
@@ -49,9 +44,6 @@ func New(cfg *rest.Config, namespace string, args *controllerutil.Args) (crmanag
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr, args); err != nil {
-		var buf [4096]byte
-		n := runtime.Stack(buf[:], false)
-		fmt.Printf("==> %s\n", string(buf[:n]))
 		return nil, err
 	}
 	return mgr, nil

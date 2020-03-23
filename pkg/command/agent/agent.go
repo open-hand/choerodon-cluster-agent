@@ -38,6 +38,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	}
 
 	nsList := []string{}
+	// 检查devops管理的命名空间
 	for _, envPara := range agentInitOpts.Envs {
 		nsList = append(nsList, envPara.Namespace)
 		err := createNamespace(opts, envPara.Namespace, envPara.Releases)
@@ -46,6 +47,14 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		}
 	}
 	namespaces.Set(nsList)
+
+	// 检查choerodon-test命名空间
+	testManagerNamespace := helm.TestNamespace
+	nsList = append(nsList, testManagerNamespace)
+	err = createNamespace(opts, testManagerNamespace, []string{})
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, cmd.Type, err)
+	}
 
 	//启动控制器， todo: 重启metrics
 	//里面含有好多 启动时的方法， 比如启动时发送cert-mgr的情况
@@ -64,8 +73,6 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		PlatformCode: opts.PlatformCode,
 	}
 
-	testManagerNamespace := helm.TestNamespace
-	nsList = append(nsList, testManagerNamespace)
 	for _, ns := range nsList {
 		if opts.Mgrs.IsExist(ns) {
 			continue
