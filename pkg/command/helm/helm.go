@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/upgrade"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/golang/glog"
 	"strings"
@@ -116,6 +117,25 @@ func InstallCertManager(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 
 //专门用于卸载cert-mgr
 func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var delRequest helm.DeleteReleaseRequest
+	err := json.Unmarshal([]byte(cmd.Payload), &delRequest)
+	if err != nil {
+		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err)
+	}
+	rlsContentRequest := &helm.GetReleaseContentRequest{
+		ReleaseName: delRequest.ReleaseName,
+		Namespace:   delRequest.Namespace,
+	}
+	_, err = opts.HelmClient.GetRelease(rlsContentRequest)
+	if err != nil {
+		//不存在的说明cert-manager可能是由helm2管理的，尝试升级到helm3
+		if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
+			upgrade.RunConvert(delRequest.ReleaseName)
+			upgrade.RunCleanup(delRequest.ReleaseName)
+		} else {
+			return nil, command.NewResponseError(cmd.Key, cmd.Type, err)
+		}
+	}
 	return DeleteHelmRelease(opts, cmd)
 }
 
@@ -140,4 +160,3 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 //		Payload: string(respB),
 //	}
 //}
-

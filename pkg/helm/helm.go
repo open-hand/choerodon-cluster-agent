@@ -249,7 +249,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		}
 	}
 
-	responseRelease, err := installClient.Run(chartRequested, vals)
+	responseRelease, err := installClient.Run(chartRequested, vals, request.Values)
 	if err != nil {
 		return nil, err
 	}
@@ -390,7 +390,7 @@ func (c *client) ExecuteTest(request *TestReleaseRequest) (*TestReleaseResponse,
 		}
 	}
 
-	responseRelease, err := installClient.Run(chartRequested, vals)
+	responseRelease, err := installClient.Run(chartRequested, vals, request.Values)
 
 	resp := &TestReleaseResponse{ReleaseName: request.ReleaseName}
 	if err != nil {
@@ -519,16 +519,6 @@ func (c *client) getHelmReleaseNoResource(release *release.Release) (*Release, e
 		}
 	}
 
-	releaseConfig, err := yaml.Marshal(release.Config)
-	if err != nil {
-		return nil, err
-	}
-
-	config := strings.Trim(string(releaseConfig), "\n")
-	if release.Config == nil {
-		config = "{}"
-	}
-
 	rls := &Release{
 		Name:         release.Name,
 		Revision:     release.Version,
@@ -538,7 +528,7 @@ func (c *client) getHelmReleaseNoResource(release *release.Release) (*Release, e
 		ChartVersion: release.Chart.Metadata.Version,
 		Manifest:     release.Manifest,
 		Hooks:        rlsHooks,
-		Config:       config,
+		Config:       release.ConfigRaw,
 	}
 	return rls, nil
 }
@@ -683,7 +673,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 	if err != nil {
 		return nil, err
 	}
-	updateReleaseResp, err := upgradeClient.Run(request.ReleaseName, ch, vals)
+	updateReleaseResp, err := upgradeClient.Run(request.ReleaseName, ch, vals, request.Values)
 
 	if err != nil {
 		newErr := fmt.Errorf("update release %s: %v", request.ReleaseName, err)

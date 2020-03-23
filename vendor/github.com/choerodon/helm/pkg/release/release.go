@@ -15,7 +15,7 @@ limitations under the License.
 
 package release
 
-import"github.com/choerodon/helm/pkg/chart"
+import "github.com/choerodon/helm/pkg/chart"
 
 // Release describes a deployment of a chart, together with the chart
 // and the variables used to deploy that chart.
@@ -29,6 +29,8 @@ type Release struct {
 	// Config is the set of extra Values added to the chart.
 	// These values override the default values inside of the chart.
 	Config map[string]interface{} `json:"config,omitempty"`
+	// ConfigRaw是config的string形式
+	ConfigRaw string `json:"configRaw,omitempty"`
 	// Manifest is the string representation of the rendered template.
 	Manifest string `json:"manifest,omitempty"`
 	// Hooks are all of the hooks declared for this release.

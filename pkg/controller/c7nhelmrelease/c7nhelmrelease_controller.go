@@ -152,18 +152,20 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			if result != "" && result != "\n" {
 				data := []byte(result)
 				manifestDeployment := &v1beta1.Deployment{}
-				clusterDeployment := &v1beta1.Deployment{}
 				yaml.Unmarshal(data, manifestDeployment)
-				objectKey := client.ObjectKey{Namespace: request.Namespace, Name: manifestDeployment.ObjectMeta.Name}
-				err := r.client.Get(context.TODO(), objectKey, clusterDeployment)
-				if errors.IsNotFound(err) {
-					glog.Warningf("deployment of release %s no longer exists", rls.Name)
-					responseChan <- newReleaseSyncFailRep(instance, fmt.Sprintf("deployment of release %s no longer exists", rls.Name))
-					return reconcile.Result{}, nil
+				if manifestDeployment.Kind == "Deployment" {
+					clusterDeployment := &v1beta1.Deployment{}
+					objectKey := client.ObjectKey{Namespace: request.Namespace, Name: manifestDeployment.ObjectMeta.Name}
+					err := r.client.Get(context.TODO(), objectKey, clusterDeployment)
+					if errors.IsNotFound(err) {
+						glog.Warningf("deployment of release %s no longer exists", rls.Name)
+						responseChan <- newReleaseSyncFailRep(instance, fmt.Sprintf("deployment of release %s no longer exists", rls.Name))
+						return reconcile.Result{}, nil
+					}
+					commandId, _ = strconv.Atoi(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
+					appServiceId, _ = strconv.ParseInt(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel], 10, 64)
+					break
 				}
-				commandId, _ = strconv.Atoi(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
-				appServiceId, _ = strconv.ParseInt(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel], 10, 64)
-				break
 			}
 		}
 		//这边 devops那边已经做判断，所以这段代码相当于，忽略不计

@@ -63,7 +63,7 @@ github.com/chai2010/gettext-go/gettext
 github.com/chai2010/gettext-go/gettext/mo
 github.com/chai2010/gettext-go/gettext/plural
 github.com/chai2010/gettext-go/gettext/po
-# github.com/choerodon/helm v0.0.0-20200317082929-220d898586e8
+# github.com/choerodon/helm v0.0.0-20200317082929-220d898586e8 => ../choerodon-helm
 github.com/choerodon/helm/internal/experimental/registry
 github.com/choerodon/helm/internal/ignore
 github.com/choerodon/helm/internal/resolver

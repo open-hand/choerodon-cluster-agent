@@ -196,7 +196,7 @@ func (i *Install) installCRDs(crds []chart.CRD) error {
 // Run executes the installation
 //
 // If DryRun is set to true, this will prepare the release, but not install it
-func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.Release, error) {
+func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}, valsRaw string) (*release.Release, error) {
 	// Check reachability of cluster unless in client-only mode (e.g. `helm template` without `--validate`)
 	if !i.ClientOnly {
 		if err := i.cfg.KubeClient.IsReachable(); err != nil {
@@ -260,7 +260,7 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 		return nil, err
 	}
 
-	rel := i.createRelease(chrt, vals)
+	rel := i.createRelease(chrt, vals, valsRaw)
 
 	var manifestDoc *bytes.Buffer
 	rel.Hooks, manifestDoc, rel.Info.Notes, err = i.cfg.renderResources(chrt, valuesToRender, i.ReleaseName, i.OutputDir, i.SubNotes, i.UseReleaseName, i.IncludeCRDs, i.PostRenderer)
@@ -452,13 +452,14 @@ func (i *Install) availableName() error {
 }
 
 // createRelease creates a new release object
-func (i *Install) createRelease(chrt *chart.Chart, rawVals map[string]interface{}) *release.Release {
+func (i *Install) createRelease(chrt *chart.Chart, values map[string]interface{}, valuesRaw string) *release.Release {
 	ts := i.cfg.Now()
 	return &release.Release{
 		Name:      i.ReleaseName,
 		Namespace: i.Namespace,
 		Chart:     chrt,
-		Config:    rawVals,
+		Config:    values,
+		ConfigRaw: valuesRaw,
 		Info: &release.Info{
 			FirstDeployed: ts,
 			LastDeployed:  ts,
@@ -763,7 +764,7 @@ func (c *ChartPathOptions) LocateChart(name string, settings *cli.EnvSettings) (
 	name = strings.TrimSpace(name)
 	version := strings.TrimSpace(c.Version)
 
-	if _, err := os.Stat(name); err == nil && strings.HasSuffix(name,".tgz") {
+	if _, err := os.Stat(name); err == nil && strings.HasSuffix(name, ".tgz") {
 		abs, err := filepath.Abs(name)
 		if err != nil {
 			return abs, err

@@ -222,16 +222,15 @@ func createNamespace(opts *commandutil.Opts, namespaceName string, releases []st
 	if err != nil {
 		// 如果命名空间不存在的话，则创建
 		if errors.IsNotFound(err) {
-			_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&v1.Namespace{
+			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&v1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   namespaceName,
 					Labels: map[string]string{"helm": "helm3"},
 				},
 			})
-			if err != nil {
-				return err
-			}
+			return err
 		}
+		return err
 	}
 
 	labels := ns.Labels

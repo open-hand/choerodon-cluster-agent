@@ -100,7 +100,7 @@ func NewUpgrade(cfg *Configuration,
 }
 
 // Run executes the upgrade on the given release.
-func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface{}) (*release.Release, error) {
+func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface{}, valuesRaw string) (*release.Release, error) {
 	// Make sure if Atomic is set, that wait is set as well. This makes it so
 	// the user doesn't have to specify both
 	u.Wait = u.Wait || u.Atomic
@@ -109,7 +109,7 @@ func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface
 		return nil, errors.Errorf("release name is invalid: %s", name)
 	}
 	u.cfg.Log("preparing upgrade for %s", name)
-	currentRelease, upgradedRelease, err := u.prepareUpgrade(name, chart, vals)
+	currentRelease, upgradedRelease, err := u.prepareUpgrade(name, chart, vals, valuesRaw)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func validateReleaseName(releaseName string) error {
 }
 
 // prepareUpgrade builds an upgraded release for an upgrade operation.
-func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[string]interface{}) (*release.Release, *release.Release, error) {
+func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[string]interface{}, valuesRaw string) (*release.Release, *release.Release, error) {
 	if chart == nil {
 		return nil, nil, errMissingChart
 	}
@@ -203,6 +203,7 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 		Namespace: currentRelease.Namespace,
 		Chart:     chart,
 		Config:    vals,
+		ConfigRaw: valuesRaw,
 		Info: &release.Info{
 			FirstDeployed: currentRelease.Info.FirstDeployed,
 			LastDeployed:  Timestamper(),
