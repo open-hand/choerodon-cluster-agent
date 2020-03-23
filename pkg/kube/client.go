@@ -41,9 +41,6 @@ type Client interface {
 	LogsForJob(namespace string, name string, jobLabel string) (string, string, error)
 	CreateOrUpdateService(namespace string, serviceStr string) (*core_v1.Service, error)
 	CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error)
-	//todo:remove
-	GetClientSet() (kubernetes.Interface, error)
-	//---
 	GetDiscoveryClient() (discovery.DiscoveryInterface, error)
 	DeleteService(namespace string, name string) error
 	DeleteIngress(namespace string, name string) error
@@ -51,8 +48,6 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, appServiceId int64) ([]byte, error)
-	LabelTestObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
 	GetIngress(namespace string, ingressName string) (string, error)
@@ -129,11 +124,6 @@ func (c *client) DeleteJob(namespace string, name string) error {
 	return c.client.CoreV1().Pods(namespace).DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
-}
-
-//todo:remove
-func (c *client) GetClientSet() (kubernetes.Interface, error) {
-	return nil, nil
 }
 
 func (c *client) GetDiscoveryClient() (discovery.DiscoveryInterface, error) {
@@ -616,39 +606,7 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 	return newManifestBuf, nil
 }
 
-func (c *client) LabelObjects(namespace string,
-	command int,
-	imagePullSecret []core_v1.LocalObjectReference,
-	manifest string,
-	releaseName string,
-	app string,
-	version string, appServiceId int64) ([]byte, error) {
-	// 将原始yaml格式的文件转换成易操作的k8s通用对象
-	result, err := c.BuildUnstructured(namespace, manifest)
-	if err != nil {
-		return nil, fmt.Errorf("build unstructured: %v", err)
-	}
-
-	newManifestBuf := bytes.NewBuffer(nil)
-	for _, info := range result {
-
-		// 给指定的对象加上标签
-		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version, appServiceId)
-		if err != nil {
-			return nil, fmt.Errorf("label object: %v", err)
-		}
-
-		objB, err := yaml.Marshal(obj)
-		if err != nil {
-			return nil, fmt.Errorf("yaml marshal: %v", err)
-		}
-		newManifestBuf.WriteString("\n---\n")
-		newManifestBuf.Write(objB)
-	}
-	return newManifestBuf.Bytes(), nil
-}
-
-// todo: what this do for ??
+// 给资源加标签
 func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Object, error) {
 
 	obj := info.Object.(*unstructured.Unstructured)
@@ -912,47 +870,7 @@ func getSelectorFromObject(obj runtime.Object) (map[string]string, bool) {
 	}
 }
 
-func (c *client) LabelTestObjects(namespace string,
-	imagePullSecret []core_v1.LocalObjectReference,
-	manifest string,
-	releaseName string,
-	app string,
-	version string,
-	label string) (*bytes.Buffer, error) {
-	result, err := c.BuildUnstructured(namespace, manifest)
-	if err != nil {
-		return nil, fmt.Errorf("build unstructured: %v", err)
-	}
 
-	newManifestBuf := bytes.NewBuffer(nil)
-	for _, info := range result {
-
-		// add object and pod template label
-		obj, err := labelTestObject(info, imagePullSecret, releaseName, app, version, label)
-		if err != nil {
-			return nil, fmt.Errorf("label object: %v", err)
-		}
-
-		objB, err := yaml.Marshal(obj)
-		if err != nil {
-			return nil, fmt.Errorf("yaml marshal: %v", err)
-		}
-		newManifestBuf.WriteString("\n---\n")
-		newManifestBuf.Write(objB)
-	}
-
-	return newManifestBuf, nil
-}
-
-func labelTestObject(info *resource.Info,
-	imagePullSecret []core_v1.LocalObjectReference,
-	releaseName string,
-	app string,
-	version string,
-	label string) (runtime.Object, error) {
-
-	return addLabel(imagePullSecret, 0, 0, info, version, releaseName, app, label, true)
-}
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {
 	_, err := c.client.CoreV1().Secrets(namespace).Get(secret.Name, meta_v1.GetOptions{})

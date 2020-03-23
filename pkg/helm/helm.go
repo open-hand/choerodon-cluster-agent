@@ -194,9 +194,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		glog.Infof("kubectl %s", kubectlPath)
 		kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
 
-		if err = kubectlApplier.DeletePrometheusCrd(); err != nil {
-			return nil, err
-		}
+		kubectlApplier.DeletePrometheusCrd()
 	}
 
 	cp, err := installClient.ChartPathOptions.LocateChart(request.ChartName, envSettings)
