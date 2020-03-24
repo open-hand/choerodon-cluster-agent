@@ -18,22 +18,21 @@ package v3
 
 import (
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3/common"
 	"strings"
 	stdtime "time"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/any"
-	timestamp "github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/golang/protobuf/ptypes/timestamp"
 
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/release"
-	"helm.sh/helm/v3/pkg/time"
+	"github.com/choerodon/helm/pkg/chart"
+	"github.com/choerodon/helm/pkg/release"
+	"github.com/choerodon/helm/pkg/time"
 
 	v2chrtutil "k8s.io/helm/pkg/chartutil"
 	v2chart "k8s.io/helm/pkg/proto/hapi/chart"
 	v2rls "k8s.io/helm/pkg/proto/hapi/release"
-
-	common "github.com/helm/helm-2to3/pkg/common"
 )
 
 // CreateRelease create a v3 release object from v3 release object
@@ -75,6 +74,7 @@ func CreateRelease(v2Rel *v2rls.Release) (*release.Release, error) {
 		Namespace: v2Rel.Namespace,
 		Chart:     chrt,
 		Config:    config,
+		ConfigRaw: v2Rel.Config.Raw,
 		Info: &release.Info{
 			FirstDeployed: first,
 			LastDeployed:  last,

@@ -18,6 +18,7 @@ package v2
 
 import (
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3/common"
 	"log"
 	"sort"
 
@@ -25,8 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	rls "k8s.io/helm/pkg/proto/hapi/release"
-
-	common "github.com/helm/helm-2to3/pkg/common"
 )
 
 type RetrieveOptions struct {

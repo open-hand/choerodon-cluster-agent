@@ -6,7 +6,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/upgrade"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -24,6 +24,11 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 
 	var agentInitOpts model.AgentInitOptions
 	err := json.Unmarshal([]byte(cmd.Payload), &agentInitOpts)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+	}
+
+	err = agentConvert(opts, agentInitOpts.AgentName)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
@@ -148,48 +153,6 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 
 	ch := opts.CrChan
 
-	// 获取agent的deployment的标签helm的值是否为helm3，
-	// 不是helm3，先getRelease，查看helm3是否管理该agent
-	// release不为nil，表示helm3管理该agent，更新标签
-	// release为nil，表示helm2管理该agent，从helm2版本升级到helm3版本，然后更新标签
-	if req.ChartName == "choerodon-cluster-agent" && req.Namespace == "choerodon" {
-
-		// 先判断标签的值
-		deployment, err := opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments(req.Namespace).Get(req.ReleaseName, metav1.GetOptions{})
-		if err != nil {
-			return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
-		}
-		labels := deployment.ObjectMeta.GetLabels()
-
-		// 再判断agent实例是否由helm3进行管理的
-		if labels["helm"] != "helm3" {
-			releaseRequest := &helm.GetReleaseContentRequest{
-				ReleaseName: req.ReleaseName,
-				Namespace:   req.Namespace,
-			}
-			rls, _ := opts.HelmClient.GetRelease(releaseRequest)
-
-			// 实例由helm3管理，更新标签
-			if rls != nil {
-				labels["helm"] = "helm3"
-				deployment.SetLabels(labels)
-				opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments(req.Namespace).Update(deployment)
-			} else {
-				// 实例由helm2管理，先升级成helm3管理，然后更新标签
-				err = upgrade.RunConvert(req.ReleaseName)
-				// 如果从helm2升级到helm3没有问题，就清理helm2的数据并给agent的deployment添加标签
-				if err == nil {
-					err = upgrade.RunCleanup(req.ReleaseName)
-					labels["helm"] = "helm3"
-					deployment.SetLabels(labels)
-					opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments(req.Namespace).Update(deployment)
-				} else {
-					return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
-				}
-			}
-		}
-	}
-
 	resp, err := opts.HelmClient.UpgradeRelease(&req)
 	if err != nil {
 		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == "choerodon" {
@@ -261,7 +224,7 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 			_, err := opts.HelmClient.GetRelease(getReleaseRequest)
 			if err != nil {
 				if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
-					err = upgrade.RunConvert(releases[i])
+					err = helm2to3.RunConvert(releases[i])
 					if err != nil {
 						return err
 					}
@@ -275,13 +238,15 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 		if err != nil {
 			return err
 		}
-		if len(upgradedReleases) != releaseCount {
+
+		// 这里releaseCount+1，多处来的1是因为agent是手动在集群中安装的，devops并不会在releases中包含agent的实例名称
+		if (namespaceName == "choerodon" && len(upgradedReleases) != releaseCount+1) || (namespaceName != "choerodon" && len(upgradedReleases) != releaseCount) {
 			return fmt.Errorf("env %s : failed to upgrade helm2 to helm3 ", namespaceName)
 		}
 
 		// 将每个实例的helm2版本信息移除
 		for i := 0; i < releaseCount; i++ {
-			upgrade.RunCleanup(releases[i])
+			helm2to3.RunCleanup(releases[i])
 		}
 	}
 
@@ -297,4 +262,42 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 		},
 	})
 	return err
+}
+
+func agentConvert(opts *commandutil.Opts, agentName string) error {
+
+	deployment, err := opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments("choerodon").Get(agentName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	labels := deployment.ObjectMeta.GetLabels()
+
+	// agent实例是否由helm3进行管理的
+	if labels["helm"] != "helm3" {
+		releaseRequest := &helm.GetReleaseContentRequest{
+			ReleaseName: agentName,
+			Namespace:   "choerodon",
+		}
+		rls, _ := opts.HelmClient.GetRelease(releaseRequest)
+
+		// 实例由helm3管理，更新标签
+		if rls != nil {
+			labels["helm"] = "helm3"
+			deployment.SetLabels(labels)
+			opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments("choerodon").Update(deployment)
+		} else {
+			// 实例由helm2管理，先升级成helm3管理，然后更新标签
+			err = helm2to3.RunConvert(agentName)
+			// 如果从helm2升级到helm3没有问题，就清理helm2的数据并给agent的deployment添加标签
+			if err == nil {
+				helm2to3.RunCleanup(agentName)
+				labels["helm"] = "helm3"
+				deployment.SetLabels(labels)
+				opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments("choerodon").Update(deployment)
+			} else {
+				return err
+			}
+		}
+	}
+	return nil
 }

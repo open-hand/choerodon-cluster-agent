@@ -13,13 +13,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package upgrade
+package helm2to3
 
 import (
 	"errors"
-	"github.com/helm/helm-2to3/pkg/common"
-	v2 "github.com/helm/helm-2to3/pkg/v2"
-	v3 "github.com/helm/helm-2to3/pkg/v3"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3/common"
+	v2 "github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3/v2"
+	v3 "github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3/v3"
 	v2rel "k8s.io/helm/pkg/proto/hapi/release"
 	"log"
 )

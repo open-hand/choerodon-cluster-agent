@@ -1,4 +1,4 @@
-package upgrade
+package helm2to3
 
 type EnvSettings struct {
 	DryRun           bool

@@ -11,7 +11,6 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
 	github.com/gorilla/websocket v1.4.1
 	github.com/hashicorp/go-cleanhttp v0.5.1
-	github.com/helm/helm-2to3 v0.5.0
 	github.com/operator-framework/operator-sdk v0.15.2
 	github.com/pkg/errors v0.9.1
 	github.com/qri-io/jsonschema v0.1.1

@@ -18,13 +18,12 @@ package v3
 
 import (
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3/common"
 	"log"
 	"os"
 
-	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/cli"
-
-	common "github.com/helm/helm-2to3/pkg/common"
+	"github.com/choerodon/helm/pkg/action"
+	"github.com/choerodon/helm/pkg/cli"
 )
 
 var (
