@@ -18,7 +18,6 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	t := info.Object.(*unstructured.Unstructured)
 
 	l := t.GetLabels()
-	defer t.SetLabels(l)
 
 	if l == nil {
 		l = make(map[string]string)
@@ -128,6 +127,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	}
 	// add base labels
 	addBaseLabels()
+	t.SetLabels(l)
 	return nil
 }
 

@@ -324,20 +324,6 @@ func (c *client) ExecuteTest(request *TestReleaseRequest) (*TestReleaseResponse,
 		request.Label,
 		true)
 
-	// 如果是安装prometheus-operator，则先删掉集群中的prometheus相关crd
-	if request.ChartName == "prometheus-operator" {
-		kubectlPath, err := exec.LookPath("kubectl")
-		if err != nil {
-			glog.Fatal(err)
-		}
-		glog.Infof("kubectl %s", kubectlPath)
-		kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
-
-		if err = kubectlApplier.DeletePrometheusCrd(); err != nil {
-			return nil, err
-		}
-	}
-
 	cp, err := installClient.ChartPathOptions.LocateChart(request.ChartName, envSettings)
 	if err != nil {
 		return nil, err

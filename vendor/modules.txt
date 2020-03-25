@@ -298,10 +298,6 @@ github.com/hashicorp/go-cleanhttp
 # github.com/hashicorp/golang-lru v0.5.3
 github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru
-# github.com/helm/helm-2to3 v0.5.0
-github.com/helm/helm-2to3/pkg/common
-github.com/helm/helm-2to3/pkg/v2
-github.com/helm/helm-2to3/pkg/v3
 # github.com/huandu/xstrings v1.2.0
 github.com/huandu/xstrings
 # github.com/imdario/mergo v0.3.8
@@ -322,7 +318,7 @@ github.com/liggitt/tabwriter
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/maorfr/helm-plugin-utils v0.0.0-20200216074820-36d2fcf6ae86
+# github.com/maorfr/helm-plugin-utils v0.0.0 => github.com/maorfr/helm-plugin-utils v0.0.0-20200216074820-36d2fcf6ae86
 github.com/maorfr/helm-plugin-utils/pkg
 # github.com/markbates/errx v1.1.0
 github.com/markbates/errx
@@ -517,40 +513,6 @@ gopkg.in/go-playground/validator.v9
 gopkg.in/inf.v0
 # gopkg.in/yaml.v2 v2.2.8
 gopkg.in/yaml.v2
-# helm.sh/helm/v3 v3.1.0
-helm.sh/helm/v3/internal/experimental/registry
-helm.sh/helm/v3/internal/ignore
-helm.sh/helm/v3/internal/resolver
-helm.sh/helm/v3/internal/sympath
-helm.sh/helm/v3/internal/third_party/dep/fs
-helm.sh/helm/v3/internal/third_party/k8s.io/kubernetes/deployment/util
-helm.sh/helm/v3/internal/tlsutil
-helm.sh/helm/v3/internal/urlutil
-helm.sh/helm/v3/internal/version
-helm.sh/helm/v3/pkg/action
-helm.sh/helm/v3/pkg/chart
-helm.sh/helm/v3/pkg/chart/loader
-helm.sh/helm/v3/pkg/chartutil
-helm.sh/helm/v3/pkg/cli
-helm.sh/helm/v3/pkg/downloader
-helm.sh/helm/v3/pkg/engine
-helm.sh/helm/v3/pkg/getter
-helm.sh/helm/v3/pkg/helmpath
-helm.sh/helm/v3/pkg/helmpath/xdg
-helm.sh/helm/v3/pkg/kube
-helm.sh/helm/v3/pkg/kube/fake
-helm.sh/helm/v3/pkg/lint
-helm.sh/helm/v3/pkg/lint/rules
-helm.sh/helm/v3/pkg/lint/support
-helm.sh/helm/v3/pkg/plugin
-helm.sh/helm/v3/pkg/postrender
-helm.sh/helm/v3/pkg/provenance
-helm.sh/helm/v3/pkg/release
-helm.sh/helm/v3/pkg/releaseutil
-helm.sh/helm/v3/pkg/repo
-helm.sh/helm/v3/pkg/storage
-helm.sh/helm/v3/pkg/storage/driver
-helm.sh/helm/v3/pkg/time
 # k8s.io/api v0.17.3 => k8s.io/api v0.17.2
 k8s.io/api/admission/v1
 k8s.io/api/admission/v1beta1

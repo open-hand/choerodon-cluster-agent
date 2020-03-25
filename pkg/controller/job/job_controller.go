@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 	v1 "k8s.io/api/batch/v1"
@@ -18,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strings"
 )
 
 var log = logf.Log.WithName("controller_job")
@@ -89,7 +91,7 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 	reqLogger.Info("Reconciling Job")
 
 	responseChan := r.args.CrChan.ResponseChan
-	//namespace := request.Namespace
+	namespace := request.Namespace
 
 	// Fetch the Job instance
 	instance := &v1.Job{}
@@ -104,48 +106,47 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 		return reconcile.Result{}, err
 	}
 
-	//kubeClient := r.args.KubeClient
+	kubeClient := r.args.KubeClient
 
-	//if instance.Labels[model.ReleaseLabel] != "" && instance.Labels[model.TestLabel] == "" {
-	//	glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
-	//	responseChan <- newJobRep(instance)
-	//	if finish, _ := IsJobFinished(instance); finish {
-	//		jobLogs, _, err := kubeClient.LogsForJob(request.Namespace, instance.Name, model.ReleaseLabel)
-	//		if err != nil {
-	//			glog.Error("get job log error ", err)
-	//		} else if strings.TrimSpace(jobLogs) != "" {
-	//			//if len(jobLogs) > 20480 {
-	//			//	jobLogs = jobLogs[:20489]
-	//			//}
-	//			responseChan <- newJobLogRep(instance.Name, instance.Labels[model.ReleaseLabel], jobLogs, request.Namespace)
-	//		}
-	//		err = kubeClient.DeleteJob(namespace, instance.Name)
-	//		if err != nil {
-	//			glog.Error("delete job error", err)
-	//		}
-	//	}
-	//
-	//} else if instance.Labels[model.TestLabel] == r.args.PlatformCode {
-	//	//监听
-	//	if finsish, succeed := IsJobFinished(instance); finsish {
-	//		jobLogs, jobstatus, err := kubeClient.LogsForJob(namespace, instance.Name, model.TestLabel)
-	//
-	//		if succeed == false && jobstatus == "success" {
-	//			succeed = true
-	//		}
-	//
-	//		if err != nil {
-	//			glog.Error("get job log error ", err)
-	//		} else if strings.TrimSpace(jobLogs) != "" {
-	//			responseChan <- newTestJobLogRep(instance.Labels[model.TestLabel], instance.Labels[model.ReleaseLabel], jobLogs, namespace, succeed)
-	//		}
-	//		_, err = r.args.HelmClient.DeleteRelease(&helm.DeleteReleaseRequest{ReleaseName: instance.Labels[model.ReleaseLabel]})
-	//		if err != nil {
-	//			glog.Error("delete release error", err)
-	//		}
-	//
-	//	}
-	//}
+	if instance.Labels[model.ReleaseLabel] != "" && instance.Labels[model.TestLabel] == "" {
+		glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
+		responseChan <- newJobRep(instance)
+		if finish, _ := IsJobFinished(instance); finish {
+			jobLogs, _, err := kubeClient.LogsForJob(request.Namespace, instance.Name, model.ReleaseLabel)
+			if err != nil {
+				glog.Error("get job log error ", err)
+			} else if strings.TrimSpace(jobLogs) != "" {
+				if len(jobLogs) > 20480 {
+					jobLogs = jobLogs[:20489]
+				}
+				responseChan <- newJobLogRep(instance.Name, instance.Labels[model.ReleaseLabel], jobLogs, request.Namespace)
+			}
+			err = kubeClient.DeleteJob(namespace, instance.Name)
+			if err != nil {
+				glog.Error("delete job error", err)
+			}
+		}
+
+	} else if instance.Labels[model.TestLabel] == r.args.PlatformCode {
+		//监听
+		if finsish, succeed := IsJobFinished(instance); finsish {
+			jobLogs, jobstatus, err := kubeClient.LogsForJob(namespace, instance.Name, model.TestLabel)
+
+			if succeed == false && jobstatus == "success" {
+				succeed = true
+			}
+
+			if err != nil {
+				glog.Error("get job log error ", err)
+			} else if strings.TrimSpace(jobLogs) != "" {
+				responseChan <- newTestJobLogRep(instance.Labels[model.TestLabel], instance.Labels[model.ReleaseLabel], jobLogs, namespace, succeed)
+			}
+			_, err = r.args.HelmClient.DeleteRelease(&helm.DeleteReleaseRequest{ReleaseName: instance.Labels[model.ReleaseLabel], Namespace: helm.TestNamespace})
+			if err != nil {
+				glog.Error("delete release error", err)
+			}
+		}
+	}
 
 	return reconcile.Result{}, nil
 }
@@ -166,21 +167,21 @@ func newJobLogRep(name string, release string, jobLogs string, namespace string)
 	}
 }
 
-//func newTestJobLogRep(label string, release string, jobLogs string, namespace string, succeed bool) *model.Packet {
-//	rsp := &helm.TestJobFinished{
-//		Succeed: succeed,
-//		Log:     jobLogs,
-//	}
-//	rspBytes, err := json.Marshal(rsp)
-//	if err != nil {
-//		glog.Errorf("marshal test job rsp error: %v", err)
-//	}
-//	return &model.Packet{
-//		Key:     fmt.Sprintf("env:%s.release:%s.label:%s", namespace, release, label),
-//		Type:    model.TestJobLog,
-//		Payload: string(rspBytes),
-//	}
-//}
+func newTestJobLogRep(label string, release string, jobLogs string, namespace string, succeed bool) *model.Packet {
+	rsp := &helm.TestJobFinished{
+		Succeed: succeed,
+		Log:     jobLogs,
+	}
+	rspBytes, err := json.Marshal(rsp)
+	if err != nil {
+		glog.Errorf("marshal test job rsp error: %v", err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.release:%s.label:%s", namespace, release, label),
+		Type:    model.TestJobLog,
+		Payload: string(rspBytes),
+	}
+}
 
 func newJobRep(job *v1.Job) *model.Packet {
 	payload, err := json.Marshal(job)
