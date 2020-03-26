@@ -213,6 +213,7 @@ func createNamespace(opts *commandutil.Opts, namespaceName string, releases []st
 
 func update(opts *commandutil.Opts, releases []string, namespaceName string, labels map[string]string) error {
 	releaseCount := len(releases)
+	upgradeCount := 0
 	if releaseCount != 0 {
 		for i := 0; i < releaseCount; i++ {
 			getReleaseRequest := &helm.GetReleaseContentRequest{
@@ -220,33 +221,29 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 				Namespace:   namespaceName,
 			}
 
-			// 查看该实例是否已经升级到helm3
+			// 查看该实例是否helm3管理，如果是upgradeCount加1，如果不是，进行升级操作然后再加1
 			_, err := opts.HelmClient.GetRelease(getReleaseRequest)
 			if err != nil {
+				// 实例不存在有可能是实例未升级，尝试升级操作
 				if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
 					err = helm2to3.RunConvert(releases[i])
-					if err != nil {
+					// 如果err等于nil，表示升级成功，进行helm2数据清理，然后upgradeCount加1
+					if err == nil {
+						helm2to3.RunCleanup(releases[i])
+						upgradeCount++
+					} else {
 						return err
 					}
-				} else {
-					return err
 				}
+			} else {
+				// 实例存在表明实例被helm3管理，尝试进行数据清理，然后upgradeCount加1
+				helm2to3.RunCleanup(releases[i])
+				upgradeCount++
 			}
 		}
 
-		upgradedReleases, err := opts.HelmClient.ListRelease(namespaceName)
-		if err != nil {
-			return err
-		}
-
-		// 这里releaseCount+1，多处来的1是因为agent是手动在集群中安装的，devops并不会在releases中包含agent的实例名称
-		if (namespaceName == "choerodon" && len(upgradedReleases) != releaseCount+1) || (namespaceName != "choerodon" && len(upgradedReleases) != releaseCount) {
+		if releaseCount != upgradeCount {
 			return fmt.Errorf("env %s : failed to upgrade helm2 to helm3 ", namespaceName)
-		}
-
-		// 将每个实例的helm2版本信息移除
-		for i := 0; i < releaseCount; i++ {
-			helm2to3.RunCleanup(releases[i])
 		}
 	}
 
