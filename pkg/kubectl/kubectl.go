@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-
-
 type Kubectl struct {
 	exe    string
 	config *rest.Config
@@ -64,7 +62,7 @@ func (c *Kubectl) apply(namespace string, cs kubernetes.ChangeSet) (errs kuberne
 			return
 		}
 		glog.Infof("cmd: %s, args: %s, cout: %d", cmd, strings.Join(args, " "), len(objs))
-		args = append(args, cmd, "-n", namespace)
+		args = append(args, cmd, "-n", namespace, "--wait=false")
 		if err := c.doCommand(makeMultidoc(objs), args...); err != nil {
 			for _, obj := range objs {
 				r := bytes.NewReader(obj.Bytes())
@@ -111,7 +109,7 @@ func (c *Kubectl) DeletePrometheusCrd() error {
 
 	begin := time.Now()
 	err := cmd.Run()
-	glog.Infof("kubectl %s , took %v, err: %v, output: %s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
+	glog.Infof("kubectl %s , took %v, err: %v, output: \n%s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
 	if err != nil {
 		err = errors.Wrap(errors.New(strings.TrimSpace(stderr.String())), "running kubectl")
 		return err
@@ -136,10 +134,10 @@ func (c *Kubectl) describe(namespace, sourceKind, sourceName string) (info strin
 	begin := time.Now()
 	err := cmd.Run()
 	if err != nil {
-		glog.Infof("kubectl %s , took %v, err: %v, output: %s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
+		glog.Infof("kubectl %s , took %v, err: %v, output: \n%s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
 		return strings.TrimSpace(stderr.String())
 	}
-	glog.Infof("kubectl %s , took %v, output: %s", strings.Join(args, " "), time.Since(begin), strings.TrimSpace(stdout.String()))
+	glog.Infof("kubectl %s , took %v, output: \n%s", strings.Join(args, " "), time.Since(begin), strings.TrimSpace(stdout.String()))
 	return strings.TrimSpace(stdout.String())
 }
 
@@ -158,7 +156,7 @@ func (c *Kubectl) doCommand(r io.Reader, args ...string) error {
 		err = errors.Wrap(errors.New(strings.TrimSpace(stderr.String())), "running kubectl")
 	}
 
-	glog.Infof("kubectl %s , took %v, err: %v, output: %s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
+	glog.Infof("kubectl %s , took %v, err: %v, output: \n%s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
 	return err
 }
 
