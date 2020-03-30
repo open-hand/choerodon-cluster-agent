@@ -321,5 +321,5 @@ func checkKube(client *k8sclient.Clientset) {
 		glog.Errorf("check role binding failed, %v", err)
 		os.Exit(0)
 	}
-	glog.Infof(" k8s role binding succeed.")
+	glog.Infof("k8s role binding succeed.")
 }

@@ -285,6 +285,8 @@ func (c *appClient) PipeClose(id string, pipe pipeutil.Pipe) error {
 	return nil
 }
 
+// 如果f方法操作失败，并且返回的错误为空，那么直接进行重试操作。如果返回的错误不为空，那么设置backoff时长的定时器，计时结束后，再次重试操作。
+// 该重试过程以2倍形式逐渐增加重试等待时间
 func (c *appClient) doWithBackOff(msg string, f func() (bool, error)) {
 	if !c.retainGoroutine() {
 		return
