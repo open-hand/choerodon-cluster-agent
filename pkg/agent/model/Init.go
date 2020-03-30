@@ -46,8 +46,9 @@ spec:
     http01: {}`
 
 type AgentInitOptions struct {
-	Envs    []EnvParas `json:"envs,omitempty"`
-	GitHost string     `json:"gitHost,omitempty"`
+	Envs      []EnvParas `json:"envs,omitempty"`
+	GitHost   string     `json:"gitHost,omitempty"`
+	AgentName string     `json:"agentName,omitempty"`
 }
 
 type AgentStatus struct {
@@ -66,10 +67,11 @@ type EnvStatus struct {
 }
 
 type EnvParas struct {
-	Namespace string `json:"namespace,omitempty"`
-	EnvId     int32  `json:"envId,omitempty"`
-	GitRsaKey string `json:"gitRsaKey,omitempty"`
-	GitUrl    string `json:"gitUrl,omitempty"`
+	Namespace string   `json:"namespace,omitempty"`
+	EnvId     int32    `json:"envId,omitempty"`
+	GitRsaKey string   `json:"gitRsaKey,omitempty"`
+	GitUrl    string   `json:"gitUrl,omitempty"`
+	Releases  []string `json:"instances,omitempty"`
 }
 
 type UpgradeInfo struct {

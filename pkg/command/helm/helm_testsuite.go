@@ -72,7 +72,7 @@ func releaseStatus(opts *command.Opts, releaseName string) string {
 		}
 		return ""
 	}
-	jobRun := opts.KubeClient.IsReleaseJobRun("choerodon-test", releaseName)
+	jobRun := opts.KubeClient.IsReleaseJobRun(helm.TestNamespace, releaseName)
 	if jobRun {
 		return "running"
 	} else {

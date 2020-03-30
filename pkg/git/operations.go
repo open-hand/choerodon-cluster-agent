@@ -11,9 +11,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/golang/glog"
 	"io"
 	"io/ioutil"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -43,6 +45,19 @@ func clone(ctx context.Context, workingDir, repoURL, repoBranch string) (path st
 	}
 	args = append(args, repoURL, repoPath)
 	if err := execGitCmd(ctx, workingDir, nil, args...); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return "", errors.Wrap(err, "git clone")
 	}
 	return repoPath, nil
@@ -53,6 +68,19 @@ func mirror(ctx context.Context, workingDir, repoURL string) (path string, err e
 	args := []string{"clone", "--mirror"}
 	args = append(args, repoURL, repoPath)
 	if err := execGitCmd(ctx, workingDir, nil, args...); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return "", errors.Wrap(err, "git clone --mirror")
 	}
 	return repoPath, nil
@@ -64,12 +92,54 @@ func mirror(ctx context.Context, workingDir, repoURL string) (path string, err e
 func checkPush(ctx context.Context, workingDir, upstream string) error {
 	// --force just in case we fetched the tag from upstream when cloning
 	if err := execGitCmd(ctx, workingDir, nil, "tag", "--force", CheckPushTag); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return errors.Wrap(err, "tag for write check")
 	}
 	if err := execGitCmd(ctx, workingDir, nil, "push", "--force", upstream, "tag", CheckPushTag); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return errors.Wrap(err, "attempt to push tag")
 	}
-	return execGitCmd(ctx, workingDir, nil, "push", "--delete", upstream, "tag", CheckPushTag)
+	if err := execGitCmd(ctx, workingDir, nil, "push", "--delete", upstream, "tag", CheckPushTag); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
+		return err
+	}
+	return nil
 }
 
 func commit(ctx context.Context, workingDir string, commitAction CommitAction) error {
@@ -80,6 +150,19 @@ func commit(ctx context.Context, workingDir string, commitAction CommitAction) e
 			"commit",
 			"--no-verify", "-a", "--author", commitAuthor, "-m", commitAction.Message,
 		); err != nil {
+			buf := make([]byte, 1024)
+			outPut := make([]byte, 1024+len(err.Error()))
+			strReader := strings.NewReader(err.Error() + "\n")
+			strReader.Read(outPut)
+			for {
+				n := runtime.Stack(buf, false)
+				if n < len(buf) {
+					outPut = append(outPut, buf...)
+					glog.Info(string(outPut))
+					break
+				}
+				buf = make([]byte, 2*len(buf))
+			}
 			return errors.Wrap(err, "git commit")
 		}
 		return nil
@@ -89,6 +172,19 @@ func commit(ctx context.Context, workingDir string, commitAction CommitAction) e
 		"commit",
 		"--no-verify", "-a", "-m", commitAction.Message,
 	); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return errors.Wrap(err, "git commit")
 	}
 	return nil
@@ -98,6 +194,19 @@ func commit(ctx context.Context, workingDir string, commitAction CommitAction) e
 func push(ctx context.Context, workingDir, upstream string, refs []string) error {
 	args := append([]string{"push", upstream}, refs...)
 	if err := execGitCmd(ctx, workingDir, nil, args...); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return errors.Wrap(err, fmt.Sprintf("git push %s %s", upstream, refs))
 	}
 	return nil
@@ -108,6 +217,19 @@ func fetch(ctx context.Context, workingDir, upstream string, refspec ...string) 
 	args := append([]string{"fetch", "--tags", upstream}, refspec...)
 	if err := execGitCmd(ctx, workingDir, nil, args...); err != nil &&
 		!strings.Contains(err.Error(), "Couldn't find remote ref") {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return errors.Wrap(err, fmt.Sprintf("git fetch --tags %s %s", upstream, refspec))
 	}
 	return nil
@@ -118,6 +240,19 @@ func refExists(ctx context.Context, workingDir, ref string) (bool, error) {
 		if strings.Contains(err.Error(), "unknown revision") {
 			return false, nil
 		}
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return false, err
 	}
 	return true, nil
@@ -127,6 +262,19 @@ func refExists(ctx context.Context, workingDir, ref string) (bool, error) {
 func getNotesRef(ctx context.Context, workingDir, ref string) (string, error) {
 	out := &bytes.Buffer{}
 	if err := execGitCmd(ctx, workingDir, out, "notes", "--ref", ref, "get-ref"); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return "", err
 	}
 	return strings.TrimSpace(out.String()), nil
@@ -137,7 +285,23 @@ func addNote(ctx context.Context, workingDir, rev, notesRef string, note interfa
 	if err != nil {
 		return err
 	}
-	return execGitCmd(ctx, workingDir, nil, "notes", "--ref", notesRef, "add", "-m", string(b), rev)
+	if err := execGitCmd(ctx, workingDir, nil, "notes", "--ref", notesRef, "add", "-m", string(b), rev); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
+		return err
+	}
+	return nil
 }
 
 func getNote(ctx context.Context, workingDir, notesRef, rev string, note interface{}) (ok bool, err error) {
@@ -145,6 +309,19 @@ func getNote(ctx context.Context, workingDir, notesRef, rev string, note interfa
 	if err := execGitCmd(ctx, workingDir, out, "notes", "--ref", notesRef, "show", rev); err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "no note found for object") {
 			return false, nil
+		}
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
 		}
 		return false, err
 	}
@@ -160,6 +337,19 @@ func getNote(ctx context.Context, workingDir, notesRef, rev string, note interfa
 func noteRevList(ctx context.Context, workingDir, notesRef string) (map[string]struct{}, error) {
 	out := &bytes.Buffer{}
 	if err := execGitCmd(ctx, workingDir, out, "notes", "--ref", notesRef, "list"); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return nil, err
 	}
 	noteList := splitList(out.String())
@@ -178,6 +368,19 @@ func noteRevList(ctx context.Context, workingDir, notesRef string) (map[string]s
 func refRevision(ctx context.Context, path, ref string) (string, error) {
 	out := &bytes.Buffer{}
 	if err := execGitCmd(ctx, path, out, "rev-list", "--max-count", "1", ref); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return "", err
 	}
 	return strings.TrimSpace(out.String()), nil
@@ -186,6 +389,19 @@ func refRevision(ctx context.Context, path, ref string) (string, error) {
 func revlist(ctx context.Context, path, ref string) ([]string, error) {
 	out := &bytes.Buffer{}
 	if err := execGitCmd(ctx, path, out, "rev-list", ref); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return nil, err
 	}
 	return splitList(out.String()), nil
@@ -201,12 +417,38 @@ func onelinelog(ctx context.Context, path, refspec, subdir string) ([]Commit, er
 	// >> ambiguous argument '' <<
 	if subdir != "" {
 		if err := execGitCmd(ctx, path, out, "log", "--oneline", "--no-abbrev-commit", refspec, "--", subdir); err != nil {
+			buf := make([]byte, 1024)
+			outPut := make([]byte, 1024+len(err.Error()))
+			strReader := strings.NewReader(err.Error() + "\n")
+			strReader.Read(outPut)
+			for {
+				n := runtime.Stack(buf, false)
+				if n < len(buf) {
+					outPut = append(outPut, buf...)
+					glog.Info(string(outPut))
+					break
+				}
+				buf = make([]byte, 2*len(buf))
+			}
 			return nil, err
 		}
 		return splitLog(out.String())
 	}
 
 	if err := execGitCmd(ctx, path, out, "log", "--oneline", "--no-abbrev-commit", refspec); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return nil, err
 	}
 
@@ -235,9 +477,35 @@ func splitList(s string) []string {
 // Move the tag to the ref given and push that tag upstream
 func moveTagAndPush(ctx context.Context, path string, tag, ref, msg, upstream string) error {
 	if err := execGitCmd(ctx, path, nil, "tag", "--force", "-a", "-m", msg, tag, ref); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return errors.Wrap(err, "moving tag "+tag)
 	}
 	if err := execGitCmd(ctx, path, nil, "push", "--force", upstream, "tag", tag); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return errors.Wrap(err, "pushing tag to origin")
 	}
 	return nil
@@ -253,6 +521,19 @@ func changedFiles(ctx context.Context, path, subPath, ref string) ([]string, err
 	// the working dir_; i.e, we do not report on things that no
 	// longer appear.
 	if err := execGitCmd(ctx, path, out, "diff", "--name-only", "--diff-filter=ACMRT", ref, "--", subPath); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return nil, err
 	}
 	return splitList(out.String()), nil
@@ -262,6 +543,19 @@ func fileLastCommit(ctx context.Context, path, subPath, file string) (string, er
 	out := &bytes.Buffer{}
 	err := execGitCmd(ctx, path, out, "log", "-n", "1", "--pretty=format:%H", "--", file)
 	if err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		return "", err
 	}
 	return out.String(), nil
@@ -282,6 +576,19 @@ func filesPreviousCommit(ctx context.Context, path, subPath, ref string, files [
 	}
 	out := &bytes.Buffer{}
 	if err := execGitCmd(ctx, path, out, "log", "-n", "1", "--pretty=format:%h --", listToString(files)); err != nil {
+		buf := make([]byte, 1024)
+		outPut := make([]byte, 1024+len(err.Error()))
+		strReader := strings.NewReader(err.Error() + "\n")
+		strReader.Read(outPut)
+		for {
+			n := runtime.Stack(buf, false)
+			if n < len(buf) {
+				outPut = append(outPut, buf...)
+				glog.Info(string(outPut))
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
 		log.Fatal(out.String())
 	}
 	return nil, nil

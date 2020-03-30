@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/prometheus"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"io"
@@ -21,17 +20,14 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/cli-runtime/pkg/genericclioptions/resource"
+	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubernetes/pkg/api/legacyscheme"
-	"k8s.io/kubernetes/pkg/client/clientset_generated/internalclientset"
-	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -45,9 +41,6 @@ type Client interface {
 	LogsForJob(namespace string, name string, jobLabel string) (string, string, error)
 	CreateOrUpdateService(namespace string, serviceStr string) (*core_v1.Service, error)
 	CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error)
-	//todo:remove
-	GetClientSet() (internalclientset.Interface, error)
-	//---
 	GetDiscoveryClient() (discovery.DiscoveryInterface, error)
 	DeleteService(namespace string, name string) error
 	DeleteIngress(namespace string, name string) error
@@ -55,9 +48,6 @@ type Client interface {
 	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
-	LabelObjects(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, appServiceId int64) ([]byte, error)
-	LabelObjectsForPrometheusUpdate(namespace string, command int, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, appServiceId int64) ([]byte, error)
-	LabelTestObjects(namespace string, imagePullSecret []core_v1.LocalObjectReference, manifest string, releaseName string, app string, version string, label string) (*bytes.Buffer, error)
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
 	GetIngress(namespace string, ingressName string) (string, error)
@@ -136,11 +126,6 @@ func (c *client) DeleteJob(namespace string, name string) error {
 	})
 }
 
-//todo:remove
-func (c *client) GetClientSet() (internalclientset.Interface, error) {
-	return nil, nil
-}
-
 func (c *client) GetDiscoveryClient() (discovery.DiscoveryInterface, error) {
 	return c.client.Discovery(), nil
 }
@@ -165,18 +150,6 @@ func (c *client) BuildUnstructured(namespace string, manifest string) (Result, e
 		Flatten().
 		Do().Infos()
 	return result, err
-}
-
-// AsVersionedObject converts a runtime.object to a versioned object.
-func (c *client) AsVersionedObject(obj runtime.Object) (runtime.Object, error) {
-	json, err := runtime.Encode(unstructured.UnstructuredJSONScheme, obj)
-	if err != nil {
-		return nil, err
-	}
-	decoder := scheme.Codecs.UniversalDecoder()
-	versions := &runtime.VersionedObjects{}
-	err = runtime.DecodeInto(decoder, json, versions)
-	return versions.First(), err
 }
 
 func (c *client) LogsForJob(namespace string, name string, jobLabel string) (string, string, error) {
@@ -448,10 +421,26 @@ func (c *client) StartResources(namespace string, manifest string) error {
 	if err != nil {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
+
+	clientSet := c.GetKubeClient()
+
 	for _, info := range result {
-		_, err := resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
-		if err != nil {
-			glog.V(2).Infof("replace: %v", err)
+		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+			t := info.Object.(*unstructured.Unstructured)
+			replicas, _, err := unstructured.NestedInt64(t.Object, "spec", "replicas")
+			if err != nil {
+				glog.Warningf("Get Template replicas failed, %v", err)
+			}
+			s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
+			if err != nil {
+				return err
+			}
+
+			s.Spec.Replicas = int32(replicas)
+			_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -528,20 +517,12 @@ func (c *client) GetSelectRelationPod(info *resource.Info, objPods map[string][]
 		return objPods, nil
 	}
 
-	versioned, err := c.AsVersionedObject(info.Object)
-	switch {
-	case runtime.IsNotRegisteredError(err):
-		return objPods, nil
-	case err != nil:
-		return objPods, err
-	}
-
-	selector, ok := getSelectorFromObject(versioned)
+	selector, ok := getSelectorFromObject(info.Object)
 	if !ok {
 		return objPods, nil
 	}
 
-	pods, err := c.client.Core().Pods(info.Namespace).List(meta_v1.ListOptions{
+	pods, err := c.client.CoreV1().Pods(info.Namespace).List(meta_v1.ListOptions{
 		FieldSelector: fields.Everything().String(),
 		LabelSelector: labels.Set(selector).AsSelector().String(),
 	})
@@ -625,93 +606,7 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 	return newManifestBuf, nil
 }
 
-func (c *client) LabelObjects(namespace string,
-	command int,
-	imagePullSecret []core_v1.LocalObjectReference,
-	manifest string,
-	releaseName string,
-	app string,
-	version string, appServiceId int64) ([]byte, error) {
-	// 将原始yaml格式的文件转换成易操作的k8s通用对象
-	result, err := c.BuildUnstructured(namespace, manifest)
-	if err != nil {
-		return nil, fmt.Errorf("build unstructured: %v", err)
-	}
-
-	newManifestBuf := bytes.NewBuffer(nil)
-	for _, info := range result {
-
-		// 给指定的对象加上标签
-		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version, appServiceId)
-		if err != nil {
-			return nil, fmt.Errorf("label object: %v", err)
-		}
-
-		objB, err := yaml.Marshal(obj)
-		if err != nil {
-			return nil, fmt.Errorf("yaml marshal: %v", err)
-		}
-		newManifestBuf.WriteString("\n---\n")
-		newManifestBuf.Write(objB)
-	}
-	return newManifestBuf.Bytes(), nil
-}
-
-func (c *client) LabelObjectsForPrometheusUpdate(namespace string,
-	command int,
-	imagePullSecret []core_v1.LocalObjectReference,
-	manifest string,
-	releaseName string,
-	app string,
-	version string, appServiceId int64) ([]byte, error) {
-	// 将原始yaml格式的文件转换成易操作的k8s通用对象
-	result, err := c.BuildUnstructured(namespace, manifest)
-	if err != nil {
-		return nil, fmt.Errorf("build unstructured: %v", err)
-	}
-
-	newManifestBuf := bytes.NewBuffer(nil)
-	for _, info := range result {
-		if info.Name == "" {
-
-		}
-		// 给指定的对象加上标签
-		obj, err := labelObject(imagePullSecret, command, info, releaseName, app, version, appServiceId)
-		if err != nil {
-			return nil, fmt.Errorf("label object: %v", err)
-		}
-
-		objB, err := yaml.Marshal(obj)
-		if err != nil {
-			return nil, fmt.Errorf("yaml marshal: %v", err)
-		}
-		//add {{ }} when get {{ }}
-		var re = regexp.MustCompile(`(\{\{[^{^{^}^}]*\}\})`)
-		b := re.ReplaceAll(objB, []byte("{{`$1`}}"))
-
-		// 兼容prometheus的添加标签后不能正确解析模板
-		if info.Object.GetObjectKind().GroupVersionKind().Kind == "PrometheusRule" && info.Name == "c7n-prometheus-prometheus" {
-			t := prometheus.PrometheusRule{}
-			err = yaml.Unmarshal(b, &t)
-			if err != nil {
-				glog.Info(err.Error())
-			}
-			t.ApiVersion = "monitoring.coreos.com/v1"
-			t.Spec.Groups[0].Rules[12].Annotations["description"] = "Prometheus {{`{{$labels.namespace}}`}}/{{`{{$labels.pod}}`}} remote write desired shards calculation wants to run {{`{{ printf $value }}`}} shards, which is more than the max of {{print `{{ printf ` \"`\" `prometheus_remote_storage_shards_max{instance=\"%s\",job=\"{{ $prometheusJob }}\",namespace=\"{{ $namespace }}\"}` \"`\" ` $labels.instance | query | first | value }}`}}."
-			result, err := yaml.Marshal(t)
-			if err != nil {
-				glog.Info(err.Error())
-
-			}
-			b = result
-		}
-		newManifestBuf.WriteString("\n---\n")
-		newManifestBuf.Write(b)
-	}
-	return newManifestBuf.Bytes(), nil
-}
-
-// todo: what this do for ??
+// 给资源加标签
 func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Object, error) {
 
 	obj := info.Object.(*unstructured.Unstructured)
@@ -975,47 +870,7 @@ func getSelectorFromObject(obj runtime.Object) (map[string]string, bool) {
 	}
 }
 
-func (c *client) LabelTestObjects(namespace string,
-	imagePullSecret []core_v1.LocalObjectReference,
-	manifest string,
-	releaseName string,
-	app string,
-	version string,
-	label string) (*bytes.Buffer, error) {
-	result, err := c.BuildUnstructured(namespace, manifest)
-	if err != nil {
-		return nil, fmt.Errorf("build unstructured: %v", err)
-	}
 
-	newManifestBuf := bytes.NewBuffer(nil)
-	for _, info := range result {
-
-		// add object and pod template label
-		obj, err := labelTestObject(info, imagePullSecret, releaseName, app, version, label)
-		if err != nil {
-			return nil, fmt.Errorf("label object: %v", err)
-		}
-
-		objB, err := yaml.Marshal(obj)
-		if err != nil {
-			return nil, fmt.Errorf("yaml marshal: %v", err)
-		}
-		newManifestBuf.WriteString("\n---\n")
-		newManifestBuf.Write(objB)
-	}
-
-	return newManifestBuf, nil
-}
-
-func labelTestObject(info *resource.Info,
-	imagePullSecret []core_v1.LocalObjectReference,
-	releaseName string,
-	app string,
-	version string,
-	label string) (runtime.Object, error) {
-
-	return addLabel(imagePullSecret, 0, 0, info, version, releaseName, app, label, true)
-}
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {
 	_, err := c.client.CoreV1().Secrets(namespace).Get(secret.Name, meta_v1.GetOptions{})

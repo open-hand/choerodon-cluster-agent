@@ -89,11 +89,18 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 	// Fetch the ConfigMap instance
 	instance := &corev1.ConfigMap{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+
+
+	// 如果没有这个注解，说明该configMap不是agent管理的,不需要处理
+	if _, ok := instance.Annotations[model.CommitLabel]; !ok {
+		return reconcile.Result{}, nil
+	}
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 
 			responseChan <- newConfigMapDelRep(request.Name, request.Namespace)
-			glog.Warningf("configmap '%s' in work queue no longer exists", instance.Name)
+			glog.Warningf("configmap '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

@@ -6,11 +6,9 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
+	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 	v1 "k8s.io/api/batch/v1"
-	"strings"
-
-	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -21,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strings"
 )
 
 var log = logf.Log.WithName("controller_job")
@@ -100,7 +99,7 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 	if err != nil {
 		if errors.IsNotFound(err) {
 			responseChan <- newJobDelRep(request.Name, request.Namespace)
-			glog.Warningf("job '%s' in work queue no longer exists", instance)
+			glog.Warningf("job '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -117,9 +116,9 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 			if err != nil {
 				glog.Error("get job log error ", err)
 			} else if strings.TrimSpace(jobLogs) != "" {
-				//if len(jobLogs) > 20480 {
-				//	jobLogs = jobLogs[:20489]
-				//}
+				if len(jobLogs) > 20480 {
+					jobLogs = jobLogs[:20489]
+				}
 				responseChan <- newJobLogRep(instance.Name, instance.Labels[model.ReleaseLabel], jobLogs, request.Namespace)
 			}
 			err = kubeClient.DeleteJob(namespace, instance.Name)
@@ -142,11 +141,10 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 			} else if strings.TrimSpace(jobLogs) != "" {
 				responseChan <- newTestJobLogRep(instance.Labels[model.TestLabel], instance.Labels[model.ReleaseLabel], jobLogs, namespace, succeed)
 			}
-			_, err = r.args.HelmClient.DeleteRelease(&helm.DeleteReleaseRequest{ReleaseName: instance.Labels[model.ReleaseLabel]})
+			_, err = r.args.HelmClient.DeleteRelease(&helm.DeleteReleaseRequest{ReleaseName: instance.Labels[model.ReleaseLabel], Namespace: helm.TestNamespace})
 			if err != nil {
 				glog.Error("delete release error", err)
 			}
-
 		}
 	}
 

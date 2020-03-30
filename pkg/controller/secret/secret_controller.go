@@ -82,12 +82,17 @@ func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result
 	instance := &corev1.Secret{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 
+	// 如果没有这个注解，说明该secret不是agent管理的,不需要处理
+	if _, ok := instance.Annotations[model.CommitLabel]; !ok {
+		return reconcile.Result{}, nil
+	}
+
 	responseChan := r.args.CrChan.ResponseChan
 	if err != nil {
 		if errors.IsNotFound(err) {
 
 			responseChan <- newsecretDelRep(request.Name, request.Namespace)
-			glog.Warningf("secret '%s' in work queue no longer exists", instance)
+			glog.Warningf("secret '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

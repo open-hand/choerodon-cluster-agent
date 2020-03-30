@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
-	"k8s.io/api/apps/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,7 +84,7 @@ type ReconcileC7NHelmRelease struct {
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	namespace := request.Namespace
-	//对应 实例视图的名字 如：helm-lll-1f3b8
+	//对应实例的名字 如：helm-lll-1f3b8
 	name := request.Name
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling C7NHelmRelease")
@@ -98,11 +97,11 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 
 	// Fetch the C7NHelmRelease instance
 	instance := &choerodonv1alpha1.C7NHelmRelease{}
-	//这一步将C7NHelmRelease中的值 注入到这个instance 俗话就是得到C7NHelmRelease实例
+	// 获得集群中指定名称的C7NHelmRelease
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// 判断是否存在 不存在表示被删除操作
+			// 判断C7NHelmRelease资源是否存在，不存在表示实例删除操作
 			if !r.checkCrdDeleted(instance) {
 				runtimeutil.HandleError(fmt.Errorf("C7NHelmReleases '%s' in work queue no longer exists", name))
 				if cmd := deleteHelmReleaseCmd(namespace, name); cmd != nil {
@@ -122,19 +121,20 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		return result, fmt.Errorf("c7nhelmrelease has no commit annotations")
 	}
 
-	// rls -> release
-	//helm list | grep name 存在否？ 不存在的话就安装
-	rls, err := helmClient.GetRelease(&modelhelm.GetReleaseContentRequest{ReleaseName: name})
+	// 查看C7NHelmRelease对应的实例是否已经安装。需要注意这里获取的helmRelease下manifest中的信息和k8s中实际运行时对象的信息不是一致的。
+	// 因为在安装的时候，对象被添加了额外的标签，但是标签信息没有同步到manifest里面
+	rls, err := helmClient.GetRelease(&modelhelm.GetReleaseContentRequest{ReleaseName: name, Namespace: namespace})
 
 	if err != nil {
-		//不存在的话 就会报一个不存在的err //然后开始安装
-		if !strings.Contains(err.Error(), helm.ErrReleaseNotFound(name).Error()) {
+		//不存在的话打印实例不存在的日志 然后开始安装
+		if strings.Contains(err.Error(), modelhelm.ErrReleaseNotFound) {
+			glog.Infof("release %s not found", instance.Name)
 			if cmd := installHelmReleaseCmd(instance); cmd != nil {
-				glog.Infof("release %s install", instance.Name)
+				glog.Infof("release %s start to install", instance.Name)
 				commandChan <- cmd
 			}
 		} else {
-			responseChan <- newReleaseSyncFailRep(instance, "helm release query failed ,please check tiller server.")
+			responseChan <- newReleaseSyncFailRep(instance, "failed to get release by helm")
 			return result, fmt.Errorf("get release content: %v", err)
 		}
 		//如果存在 说明release已经存 就是更新？
@@ -143,18 +143,27 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			responseChan <- newReleaseSyncFailRep(instance, "release already in other namespace!")
 			glog.Error("release already in other namespace!")
 		}
-		//todo  目前的方式是解析release里面的对象，找到deployment的command标签，用于比较是否更改，执行重新部署，是否有更好的方式？
-		results := strings.Split(rls.Manifest, "---")
+		// 现在是获取集群中对应实例的deployment, 而helm2.x版本是从release.manifest中获取的，可能不是集群中最新的状态。
 		var commandId int = 0
 		var appServiceId int64 = 0
+		results := strings.Split(rls.Manifest, "---")
 		for _, result := range results {
+			// 找到第一个deployment对象，根据name取出集群中的deployment，然后获得commandId和appServiceId信息
 			if result != "" && result != "\n" {
-				var data = []byte(result)
-				deployment := &v1beta1.Deployment{}
-				yaml.Unmarshal(data, &deployment)
-				if deployment.Kind == "Deployment" {
-					commandId, _ = strconv.Atoi(deployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
-					appServiceId, _ = strconv.ParseInt(deployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel], 10, 64)
+				data := []byte(result)
+				manifestDeployment := &v1beta1.Deployment{}
+				yaml.Unmarshal(data, manifestDeployment)
+				if manifestDeployment.Kind == "Deployment" {
+					clusterDeployment := &v1beta1.Deployment{}
+					objectKey := client.ObjectKey{Namespace: request.Namespace, Name: manifestDeployment.ObjectMeta.Name}
+					err := r.client.Get(context.TODO(), objectKey, clusterDeployment)
+					if errors.IsNotFound(err) {
+						glog.Warningf("deployment of release %s no longer exists", rls.Name)
+						responseChan <- newReleaseSyncFailRep(instance, fmt.Sprintf("deployment of release %s no longer exists", rls.Name))
+						return reconcile.Result{}, nil
+					}
+					commandId, _ = strconv.Atoi(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
+					appServiceId, _ = strconv.ParseInt(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel], 10, 64)
 					break
 				}
 			}
@@ -245,7 +254,7 @@ func UpgradeInstanceStatusCmd(instance *choerodonv1alpha1.C7NHelmRelease, payloa
 
 // delete helm release
 func deleteHelmReleaseCmd(namespace, name string) *model.Packet {
-	req := &modelhelm.DeleteReleaseRequest{ReleaseName: name}
+	req := &modelhelm.DeleteReleaseRequest{ReleaseName: name, Namespace: namespace}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {
 		glog.Error(err)
@@ -279,5 +288,4 @@ func newC7NHelmCRDForCr(cr *choerodonv1alpha1.C7NHelmRelease) *apiextensions.Cus
 			Namespace: cr.Namespace,
 		},
 	}
-
 }

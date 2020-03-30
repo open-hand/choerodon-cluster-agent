@@ -32,11 +32,6 @@ func (g *GitOps) PrepareSSHKeys(envs []model.EnvParas, opts *commandutil.Opts) e
 
 		sshConfig = sshConfig + config(g.GitHost, envPara.Namespace)
 
-		// todo envpara.namespace is diff from namespaces?
-		//if !namespaces.Contain(envPara.Namespace) {
-		//	toAddEnvs = append(toAddEnvs, envPara)
-		//}
-
 	}
 
 	// 写入ssh config
@@ -44,8 +39,6 @@ func (g *GitOps) PrepareSSHKeys(envs []model.EnvParas, opts *commandutil.Opts) e
 		return err
 	}
 
-	//// todo what use for this?
-	//g.Envs = toAddEnvs
 	return err
 }
 

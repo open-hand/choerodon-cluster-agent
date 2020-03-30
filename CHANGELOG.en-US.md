@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to choerodon-cluster-agent will be documented in this file.
 
+## [0.21.0] - 2020-03-08
+### Added
+- Polaris health check componment
+
 ## [0.15.0] - 2019-03-22
 ### Added
 - imagePullSecret supported

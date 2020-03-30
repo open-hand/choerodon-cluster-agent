@@ -84,7 +84,7 @@ func (r *ReconcileIngress) Reconcile(request reconcile.Request) (reconcile.Resul
 	if err != nil {
 		if errors.IsNotFound(err) {
 			responseChan <- newIngressDelRep(request.Name, request.Namespace)
-			glog.Warningf("ingress '%s' in work queue no longer exists", instance.Name)
+			glog.Warningf("ingress '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

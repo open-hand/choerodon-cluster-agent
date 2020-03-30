@@ -76,7 +76,7 @@ func (r *ReconcileNamespace) Reconcile(request reconcile.Request) (reconcile.Res
 	// Fetch the Namespace instance
 	namespaces := &corev1.NamespaceList{}
 	opts := &client.ListOptions{}
-	err := r.client.List(context.TODO(), opts, namespaces)
+	err := r.client.List(context.TODO(), namespaces, opts)
 	if err != nil {
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err

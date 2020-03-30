@@ -101,7 +101,7 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 	if err != nil {
 		if errors.IsNotFound(err) {
 			responseChan <- newDeploymentDelRep(request.Name, request.Namespace)
-			glog.Warningf("deployment '%s' in work queue no longer exists", instance)
+			glog.Warningf("deployment '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

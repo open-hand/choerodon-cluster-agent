@@ -143,9 +143,9 @@ func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8s
 
 	instances := &c7nv1alpha1.C7NHelmReleaseList{}
 
-	if err := client.List(context.TODO(), &client2.ListOptions{
+	if err := client.List(context.TODO(), instances, &client2.ListOptions{
 		Namespace: namespace,
-	}, instances); err != nil {
+	}); err != nil {
 		return nil, err
 	}
 

@@ -15,14 +15,17 @@ var log = logf.Log.WithName("cmd")
 var (
 	metricsHost       = "0.0.0.0"
 	metricsPort int32 = 8383
+	healthHost        = "0.0.0.0"
+	healthPort        = 8484
 )
 
 func NewMgr(cfg *rest.Config, namespace string) (crmanager.Manager, error) {
 	// Create a new Cmd to provide shared dependencies and start components
 	return crmanager.New(cfg, crmanager.Options{
-		Namespace:      namespace,
-		MapperProvider: restmapper.NewDynamicRESTMapper,
-		//MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Namespace:              namespace,
+		MapperProvider:         restmapper.NewDynamicRESTMapper,
+		MetricsBindAddress:     "0",
+		HealthProbeBindAddress: "0",
 	})
 }
 

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-//helm 安装
+////helm 安装
 func InstallJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.InstallReleaseRequest
 	var newCmds []*model.Packet
@@ -35,7 +35,7 @@ func InstallJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 		return newCmds, nil
 	}
 
-	//这个hooks 是干嘛的呢？
+	// 这一步获得的hook信息似乎就只返回给了devops，并没有其他的实质性作用
 	hooks, err := opts.HelmClient.PreInstallRelease(&req)
 	if err != nil {
 		// 如果是EOF错误，则是chart包下载或者读取问题，再重新执行安装操作，如果失败次数达到5次，则安装失败
@@ -101,7 +101,7 @@ func UpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 			Payload: cmd.Payload,
 		}
 		newCmds = append(newCmds, installPrometheusCmd)
-		return newCmds, nil
+		return newCmds,nil
 	}
 	//这是在干嘛
 	hooks, err := opts.HelmClient.PreUpgradeRelease(&req)

@@ -5,8 +5,8 @@
 package gin
 
 import (
-	"crypto/subtle"
 	"encoding/base64"
+	"net/http"
 	"strconv"
 )
 
@@ -51,7 +51,7 @@ func BasicAuthForRealm(accounts Accounts, realm string) HandlerFunc {
 		if !found {
 			// Credentials doesn't match, we return 401 and abort handlers chain.
 			c.Header("WWW-Authenticate", realm)
-			c.AbortWithStatus(401)
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
@@ -84,12 +84,4 @@ func processAccounts(accounts Accounts) authPairs {
 func authorizationHeader(user, password string) string {
 	base := user + ":" + password
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(base))
-}
-
-func secureCompare(given, actual string) bool {
-	if subtle.ConstantTimeEq(int32(len(given)), int32(len(actual))) == 1 {
-		return subtle.ConstantTimeCompare([]byte(given), []byte(actual)) == 1
-	}
-	// Securely compare actual to itself to keep constant time, but always return false.
-	return subtle.ConstantTimeCompare([]byte(actual), []byte(actual)) == 1 && false
 }

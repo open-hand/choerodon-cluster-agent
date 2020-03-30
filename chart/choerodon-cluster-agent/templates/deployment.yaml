@@ -37,8 +37,6 @@ spec:
         args:
         - /choerodon-cluster-agent
         - --v={{ .Values.config.logLevel }}
-        - --host=tiller-deploy.kube-system:44134
-        - --tiller-connection-timeout={{ .Values.config.tillerConnectionTimeout }}
         - --connect={{ .Values.config.connect }}?version={{ .Chart.Version }}&clusterId={{ .Values.config.clusterId }}&token={{ .Values.config.token }}&key=cluster:{{ .Values.config.clusterId }}
         - --token={{ .Values.config.token }}
         - --agent-version={{ .Chart.Version }}
