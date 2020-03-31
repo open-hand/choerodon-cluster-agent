@@ -263,7 +263,7 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 
 func agentConvert(opts *commandutil.Opts, agentName string) error {
 
-	deployment, err := opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments("choerodon").Get(agentName, metav1.GetOptions{})
+	deployment, err := opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Get(agentName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -281,7 +281,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 		if rls != nil {
 			labels["helm"] = "helm3"
 			deployment.SetLabels(labels)
-			opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments("choerodon").Update(deployment)
+			opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Update(deployment)
 		} else {
 			// 实例由helm2管理，先升级成helm3管理，然后更新标签
 			err = helm2to3.RunConvert(agentName)
@@ -290,7 +290,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 				helm2to3.RunCleanup(agentName)
 				labels["helm"] = "helm3"
 				deployment.SetLabels(labels)
-				opts.KubeClient.GetKubeClient().ExtensionsV1beta1().Deployments("choerodon").Update(deployment)
+				opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Update(deployment)
 			} else {
 				return err
 			}

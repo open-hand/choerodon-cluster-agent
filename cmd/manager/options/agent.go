@@ -169,6 +169,19 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	// for controller-manager
 	mgrs := &operatorutil.MgrList{}
 
+	// 获得集群版本
+	discoveryClient, err := f.ToDiscoveryClient()
+	if err != nil {
+		errChan <- err
+		return
+	}
+	version, err := discoveryClient.ServerVersion()
+	if err != nil {
+		errChan <- err
+		return
+	}
+	kube.KubernetesVersion = version.GitVersion
+
 	// new kubernetes clientf
 	kubeClient, err := kube.NewClient(f)
 	if err != nil {
