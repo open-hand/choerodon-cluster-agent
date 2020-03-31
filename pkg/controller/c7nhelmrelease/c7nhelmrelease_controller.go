@@ -8,6 +8,7 @@ import (
 	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
@@ -100,6 +101,16 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	instance := &choerodonv1alpha1.C7NHelmRelease{}
 	//这一步将C7NHelmRelease中的值 注入到这个instance 俗话就是得到C7NHelmRelease实例
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+
+	// 如果该资源在choerodon命名空间下，那么判断该资源的所属集群id与当前agent的clusterId是否相同，
+	// 相同表示是该agent的资源
+	// 不同则表示不是该agent资源，不进行处理
+	if namespace == "choerodon" {
+		if instance.Labels[model.C7NHelmReleaseClusterLabel] != strconv.Itoa(int(kube.ClusterId)) {
+			return result, nil
+		}
+	}
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// 判断是否存在 不存在表示被删除操作
