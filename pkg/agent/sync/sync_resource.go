@@ -146,7 +146,7 @@ func syncPod(ctx *Context) error {
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
 		} else {
-			var podList []string
+			podList := make([]string, 0)
 			for _, pod := range pods.Items {
 				if pod.Labels[model.ReleaseLabel] != "" {
 					podList = append(podList, pod.GetName())
