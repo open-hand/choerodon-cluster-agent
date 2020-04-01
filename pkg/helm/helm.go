@@ -135,7 +135,7 @@ func (c *client) ListRelease(namespace string) ([]*Release, error) {
 
 func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHook, error) {
 	var releaseHooks []*ReleaseHook
-    //查看release 是否存在。
+	//查看release 是否存在。
 	releaseContentResp, err := c.helmClient.ReleaseContent(request.ReleaseName)
 	if err != nil && !strings.Contains(err.Error(), ErrReleaseNotFound(request.ReleaseName).Error()) {
 		return nil, err
@@ -239,11 +239,15 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	}
 
 	// 获得经过渲染的文件名和文件内容
-	files, _ := c.renderFiles(request.Namespace,
+	files, err := c.renderFiles(request.Namespace,
 		chartRequested,
 		request.ReleaseName,
 		newValues,
 		1)
+
+	if err != nil {
+		return nil, err
+	}
 
 	newTemplates := []*chart.Template{}
 
