@@ -166,7 +166,7 @@ func (w *workerManager) monitorCertMgr() {
 	//临时存储pod status 每过10s判断pod状态是否更改，若更改则发送消息。
 	podStatusTmp := " "
 	for {
-		time.Sleep(20 * time.Second)
+		time.Sleep(10 * time.Second)
 		podStatus, err := w.getPodStatus()
 		if err != nil {
 			return
@@ -176,7 +176,7 @@ func (w *workerManager) monitorCertMgr() {
 			w.chans.ResponseChan <- &model.Packet{
 				Key:     "cluster:" + strconv.Itoa(int(kube.ClusterId)),
 				Type:    model.CertManagerStatus,
-				Payload: `{"status":"` + podStatus + `"}`,
+				Payload: fmt.Sprintf(model.PodStatus, podStatus),
 			}
 		}
 	}
