@@ -100,7 +100,7 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 	if err != nil {
 		if errors.IsNotFound(err) {
 			responseChan <- newJobDelRep(request.Name, request.Namespace)
-			glog.Warningf("job '%s' in work queue no longer exists", instance)
+			glog.Warningf("job '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

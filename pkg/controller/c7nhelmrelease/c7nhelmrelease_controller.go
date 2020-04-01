@@ -141,7 +141,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		//不存在的话 就会报一个不存在的err //然后开始安装
 		if !strings.Contains(err.Error(), helm.ErrReleaseNotFound(name).Error()) {
 			if cmd := installHelmReleaseCmd(instance); cmd != nil {
-				glog.Infof("release %s install", instance.Name)
+				glog.Infof("release %s install", request.Name)
 				commandChan <- cmd
 			}
 		} else {

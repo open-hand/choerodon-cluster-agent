@@ -87,7 +87,7 @@ func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result
 		if errors.IsNotFound(err) {
 
 			responseChan <- newsecretDelRep(request.Name, request.Namespace)
-			glog.Warningf("secret '%s' in work queue no longer exists", instance)
+			glog.Warningf("secret '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.

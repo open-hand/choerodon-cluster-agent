@@ -97,7 +97,7 @@ func (r *ReconcileDaemonSet) Reconcile(request reconcile.Request) (reconcile.Res
 	if err != nil {
 		if errors.IsNotFound(err) {
 			responseChan <- newDaemonSetDelRep(request.Name, request.Namespace)
-			glog.Warningf("deamonset '%s' in work queue no longer exists", instance)
+			glog.Warningf("deamonset '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
