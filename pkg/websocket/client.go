@@ -139,11 +139,14 @@ func (c *appClient) connect() error {
 		for {
 			select {
 			case <-ticker.C:
+				c.mtx.Lock()
 				c.conn.SetWriteDeadline(time.Now().Add(WriteWait))
 				if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 					glog.Error(err)
+					c.mtx.Unlock()
 					return
 				}
+				c.mtx.Unlock()
 			}
 		}
 	}()
