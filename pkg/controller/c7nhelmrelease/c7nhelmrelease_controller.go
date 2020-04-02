@@ -10,7 +10,7 @@ import (
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
-	"k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -151,10 +151,10 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			// 找到第一个deployment对象，根据name取出集群中的deployment，然后获得commandId和appServiceId信息
 			if result != "" && result != "\n" {
 				data := []byte(result)
-				manifestDeployment := &v1beta1.Deployment{}
+				manifestDeployment := &appsv1.Deployment{}
 				yaml.Unmarshal(data, manifestDeployment)
 				if manifestDeployment.Kind == "Deployment" {
-					clusterDeployment := &v1beta1.Deployment{}
+					clusterDeployment := &appsv1.Deployment{}
 					objectKey := client.ObjectKey{Namespace: request.Namespace, Name: manifestDeployment.ObjectMeta.Name}
 					err := r.client.Get(context.TODO(), objectKey, clusterDeployment)
 					if errors.IsNotFound(err) {
