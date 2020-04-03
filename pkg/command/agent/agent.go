@@ -185,7 +185,7 @@ func ReSyncAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *m
 }
 
 // 检查命名空间是否存在，不存在则创建，添加helm标签同时调用helm升级函数，将helm实例从helm2升级到helm3
-// 如果命名空间存在则检查labels，是否设置 "helm":"helm3"
+// 如果命名空间存在则检查labels，是否设置 "choerodon.io/helm-version":"helm3"
 // 未设置helm标签，则添加helm标签并调用helm升级函数，将helm实例从helm2升级到helm3
 func createNamespace(opts *commandutil.Opts, namespaceName string, releases []string) error {
 	ns, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Get(namespaceName, metav1.GetOptions{})
@@ -195,7 +195,7 @@ func createNamespace(opts *commandutil.Opts, namespaceName string, releases []st
 			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&v1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   namespaceName,
-					Labels: map[string]string{"helm": "helm3"},
+					Labels: map[string]string{model.HelmVersion: "helm3"},
 				},
 			})
 			return err
@@ -205,7 +205,7 @@ func createNamespace(opts *commandutil.Opts, namespaceName string, releases []st
 
 	labels := ns.Labels
 	// 如果命名空间存在，则检查labels标签
-	if _, ok := labels["helm"]; !ok {
+	if _, ok := labels[model.HelmVersion]; !ok {
 		return update(opts, releases, namespaceName, labels)
 	}
 	return nil
@@ -251,11 +251,11 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 		labels = make(map[string]string)
 	}
 
-	labels["helm"] = "helm3"
+	labels[model.HelmVersion] = "helm3"
 	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Update(&v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   namespaceName,
-			Labels: map[string]string{"helm": "helm3"},
+			Labels: map[string]string{model.HelmVersion: "helm3"},
 		},
 	})
 	return err
@@ -270,7 +270,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 	labels := deployment.ObjectMeta.GetLabels()
 
 	// agent实例是否由helm3进行管理的
-	if labels["helm"] != "helm3" {
+	if labels[model.HelmVersion] != "helm3" {
 		releaseRequest := &helm.GetReleaseContentRequest{
 			ReleaseName: agentName,
 			Namespace:   "choerodon",
@@ -279,7 +279,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 
 		// 实例由helm3管理，更新标签
 		if rls != nil {
-			labels["helm"] = "helm3"
+			labels[model.HelmVersion] = "helm3"
 			deployment.SetLabels(labels)
 			opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Update(deployment)
 		} else {
@@ -288,7 +288,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 			// 如果从helm2升级到helm3没有问题，就清理helm2的数据并给agent的deployment添加标签
 			if err == nil {
 				helm2to3.RunCleanup(agentName)
-				labels["helm"] = "helm3"
+				labels[model.HelmVersion] = "helm3"
 				deployment.SetLabels(labels)
 				opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Update(deployment)
 			} else {

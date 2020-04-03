@@ -1,9 +1,9 @@
 package model
 
 const (
-	AppLabel                   = "choerodon.io/application"
+	ProjectId 				   ="choerodon.io/project_id"
+	HelmVersion       		   = "choerodon.io/helm-version"
 	MicroServiceConfig         = "choerodon.io/feature"
-	AppVersionLabel            = "choerodon.io/version"
 	ReleaseLabel               = "choerodon.io/release"
 	NetworkLabel               = "choerodon.io/network"
 	NetworkNoDelLabel          = "choerodon.io/no_delete"
