@@ -18,6 +18,7 @@ package action
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"github.com/choerodon/helm/pkg/agent/action"
 	v1 "k8s.io/api/core/v1"
@@ -39,6 +40,13 @@ import (
 // Upgrade is the action for upgrading releases.
 //
 // It provides the implementation of 'helm upgrade'.
+
+var maxHistory int
+
+func init() {
+	flag.IntVar(&maxHistory, "helm-max-history", 3, "limit helm release history count")
+}
+
 type Upgrade struct {
 	cfg *Configuration
 
@@ -96,6 +104,7 @@ func NewUpgrade(cfg *Configuration,
 		ChartVersion:     chartVersion,
 		AppServiceId:     appServiceId,
 		AgentVersion:     agentVersion,
+		MaxHistory:       maxHistory,
 	}
 }
 
