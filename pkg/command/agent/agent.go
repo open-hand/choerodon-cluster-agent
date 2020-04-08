@@ -226,14 +226,9 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 			if err != nil {
 				// 实例不存在有可能是实例未升级，尝试升级操作
 				if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
-					err = helm2to3.RunConvert(releases[i])
-					// 如果err等于nil，表示升级成功，进行helm2数据清理，然后upgradeCount加1
-					if err == nil {
-						helm2to3.RunCleanup(releases[i])
-						upgradeCount++
-					} else {
-						return err
-					}
+					helm2to3.RunConvert(releases[i])
+					helm2to3.RunCleanup(releases[i])
+					upgradeCount++
 				}
 			} else {
 				// 实例存在表明实例被helm3管理，尝试进行数据清理，然后upgradeCount加1

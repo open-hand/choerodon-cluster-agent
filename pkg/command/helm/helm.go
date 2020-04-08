@@ -136,7 +136,13 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 			return nil, command.NewResponseError(cmd.Key, cmd.Type, err)
 		}
 	}
-	return DeleteHelmRelease(opts, cmd)
+	// 不关注删除结果，直接返回cert-manager删除信息
+	DeleteHelmRelease(opts, cmd)
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.CertManagerStatus,
+		Payload: fmt.Sprintf(model.PodStatus, "deleted"),
+	}
 }
 
 // TODO devops 没有使用此功能，注释掉，等待以后有相关业务再处理

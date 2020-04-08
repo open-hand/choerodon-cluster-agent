@@ -109,3 +109,7 @@ const (
 	ClusterGetInfo       = "cluster_info"
 	ClusterGetInfoFailed = "cluster_info_failed"
 )
+
+const (
+	PodStatus = `{"status":"%s"}`
+)
