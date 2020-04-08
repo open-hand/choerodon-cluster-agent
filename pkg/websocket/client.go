@@ -226,10 +226,8 @@ func (c *appClient) sendResponse(resp *model.Packet) error {
 		Data: resp,
 	}
 	content, _ := json.Marshal(wp)
-	if resp.Type != "node_sync" && resp.Type != "namespace_info" {
 		glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
 		glog.V(1).Info("send response: ", string(content))
-	}
 
 	c.mtx.Lock()
 	err := c.conn.WriteMessage(websocket.TextMessage, content)
