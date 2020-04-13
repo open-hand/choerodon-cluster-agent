@@ -154,7 +154,10 @@ github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 h1:7aWHqerlJ41
 github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5/go.mod h1:/iP1qXHoty45bqomnu2LM+VVyAEdWN+vtSHGlQgyxbw=
 github.com/checkpoint-restore/go-criu v0.0.0-20190109184317-bdb7599cd87b/go.mod h1:TrMrLQfeENAPYPRsJuq3jsqdlRh3lvi6trTZJG8+tho=
 github.com/cheekybits/genny v0.0.0-20170328200008-9127e812e1e9/go.mod h1:+tQajlRqAUrPI7DOSpB0XAqZYtQakVtB7wXkRAgjxjQ=
+github.com/choerodon/helm v0.0.0-20200317082929-220d898586e8 h1:6gLWIPmRLHw/sKDFnxRQsHgiKYEwx4B9Ye0S8EX9jdM=
 github.com/choerodon/helm v0.0.0-20200317082929-220d898586e8/go.mod h1:bO7LWSPUWPPelRejiytbx6zT1KtiKdINJXLaLiGycqY=
+github.com/choerodon/helm v0.0.0-20200403091208-14fe3786b076 h1:6EaalI1gXCtJFhgGUwLQ0zDkdevYzTAm0Nw6OvmlFSI=
+github.com/choerodon/helm v0.0.0-20200403091208-14fe3786b076/go.mod h1:T5zxhiViNE5Y72d4Cv8c65iq0r2TE1ZndfaB3chnnoY=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cloudflare/cfssl v0.0.0-20180726162950-56268a613adf/go.mod h1:yMWuSON2oQp+43nFtAV/uvKQIFpSPerB57DCt9t8sSA=
 github.com/clusterhq/flocker-go v0.0.0-20160920122132-2b8b7259d313/go.mod h1:P1wt9Z3DP8O6W3rvwCt0REIlshg1InHImaLW0t3ObY0=
