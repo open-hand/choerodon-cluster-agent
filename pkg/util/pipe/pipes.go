@@ -205,23 +205,6 @@ func (p *pipe) CopyToWebsocketForLog(end io.ReadWriter, conn *websocket.Conn) er
 		defer func() {
 			done <- true
 		}()
-
-		// 连接建立时，就读取一次，然后立即返回
-		{
-			buf, err := r.ReadBytes('\n')
-			if err != nil {
-				errors <- err
-				return
-			}
-
-			if p.Closed() {
-				return
-			}
-			if err := conn.WriteMessage(websocket.BinaryMessage, buf); err != nil {
-				errors <- err
-				return
-			}
-		}
 		go trafficAntiShake(nil, conn, p, done, msgChan, errors)
 		for {
 			buf, err := r.ReadBytes('\n')
@@ -254,10 +237,11 @@ func (p *pipe) PipeType() string {
 // 使用该方法后，在一定时间，会把读取的消息拼接起来，达到指定时间后再返回给客户端，减少了消息发送次数，客户端处理线程数随之减少
 func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done chan bool, msgChan chan []byte, errors chan error) {
 	// 最大等待时间
-	interval := time.NewTimer(IntervalTime)
+	interval := time.NewTimer(500 * time.Millisecond)
 	// 读取超时时间
 	timeout := time.NewTimer(TimeoutTime)
 	message := make([]byte, 0)
+	message = append(message, <-msgChan...)
 	for {
 		select {
 		// 如果done可读，退出协程
