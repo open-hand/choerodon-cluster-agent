@@ -350,12 +350,23 @@ func (c *appClient) pipeConnection(id string, pipe pipeutil.Pipe) (bool, error) 
 	defer c.closePipeConn(id)
 
 	_, remote := pipe.Ends()
-	if err := pipe.CopyToWebsocket(remote, conn); err != nil {
-		glog.Errorf("pipe copy to websocket: %v", err)
-		if !IsExpectedWSCloseError(err) {
-			return false, err
+	switch pipe.PipeType() {
+	case pipeutil.Log:
+		if err := pipe.CopyToWebsocketForLog(remote, conn); err != nil {
+			glog.Errorf("pipe copy to websocket: %v", err)
+			if !IsExpectedWSCloseError(err) {
+				return false, err
+			}
+		}
+	case pipeutil.Exec:
+		if err := pipe.CopyToWebsocketForExec(remote, conn); err != nil {
+			glog.Errorf("pipe copy to websocket: %v", err)
+			if !IsExpectedWSCloseError(err) {
+				return false, err
+			}
 		}
 	}
+
 	pipe.Close()
 	return true, nil
 }
