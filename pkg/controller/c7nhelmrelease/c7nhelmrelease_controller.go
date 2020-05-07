@@ -157,9 +157,19 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			glog.Error("release already in other namespace!")
 		}
 		// 现在是获取集群中对应实例的deployment, 而helm2.x版本是从release.manifest中获取的，可能不是集群中最新的状态。
+		results := strings.Split(rls.Manifest, "---")
 		var commandId int = 0
 		var appServiceId int64 = 0
-		results := strings.Split(rls.Manifest, "---")
+
+		// 获取kube客户端对象
+		var kubeClient, kubeError = helmClient.GetKubeClient()
+		if kubeError != nil {
+			glog.Error("could not normally get kube client")
+		}
+
+		// 标志helm的release中是否能够找到这两个值
+		hasCommandId, hasAppServiceId := false, false
+
 		for _, result := range results {
 			// 找到第一个deployment对象，根据name取出集群中的deployment，然后获得commandId和appServiceId信息
 			if result != "" && result != "\n" {
@@ -325,6 +335,26 @@ func newC7NHelmCRDForCr(cr *choerodonv1alpha1.C7NHelmRelease) *apiextensions.Cus
 			Namespace: cr.Namespace,
 		},
 	}
+}
+
+func inArray(expectedResourceKind []string, kind string) bool {
+	for _, item := range expectedResourceKind {
+		if item == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func getTemplateLabels(obj map[string]interface{}) map[string]string {
+	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "template", "metadata", "labels")
+	if err != nil {
+		glog.Warningf("Get Template Labels failed, %v", err)
+	}
+	if tplLabels == nil {
+		tplLabels = make(map[string]string)
+	}
+	return tplLabels
 }
 
 func inArray(expectedResourceKind []string, kind string) bool {
