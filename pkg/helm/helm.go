@@ -78,6 +78,7 @@ type Client interface {
 	GetReleaseContent(request *GetReleaseContentRequest) (*Release, error)
 	GetRelease(request *GetReleaseContentRequest) (*Release, error)
 	DeleteNamespaceReleases(namespaces string) error
+	GetKubeClient() (envkube.Client, error)
 }
 
 type client struct {
@@ -898,6 +899,13 @@ func (c *client) DeleteNamespaceReleases(namespaces string) error {
 	}
 	return nil
 
+}
+
+func (c *client) GetKubeClient() (envkube.Client, error) {
+	if c.kubeClient == nil {
+		return nil, errors.New("no kube-client founded")
+	}
+	return c.kubeClient, nil
 }
 
 func (c *client) GetRelease(request *GetReleaseContentRequest) (*Release, error) {

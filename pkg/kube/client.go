@@ -885,6 +885,7 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 		l[model.NetworkNoDelLabel] = "true"
 	case "Job":
 		addImagePullSecrets()
+		addTemplateAppLabels()
 		if isTest {
 			l[model.TestLabel] = testLabel
 			tplLabels := getTemplateLabels(t.Object)
