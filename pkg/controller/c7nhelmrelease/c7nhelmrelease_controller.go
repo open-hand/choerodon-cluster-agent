@@ -161,7 +161,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		var appServiceId int64 = 0
 
 		// 获取kube客户端对象
-		var kubeClient, kubeError = helmClient.GetKubeClient()
+		kubeClient, kubeError := helmClient.GetKubeClient()
 		if kubeError != nil {
 			glog.Error("could not normally get kube client")
 			return result, nil

@@ -250,6 +250,9 @@ func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done cha
 		// 达到最大发送等待时间，立即发送，并重置定时器
 		case <-interval.C:
 			if len(message) == 0 {
+				// 即使没有消息发送，也需要重置最大发送等待定时器和读取超时定时器
+				timeout.Reset(TimeoutTime)
+				interval.Reset(IntervalTime)
 				continue
 			}
 			if end != nil {
@@ -278,6 +281,8 @@ func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done cha
 		// 读超时了，立即发送消息，并重置定时器
 		case <-timeout.C:
 			if len(message) == 0 {
+				// 即使没有消息发送，也需要重置读取超时定时器
+				timeout.Reset(TimeoutTime)
 				continue
 			}
 			if end != nil {
