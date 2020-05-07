@@ -165,6 +165,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		var kubeClient, kubeError = helmClient.GetKubeClient()
 		if kubeError != nil {
 			glog.Error("could not normally get kube client")
+			return result, nil
 		}
 
 		// 标志helm的release中是否能够找到这两个值
