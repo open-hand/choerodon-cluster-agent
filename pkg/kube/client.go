@@ -80,7 +80,7 @@ type Client interface {
 const testContainer string = "automation-test"
 
 var AgentVersion string
-var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationController", "Job"}
+var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationController", "StatefulSet"}
 
 type client struct {
 	cmdutil.Factory
@@ -424,19 +424,17 @@ func (c *client) StopResources(namespace string, manifest string) error {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
 
-	clientSet := c.GetKubeClient()
-
 	for _, info := range result {
 		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-			s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
+			t := info.Object.(*unstructured.Unstructured)
+			var replicas int64 = 0
+			err := setScale(t.Object, replicas)
 			if err != nil {
 				return err
 			}
-			s.Spec.Replicas = 0
-
-			_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
+			_, err = resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
 			if err != nil {
-				return err
+				return fmt.Errorf("replace: %v", err)
 			}
 		}
 	}
@@ -449,9 +447,11 @@ func (c *client) StartResources(namespace string, manifest string) error {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
 	for _, info := range result {
-		_, err := resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
-		if err != nil {
-			glog.V(2).Infof("replace: %v", err)
+		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+			_, err := resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
+			if err != nil {
+				return fmt.Errorf("replace: %v", err)
+			}
 		}
 	}
 	return nil
@@ -790,6 +790,10 @@ func getTemplateLabels(obj map[string]interface{}) map[string]string {
 
 func setTemplateLabels(obj map[string]interface{}, templateLabels map[string]string) error {
 	return unstructured.SetNestedStringMap(obj, templateLabels, "spec", "template", "metadata", "labels")
+}
+
+func setScale(obj map[string]interface{}, replicas int64) error {
+	return unstructured.SetNestedField(obj, replicas, "spec", "replicas")
 }
 
 // Provide a common method for adding labels
