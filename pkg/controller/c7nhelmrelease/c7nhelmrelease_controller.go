@@ -9,12 +9,11 @@ import (
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
-	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeutil "k8s.io/apimachinery/pkg/util/runtime"
@@ -30,6 +29,9 @@ import (
 )
 
 var log = logf.Log.WithName("controller_c7nhelmrelease")
+
+// 会有commandId和appServiceId的资源类型
+var labeledResourceKinds = []string{"ReplicationController", "ReplicaSet", "Deployment", "Job", "DaemonSet", "StatefulSet"}
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -161,31 +163,55 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		for _, result := range results {
 			// 找到第一个deployment对象，根据name取出集群中的deployment，然后获得commandId和appServiceId信息
 			if result != "" && result != "\n" {
-				data := []byte(result)
-				manifestDeployment := &appsv1.Deployment{}
-				yaml.Unmarshal(data, manifestDeployment)
-				if manifestDeployment.Kind == "Deployment" {
-					clusterDeployment := &appsv1.Deployment{}
-					objectKey := client.ObjectKey{Namespace: request.Namespace, Name: manifestDeployment.ObjectMeta.Name}
-					err := r.client.Get(context.TODO(), objectKey, clusterDeployment)
-					if errors.IsNotFound(err) {
-						glog.Warningf("deployment of release %s no longer exists", rls.Name)
-						responseChan <- newReleaseSyncFailRep(instance, fmt.Sprintf("deployment of release %s no longer exists", rls.Name))
-						return reconcile.Result{}, nil
+				// 将原始yaml格式的文件转换成易操作的k8s通用对象
+				helmResource, err := kubeClient.BuildUnstructured(namespace, result)
+				if err != nil {
+					continue
+				}
+				// 这个helmResource的length应该是1
+				for _, info := range helmResource {
+					// 只有特定的资源有template这个结构
+					if inArray(labeledResourceKinds, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+						objectMap := info.Object.(*unstructured.Unstructured)
+						objectLabels := getTemplateLabels(objectMap.Object)
+						// 判断资源是否有这个值
+						resourceCommandId, hasValue := objectLabels[model.CommandLabel]
+						if hasValue {
+							hasCommandId = true
+							commandId, _ = strconv.Atoi(resourceCommandId)
+						}
+						// 判断资源是否有这个值
+						resourceAppServiceId, hasValue := objectLabels[model.AppServiceIdLabel]
+						if hasValue {
+							hasAppServiceId = true
+							appServiceId, _ = strconv.ParseInt(resourceAppServiceId, 10, 64)
+						}
 					}
-					commandId, _ = strconv.Atoi(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.CommandLabel])
-					appServiceId, _ = strconv.ParseInt(clusterDeployment.Spec.Template.ObjectMeta.Labels[model.AppServiceIdLabel], 10, 64)
+
+					// 都查到了就退出循环
+					if hasCommandId && hasAppServiceId {
+						break
+					}
+				}
+
+				// 都查到了就退出循环
+				if hasCommandId && hasAppServiceId {
 					break
 				}
 			}
 		}
 		//这边 devops那边已经做判断，所以这段代码相当于，忽略不计
-		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config && instance.Spec.CommandId == commandId && instance.Spec.AppServiceId == appServiceId {
-			glog.Infof("release %s chart、version、values、commandId、appserviceid not change", rls.Name)
-			payload, _ := json.Marshal(rls)
-			responseChan <- UpgradeInstanceStatusCmd(instance, string(payload))
-			return result, nil
+		// 判断不用更新的情形
+		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config {
+			// 如果有command id和appServiceId才比对两方的这两个值
+			if !(hasCommandId && hasAppServiceId) || (hasCommandId && hasAppServiceId && instance.Spec.CommandId == commandId && instance.Spec.AppServiceId == appServiceId) {
+				glog.Infof("release %s chart、version、values、commandId、appserviceid not change", rls.Name)
+				payload, _ := json.Marshal(rls)
+				responseChan <- UpgradeInstanceStatusCmd(instance, string(payload))
+				return result, nil
+			}
 		}
+		// 要更新实例的情况
 		if cmd := updateHelmReleaseCmd(instance); cmd != nil {
 			glog.Infof("release %s upgrade", rls.Name)
 			commandChan <- cmd
@@ -299,4 +325,24 @@ func newC7NHelmCRDForCr(cr *choerodonv1alpha1.C7NHelmRelease) *apiextensions.Cus
 			Namespace: cr.Namespace,
 		},
 	}
+}
+
+func inArray(expectedResourceKind []string, kind string) bool {
+	for _, item := range expectedResourceKind {
+		if item == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func getTemplateLabels(obj map[string]interface{}) map[string]string {
+	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "template", "metadata", "labels")
+	if err != nil {
+		glog.Warningf("Get Template Labels failed, %v", err)
+	}
+	if tplLabels == nil {
+		tplLabels = make(map[string]string)
+	}
+	return tplLabels
 }

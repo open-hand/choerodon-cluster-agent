@@ -70,7 +70,7 @@ const testContainer string = "automation-test"
 var ClusterId int32
 var KubernetesVersion string
 var AgentVersion string
-var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationController", "Job"}
+var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationController", "StatefulSet"}
 
 type client struct {
 	cmdutil.Factory
@@ -397,19 +397,17 @@ func (c *client) StopResources(namespace string, manifest string) error {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
 
-	clientSet := c.GetKubeClient()
-
 	for _, info := range result {
 		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-			s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
+			t := info.Object.(*unstructured.Unstructured)
+			var replicas int64 = 0
+			err := setScale(t.Object, replicas)
 			if err != nil {
 				return err
 			}
-			s.Spec.Replicas = 0
-
-			_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
+			_, err = resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
 			if err != nil {
-				return err
+				return fmt.Errorf("replace: %v", err)
 			}
 		}
 	}
@@ -422,24 +420,11 @@ func (c *client) StartResources(namespace string, manifest string) error {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
 
-	clientSet := c.GetKubeClient()
-
 	for _, info := range result {
 		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-			t := info.Object.(*unstructured.Unstructured)
-			replicas, _, err := unstructured.NestedInt64(t.Object, "spec", "replicas")
+			_, err := resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
 			if err != nil {
-				glog.Warningf("Get Template replicas failed, %v", err)
-			}
-			s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
-			if err != nil {
-				return err
-			}
-
-			s.Spec.Replicas = int32(replicas)
-			_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
-			if err != nil {
-				return err
+				return fmt.Errorf("replace: %v", err)
 			}
 		}
 	}
@@ -687,6 +672,10 @@ func setTemplateLabels(obj map[string]interface{}, templateLabels map[string]str
 	return unstructured.SetNestedStringMap(obj, templateLabels, "spec", "template", "metadata", "labels")
 }
 
+func setScale(obj map[string]interface{}, replicas int64) error {
+	return unstructured.SetNestedField(obj, replicas, "spec", "replicas")
+}
+
 // Provide a common method for adding labels
 func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 	command int,
@@ -780,6 +769,7 @@ func addLabel(imagePullSecret []core_v1.LocalObjectReference,
 		l[model.NetworkNoDelLabel] = "true"
 	case "Job":
 		addImagePullSecrets()
+		addTemplateAppLabels()
 		if isTest {
 			l[model.TestLabel] = testLabel
 			tplLabels := getTemplateLabels(t.Object)
