@@ -31,14 +31,10 @@ func Describe(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Pa
 		rawURL := opts.WsClient.URL()
 		nowURL := fmt.Sprintf(ws.BaseUrl, rawURL.Scheme, rawURL.Host, cmd.Key, cmd.Key, kube.ClusterId, "agent_describe")
 		conn, _, err := ws.DialWS(nowURL, http.Header{})
-		wp := ws.WsPacket{
-			Type: "/agent/describe",
-			Key:  cmd.Key,
-			Data: &model.Packet{
-				Key:     cmd.Key,
-				Type:    model.ResourceDescribe,
-				Payload: describeInfo,
-			},
+		wp := model.Packet{
+			Key:     cmd.Key,
+			Type:    model.ResourceDescribe,
+			Payload: describeInfo,
 		}
 		bytes, err := json.Marshal(wp)
 		if err != nil {
@@ -52,6 +48,3 @@ func Describe(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Pa
 	}()
 	return nil, nil
 }
-
-
-

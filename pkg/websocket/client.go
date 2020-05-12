@@ -227,14 +227,6 @@ func (c *appClient) connect() error {
 	}
 }
 
-type WsPacket struct {
-	Type string        `json:"type,omitempty"`
-	Key  string        `json:"key,omitempty"`
-	Data *model.Packet `json:"data"`
-	// Deprecated; will remove at 0.20
-	Payload string `json:"payload,omitempty"`
-}
-
 type WsReceivePacket struct {
 	Type    string `json:"type,omitempty"`
 	Key     string `json:"key,omitempty"`
@@ -244,19 +236,10 @@ type WsReceivePacket struct {
 
 func (c *appClient) sendResponse(resp *model.Packet) error {
 
-	wp := WsPacket{
-		Type: "agent",
-		Key:  fmt.Sprintf("cluster:%d", c.clusterId),
-		Data: resp,
-	}
-	content, _ := json.Marshal(wp)
-		glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
-		glog.V(1).Info("send response: ", string(content))
-
-	c.mtx.Lock()
-	err := c.conn.WriteMessage(websocket.TextMessage, content)
-	c.mtx.Unlock()
-	return err
+	content, _ := json.Marshal(resp)
+	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
+	glog.V(1).Info("send response: ", string(content))
+	return c.conn.WriteMessage(websocket.TextMessage, content)
 }
 
 func (c *appClient) hasQuit() bool {
