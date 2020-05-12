@@ -33,7 +33,7 @@ var reconnectFlag = false
 
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
-	PipeConnection(pipeID string, pipe pipeutil.Pipe) error
+	PipeConnection(pipeID string, key string, pipe pipeutil.Pipe) error
 	PipeClose(pipeID string, pipe pipeutil.Pipe) error
 	URL() *url.URL
 }
@@ -157,27 +157,44 @@ func (c *appClient) connect() error {
 
 		c.conn.SetPingHandler(nil)
 		for {
-			var wp WsPacket
-			err := c.conn.ReadJSON(&wp)
+			_, msg, err := c.conn.ReadMessage()
 			if err != nil {
 				if !websocket.IsCloseError(err, websocket.CloseNoStatusReceived) {
 					glog.Error(err)
 				}
 				break
 			}
-			// for 平滑升级 we need to retain Payload field to handle upgrade agent command
-			if wp.Data != nil {
-				glog.V(1).Info("receive command : ", wp)
-				c.crChannel.CommandChan <- wp.Data
+			waPacketMap := make(map[string]interface{})
+			err = json.Unmarshal(msg, &waPacketMap)
+			if err != nil {
+				glog.Error(err)
+				continue
+			}
+			packet := &model.Packet{}
+
+			// 表示该操作为升级操作
+			if waPacketMap["type"] == "helm_release_upgrade" {
+				err = json.Unmarshal([]byte(waPacketMap["payload"].(string)), packet)
+				if err != nil {
+					glog.Error(err)
+				}
+				packet.Key = waPacketMap["key"].(string)
+				packet.Type = waPacketMap["type"].(string)
+				packet.Payload = waPacketMap["payload"].(string)
 			} else {
-				glog.V(1).Info("receive command: ", wp.Key, wp.Type)
-				c.crChannel.CommandChan <- &model.Packet{
-					Key:     wp.Key,
-					Type:    wp.Type,
-					Payload: wp.Payload,
+				var wp WsReceivePacket
+				err := json.Unmarshal(msg, &wp)
+				if err != nil {
+					glog.Error(err)
+					continue
+				}
+				glog.V(1).Info("receive command: ", wp.Key, wp.Group)
+				err = json.Unmarshal([]byte(wp.Message), packet)
+				if err != nil {
+					glog.Error(err)
 				}
 			}
-
+			c.crChannel.CommandChan <- packet
 		}
 	}()
 
@@ -216,6 +233,13 @@ type WsPacket struct {
 	Data *model.Packet `json:"data"`
 	// Deprecated; will remove at 0.20
 	Payload string `json:"payload,omitempty"`
+}
+
+type WsReceivePacket struct {
+	Type    string `json:"type,omitempty"`
+	Key     string `json:"key,omitempty"`
+	Message string `json:"message"`
+	Group   string `json:"group,omitempty"`
 }
 
 func (c *appClient) sendResponse(resp *model.Packet) error {
@@ -270,12 +294,12 @@ func (c *appClient) URL() *url.URL {
 	return c.url
 }
 
-func (c *appClient) PipeConnection(id string, pipe pipeutil.Pipe) error {
+func (c *appClient) PipeConnection(id string, key string, pipe pipeutil.Pipe) error {
 	go func() {
 		glog.Infof("Pipe %s connection to %s starting", id, c.url)
 		defer glog.Infof("Pipe %s connection to %s exiting", id, c.url)
 		c.doWithBackOff(id, func() (bool, error) {
-			return c.pipeConnection(id, pipe)
+			return c.pipeConnection(id, key, pipe)
 		})
 	}()
 	return nil
@@ -337,12 +361,12 @@ func (c *appClient) closePipeConn(id string) {
 	}
 }
 
-func (c *appClient) pipeConnection(id string, pipe pipeutil.Pipe) (bool, error) {
+func (c *appClient) pipeConnection(id string, key string, pipe pipeutil.Pipe) (bool, error) {
 	newURL, err := util_url.ParseURL(c.url, pipe.PipeType())
 	if err != nil {
 		return false, err
 	}
-	newURLStr := fmt.Sprintf("%s.%s:%s", newURL.String(), pipe.PipeType(), id)
+	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, pipe.PipeType())
 	headers := http.Header{}
 	conn, resp, err := dialWS(newURLStr, headers)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {

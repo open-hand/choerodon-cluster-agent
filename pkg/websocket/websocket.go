@@ -8,6 +8,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	BaseUrl = "%s://%s/websocket?group=from_agent:%s&secret_key=devops_ws&key=%s&clusterId=%d&processor=%s"
+)
+
 // urlStr:devops的websocket地址
 func dial(urlStr string, token Token) (*websocket.Conn, error) {
 	req, err := http.NewRequest("GET", urlStr, nil)

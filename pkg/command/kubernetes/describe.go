@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	ws "github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
+	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
 	"net/http"
 )
@@ -22,11 +24,12 @@ func Describe(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Pa
 		var req *DescribeRequest
 		err := json.Unmarshal([]byte(cmd.Payload), &req)
 		if err != nil {
+			glog.Error(err)
 			return
 		}
 		describeInfo := opts.Cluster.DescribeResource(req.Namespace, req.Kind, req.Name)
 		rawURL := opts.WsClient.URL()
-		nowURL := fmt.Sprintf("%s://%s%sdescribe?key=%s", rawURL.Scheme, rawURL.Host, rawURL.Path, cmd.Key)
+		nowURL := fmt.Sprintf(ws.BaseUrl, rawURL.Scheme, rawURL.Host, cmd.Key, cmd.Key, kube.ClusterId, "agent_describe")
 		conn, _, err := ws.DialWS(nowURL, http.Header{})
 		wp := ws.WsPacket{
 			Type: "/agent/describe",

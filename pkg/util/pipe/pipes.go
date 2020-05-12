@@ -21,8 +21,8 @@ type Pipe interface {
 }
 
 const (
-	Log          = "log"
-	Exec         = "exec"
+	Log          = "agent_log"
+	Exec         = "agent_exec"
 	IntervalTime = 3 * time.Second
 	TimeoutTime  = 2 * time.Second
 )

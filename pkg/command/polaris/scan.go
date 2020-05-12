@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	kube2 "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/validator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -53,7 +54,7 @@ func ScanSystem(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		}
 		responseInfo := ResponseInfo{RecordId: req.RecordId, PolarisResult: Result{AuditData: auditData, Summary: auditData.GetSummary()}}
 		rawURL := opts.WsClient.URL()
-		nowURL := fmt.Sprintf("%s://%s%spolaris?%s", rawURL.Scheme, rawURL.Host, rawURL.Path, rawURL.RawQuery)
+		nowURL := fmt.Sprintf(ws.BaseUrl, rawURL.Scheme, rawURL.Host, cmd.Key, cmd.Key, kube2.ClusterId, "agent_polaris")
 		conn, _, err := ws.DialWS(nowURL, http.Header{})
 		wp := PolarisPacket{
 			Type: "polaris",
