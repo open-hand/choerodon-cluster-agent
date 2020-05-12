@@ -188,7 +188,7 @@ func (c *appClient) connect() error {
 					glog.Error(err)
 					continue
 				}
-				glog.V(1).Info("receive command: ", wp.Key, wp.Group)
+				glog.V(1).Info("receive command: %s %s", wp.Key, wp.Group)
 				err = json.Unmarshal([]byte(wp.Message), packet)
 				if err != nil {
 					glog.Error(err)
