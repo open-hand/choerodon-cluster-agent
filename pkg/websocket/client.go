@@ -157,42 +157,19 @@ func (c *appClient) connect() error {
 
 		c.conn.SetPingHandler(nil)
 		for {
-			_, msg, err := c.conn.ReadMessage()
+			var wp WsReceivePacket
+			err := c.conn.ReadJSON(&wp)
 			if err != nil {
 				if !websocket.IsCloseError(err, websocket.CloseNoStatusReceived) {
 					glog.Error(err)
 				}
 				break
 			}
-			waPacketMap := make(map[string]interface{})
-			err = json.Unmarshal(msg, &waPacketMap)
+			packet := &model.Packet{}
+			glog.V(1).Infof("receive command: %s %s", wp.Key, wp.Group)
+			err = json.Unmarshal([]byte(wp.Message), packet)
 			if err != nil {
 				glog.Error(err)
-				continue
-			}
-			packet := &model.Packet{}
-
-			// 表示该操作为升级操作
-			if waPacketMap["type"] == "helm_release_upgrade" {
-				err = json.Unmarshal([]byte(waPacketMap["payload"].(string)), packet)
-				if err != nil {
-					glog.Error(err)
-				}
-				packet.Key = waPacketMap["key"].(string)
-				packet.Type = waPacketMap["type"].(string)
-				packet.Payload = waPacketMap["payload"].(string)
-			} else {
-				var wp WsReceivePacket
-				err := json.Unmarshal(msg, &wp)
-				if err != nil {
-					glog.Error(err)
-					continue
-				}
-				glog.V(1).Info("receive command: %s %s", wp.Key, wp.Group)
-				err = json.Unmarshal([]byte(wp.Message), packet)
-				if err != nil {
-					glog.Error(err)
-				}
 			}
 			c.crChannel.CommandChan <- packet
 		}
