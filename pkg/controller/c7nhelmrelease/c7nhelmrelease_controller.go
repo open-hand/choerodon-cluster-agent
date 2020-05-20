@@ -104,15 +104,6 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	//这一步将C7NHelmRelease中的值 注入到这个instance 俗话就是得到C7NHelmRelease实例
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 
-	// 如果该资源在choerodon命名空间下，那么判断该资源的所属集群id与当前agent的clusterId是否相同，
-	// 相同表示是该agent的资源
-	// 不同则表示不是该agent资源，不进行处理
-	if namespace == "choerodon" {
-		if instance.Labels[model.C7NHelmReleaseClusterLabel] != strconv.Itoa(int(kube.ClusterId)) {
-			return result, nil
-		}
-	}
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// 判断是否存在 不存在表示被删除操作
@@ -129,6 +120,15 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		}
 		// Error reading the object - requeue the request.
 		return result, err
+	}
+
+	// 如果该资源在choerodon命名空间下，那么判断该资源的所属集群id与当前agent的clusterId是否相同，
+	// 相同表示是该agent的资源
+	// 不同则表示不是该agent资源，不进行处理
+	if namespace == "choerodon" {
+		if instance.Labels[model.C7NHelmReleaseClusterLabel] != strconv.Itoa(int(kube.ClusterId)) {
+			return result, nil
+		}
 	}
 
 	if instance.Annotations == nil || instance.Annotations[model.CommitLabel] == "" {
