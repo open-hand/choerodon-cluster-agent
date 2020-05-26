@@ -35,5 +35,7 @@ RUN echo "${USER_NAME}:x:${USER_UID}:0:${USER_NAME} user:${HOME}:/sbin/nologin" 
 COPY --chown=${USER_UID}:0 ./build/ssh_config ssh_config
 COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent /
 
+USER ${USER_UID}
+
 ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["/choerodon-cluster-agent"]
