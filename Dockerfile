@@ -37,5 +37,5 @@ COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerod
 
 USER ${USER_UID}
 
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["/choerodon-cluster-agent"]
