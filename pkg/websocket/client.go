@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
 	"net/http"
 	"net/url"
@@ -33,7 +34,7 @@ var reconnectFlag = false
 
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
-	PipeConnection(pipeID string, key string, pipe pipeutil.Pipe) error
+	PipeConnection(pipeID string, key string, token string, pipe pipeutil.Pipe) error
 	PipeClose(pipeID string, pipe pipeutil.Pipe) error
 	URL() *url.URL
 }
@@ -254,12 +255,12 @@ func (c *appClient) URL() *url.URL {
 	return c.url
 }
 
-func (c *appClient) PipeConnection(id string, key string, pipe pipeutil.Pipe) error {
+func (c *appClient) PipeConnection(id string, key string, token string, pipe pipeutil.Pipe) error {
 	go func() {
 		glog.Infof("Pipe %s connection to %s starting", id, c.url)
 		defer glog.Infof("Pipe %s connection to %s exiting", id, c.url)
 		c.doWithBackOff(id, func() (bool, error) {
-			return c.pipeConnection(id, key, pipe)
+			return c.pipeConnection(id, key, token, pipe)
 		})
 	}()
 	return nil
@@ -321,12 +322,12 @@ func (c *appClient) closePipeConn(id string) {
 	}
 }
 
-func (c *appClient) pipeConnection(id string, key string, pipe pipeutil.Pipe) (bool, error) {
+func (c *appClient) pipeConnection(id string, key string, token string, pipe pipeutil.Pipe, ) (bool, error) {
 	newURL, err := util_url.ParseURL(c.url, pipe.PipeType())
 	if err != nil {
 		return false, err
 	}
-	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, pipe.PipeType())
+	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, pipe.PipeType(), token, kube.AgentVersion)
 	headers := http.Header{}
 	conn, resp, err := dialWS(newURLStr, headers)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {

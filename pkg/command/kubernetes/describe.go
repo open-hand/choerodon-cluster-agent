@@ -29,7 +29,7 @@ func Describe(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Pa
 		}
 		describeInfo := opts.Cluster.DescribeResource(req.Namespace, req.Kind, req.Name)
 		rawURL := opts.WsClient.URL()
-		nowURL := fmt.Sprintf(ws.BaseUrl, rawURL.Scheme, rawURL.Host, cmd.Key, cmd.Key, kube.ClusterId, "agent_describe")
+		nowURL := fmt.Sprintf(ws.BaseUrl, rawURL.Scheme, rawURL.Host, cmd.Key, cmd.Key, kube.ClusterId, "agent_describe", opts.Token, kube.AgentVersion)
 		conn, _, err := ws.DialWS(nowURL, http.Header{})
 		wp := model.Packet{
 			Key:     cmd.Key,

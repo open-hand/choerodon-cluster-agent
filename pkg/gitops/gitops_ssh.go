@@ -18,11 +18,6 @@ func (g *GitOps) PrepareSSHKeys(envs []model.EnvParas, opts *commandutil.Opts) e
 		err       error
 		sshConfig string
 	)
-
-	//toAddEnvs := make([]model.EnvParas, 0)
-	//
-	//namespaces := opts.Namespaces
-
 	for _, envPara := range envs {
 
 		//写入deploy key(也就是拉取gitlab仓库需要的ssh-key)

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	BaseUrl = "%s://%s/websocket?group=from_agent:%s&secret_key=devops_ws&key=%s&clusterId=%d&processor=%s"
+	BaseUrl = "%s://%s/websocket?group=from_agent:%s&secret_key=devops_ws&key=%s&clusterId=%d&processor=%s&token=%s&version=%s"
 )
 
 // urlStr:devops的websocket地址

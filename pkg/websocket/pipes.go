@@ -11,24 +11,24 @@ type pipe struct {
 	client Client
 }
 
-func newPipe(p pipeutil.Pipe, c Client, id string, key string) (pipeutil.Pipe, error) {
+func newPipe(p pipeutil.Pipe, c Client, id string, key string, token string) (pipeutil.Pipe, error) {
 	pipe := &pipe{
 		Pipe:   p,
 		id:     id,
 		client: c,
 	}
-	if err := c.PipeConnection(id, key, pipe); err != nil {
+	if err := c.PipeConnection(id, key, token, pipe); err != nil {
 		return nil, err
 	}
 	return pipe, nil
 }
 
-var NewPipe = func(c Client, id string, pipeType string, key string) (pipeutil.Pipe, error) {
-	return newPipe(pipeutil.NewPipe(pipeType), c, id, key)
+var NewPipe = func(c Client, id string, pipeType string, key string, token string) (pipeutil.Pipe, error) {
+	return newPipe(pipeutil.NewPipe(pipeType), c, id, key, token)
 }
 
-func NewPipeFromEnds(local, remote io.ReadWriter, c Client, id string, pipeType string, key string) (pipeutil.Pipe, error) {
-	return newPipe(pipeutil.NewPipeFromEnds(local, remote, pipeType), c, id, key)
+func NewPipeFromEnds(local, remote io.ReadWriter, c Client, id string, pipeType string, key string, token string) (pipeutil.Pipe, error) {
+	return newPipe(pipeutil.NewPipeFromEnds(local, remote, pipeType), c, id, key, token)
 }
 
 func (p *pipe) Close() error {
