@@ -357,23 +357,3 @@ func getTemplateLabels(obj map[string]interface{}) map[string]string {
 	}
 	return tplLabels
 }
-
-func inArray(expectedResourceKind []string, kind string) bool {
-	for _, item := range expectedResourceKind {
-		if item == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func getTemplateLabels(obj map[string]interface{}) map[string]string {
-	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "template", "metadata", "labels")
-	if err != nil {
-		glog.Warningf("Get Template Labels failed, %v", err)
-	}
-	if tplLabels == nil {
-		tplLabels = make(map[string]string)
-	}
-	return tplLabels
-}
