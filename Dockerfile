@@ -29,10 +29,20 @@ RUN cp /etc/apt/sources.list /etc/apt/sources.list.bak && \
 
 RUN echo "${USER_NAME}:x:${USER_UID}:0:${USER_NAME} user:${HOME}:/sbin/nologin" >> /etc/passwd \
     && mkdir -p ${HOME} \
+    && mkdir -p /ssh-keys \
+    && mkdir -p /polaris \
+    && mkdir -p /tmp \
+    && mkdir -p /etc/ssh \
     && chown ${USER_UID}:0 ${HOME} \
-    && chmod ug+rwx ${HOME}
+    && chown ${USER_UID}:0 /ssh-keys \
+    && chown ${USER_UID}:0 /polaris \
+    && chown ${USER_UID}:0 /tmp \
+    && chmod ug+rwx /ssh-keys \
+    && chmod ug+rwx /polaris \
+    && chmod ug+rwx /tmp \
+    && chmod ug+rwx /etc/ssh
 
-COPY --chown=${USER_UID}:0 ./build/ssh_config ssh_config
+COPY --chown=${USER_UID}:0 ./build/ssh_config /etc/ssh/ssh_config
 COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent /
 
 USER ${USER_UID}
