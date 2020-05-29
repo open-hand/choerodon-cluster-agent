@@ -63,7 +63,7 @@ github.com/chai2010/gettext-go/gettext
 github.com/chai2010/gettext-go/gettext/mo
 github.com/chai2010/gettext-go/gettext/plural
 github.com/chai2010/gettext-go/gettext/po
-# github.com/choerodon/helm v0.0.0-20200317082929-220d898586e8 => ../choerodon-helm
+# github.com/choerodon/helm v0.0.0-20200403091208-14fe3786b076
 github.com/choerodon/helm/internal/experimental/registry
 github.com/choerodon/helm/internal/ignore
 github.com/choerodon/helm/internal/resolver
@@ -359,6 +359,7 @@ github.com/opencontainers/runc/libcontainer/user
 # github.com/operator-framework/operator-sdk v0.15.2
 github.com/operator-framework/operator-sdk/pkg/k8sutil
 github.com/operator-framework/operator-sdk/pkg/leader
+github.com/operator-framework/operator-sdk/pkg/log/zap
 github.com/operator-framework/operator-sdk/pkg/restmapper
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv

@@ -20,6 +20,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
+	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"strconv"
 	"sync"
 	"syscall"
@@ -89,6 +91,7 @@ func printVersion() {
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 
+	logf.SetLogger(zap.Logger())
 	options := NewAgentOptions()
 	cmd := &cobra.Command{
 		Use:  "choerodon-cluster-agent",
