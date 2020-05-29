@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to choerodon-cluster-agent will be documented in this file.
 
+## [0.22.0] - 2020-06-05
+### Added
+- Upgrade helm2 to helm3
+- Update websocket 
+
 ## [0.21.0] - 2020-03-08
 ### Added
 - Polaris health check componment
