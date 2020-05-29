@@ -1,9 +1,9 @@
-FROM golang:1.13 as builder
+FROM dockerhub.k8s.saas.hand-china.com/library/golang:1.13 as builder
 WORKDIR /go/src/github.com/choerodon/choerodon-cluster-agent
 COPY . .
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -o ./choerodon-cluster-agent -mod=vendor -v ./cmd/manager
 
-FROM debian:stretch
+FROM dockerhub.k8s.saas.hand-china.com/library/debian:stretch
 
 ENV USER_UID=1001 \
     USER_NAME=choerodon-cluster-agent \
