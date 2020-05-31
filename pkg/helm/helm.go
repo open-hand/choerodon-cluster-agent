@@ -50,6 +50,7 @@ type Client interface {
 	DeleteNamespaceReleases(namespaces string) error
 	//GetReleaseContent(request *GetReleaseContentRequest) (*Release, error)
 	//RollbackRelease(request *RollbackReleaseRequest) (*Release, error)
+	GetKubeClient() (envkube.Client, error)
 }
 
 type client struct {
@@ -765,7 +766,13 @@ func (c *client) DeleteNamespaceReleases(namespace string) error {
 
 }
 
-// 获得指定命名空间下的实例
+func (c *client) GetKubeClient() (envkube.Client, error) {
+	if c.kubeClient == nil {
+		return nil, errors.New("no kube-client founded")
+	}
+	return c.kubeClient, nil
+}
+
 func (c *client) GetRelease(request *GetReleaseContentRequest) (*Release, error) {
 	cfg, _ := getCfg(request.Namespace)
 	getClient := action.NewGet(cfg)

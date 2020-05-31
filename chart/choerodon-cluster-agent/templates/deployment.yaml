@@ -37,7 +37,7 @@ spec:
         args:
         - /choerodon-cluster-agent
         - --v={{ .Values.config.logLevel }}
-        - --connect={{ .Values.config.connect }}?version={{ .Chart.Version }}&clusterId={{ .Values.config.clusterId }}&token={{ .Values.config.token }}&key=cluster:{{ .Values.config.clusterId }}
+        - --connect={{ .Values.config.connect }}?group=cluster:{{ .Values.config.clusterId }}&processor=agent&secret_key=devops_ws&key=cluster:{{ .Values.config.clusterId }}&clusterId={{ .Values.config.clusterId }}&token={{ .Values.config.token }}&version={{ .Chart.Version }}
         - --token={{ .Values.config.token }}
         - --agent-version={{ .Chart.Version }}
         - --choerodon-id={{ .Values.config.choerodonId }}

@@ -21,7 +21,7 @@ func ExecByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
 	}
-	pipe, err := websocket.NewPipe(opts.WsClient, req.PipeID, pipeutil.Exec)
+	pipe, err := websocket.NewPipe(opts.WsClient, req.PipeID, pipeutil.Exec, cmd.Key, opts.Token)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesExecFailed, err)
 	}

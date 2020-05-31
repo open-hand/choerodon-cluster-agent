@@ -118,6 +118,10 @@ func (r *ReconcileStatefulSet) Reconcile(request reconcile.Request) (reconcile.R
 		return reconcile.Result{}, err
 	}
 
+	if strings.Contains(instance.Labels["release"], "prometheus-operator") {
+		return reconcile.Result{}, nil
+	}
+
 	if instance.Labels[model.ReleaseLabel] != "" {
 		glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
 		responseChan <- newPodRep(instance)

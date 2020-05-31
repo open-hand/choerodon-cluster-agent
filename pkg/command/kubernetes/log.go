@@ -34,7 +34,7 @@ func LogsByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *
 		readCloser,
 		ioutil.Discard,
 	}
-	pipe, err := websocket.NewPipeFromEnds(nil, readWriter, opts.WsClient, req.PipeID, pipeutil.Log)
+	pipe, err := websocket.NewPipeFromEnds(nil, readWriter, opts.WsClient, req.PipeID, pipeutil.Log, cmd.Key, opts.Token)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}

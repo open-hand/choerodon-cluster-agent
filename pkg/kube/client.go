@@ -70,7 +70,7 @@ const testContainer string = "automation-test"
 var ClusterId int32
 var KubernetesVersion string
 var AgentVersion string
-var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationController", "Job"}
+var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationController", "StatefulSet"}
 
 type client struct {
 	cmdutil.Factory
@@ -397,19 +397,17 @@ func (c *client) StopResources(namespace string, manifest string) error {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
 
-	clientSet := c.GetKubeClient()
-
 	for _, info := range result {
 		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-			s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
+			t := info.Object.(*unstructured.Unstructured)
+			var replicas int64 = 0
+			err := setScale(t.Object, replicas)
 			if err != nil {
 				return err
 			}
-			s.Spec.Replicas = 0
-
-			_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
+			_, err = resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
 			if err != nil {
-				return err
+				return fmt.Errorf("replace: %v", err)
 			}
 		}
 	}
@@ -422,24 +420,11 @@ func (c *client) StartResources(namespace string, manifest string) error {
 		return fmt.Errorf("build unstructured: %v", err)
 	}
 
-	clientSet := c.GetKubeClient()
-
 	for _, info := range result {
 		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-			t := info.Object.(*unstructured.Unstructured)
-			replicas, _, err := unstructured.NestedInt64(t.Object, "spec", "replicas")
+			_, err := resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
 			if err != nil {
-				glog.Warningf("Get Template replicas failed, %v", err)
-			}
-			s, err := clientSet.AppsV1().Deployments(info.Namespace).GetScale(info.Name, meta_v1.GetOptions{})
-			if err != nil {
-				return err
-			}
-
-			s.Spec.Replicas = int32(replicas)
-			_, err = clientSet.AppsV1().Deployments(info.Namespace).UpdateScale(info.Name, s)
-			if err != nil {
-				return err
+				return fmt.Errorf("replace: %v", err)
 			}
 		}
 	}
@@ -642,6 +627,53 @@ func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Objec
 	l[model.AgentVersionLabel] = AgentVersion
 
 	return obj, nil
+}
+
+func nestedLocalObjectReferences(obj map[string]interface{}, fields ...string) ([]core_v1.LocalObjectReference, bool, error) {
+	val, found, err := unstructured.NestedFieldNoCopy(obj, fields...)
+	if !found || err != nil {
+		return nil, found, err
+	}
+
+	m, ok := val.([]core_v1.LocalObjectReference)
+	if ok {
+		return m, true, nil
+		//return nil, false, fmt.Errorf("%v accessor error: %v is of the type %T, expected []core_v1.LocalObjectReference", strings.Join(fields, "."), val, val)
+	}
+
+	if m, ok := val.([]interface{}); ok {
+		secrets := make([]core_v1.LocalObjectReference, 0)
+		for _, v := range m {
+			if v1, ok := v.(map[string]interface{}); ok {
+				v2 := v1["name"]
+				secret := core_v1.LocalObjectReference{}
+				if secret.Name, ok = v2.(string); ok {
+					secrets = append(secrets, secret)
+				}
+			}
+		}
+		return secrets, true, nil
+	}
+	return m, true, nil
+}
+
+func getTemplateLabels(obj map[string]interface{}) map[string]string {
+	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "template", "metadata", "labels")
+	if err != nil {
+		glog.Warningf("Get Template Labels failed, %v", err)
+	}
+	if tplLabels == nil {
+		tplLabels = make(map[string]string)
+	}
+	return tplLabels
+}
+
+func setTemplateLabels(obj map[string]interface{}, templateLabels map[string]string) error {
+	return unstructured.SetNestedStringMap(obj, templateLabels, "spec", "template", "metadata", "labels")
+}
+
+func setScale(obj map[string]interface{}, replicas int64) error {
+	return unstructured.SetNestedField(obj, replicas, "spec", "replicas")
 }
 
 func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {

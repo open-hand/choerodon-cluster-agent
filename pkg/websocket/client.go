@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
 	"net/http"
 	"net/url"
@@ -33,7 +34,7 @@ var reconnectFlag = false
 
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
-	PipeConnection(pipeID string, pipe pipeutil.Pipe) error
+	PipeConnection(pipeID string, key string, token string, pipe pipeutil.Pipe) error
 	PipeClose(pipeID string, pipe pipeutil.Pipe) error
 	URL() *url.URL
 }
@@ -157,7 +158,7 @@ func (c *appClient) connect() error {
 
 		c.conn.SetPingHandler(nil)
 		for {
-			var wp WsPacket
+			var wp WsReceivePacket
 			err := c.conn.ReadJSON(&wp)
 			if err != nil {
 				if !websocket.IsCloseError(err, websocket.CloseNoStatusReceived) {
@@ -165,19 +166,13 @@ func (c *appClient) connect() error {
 				}
 				break
 			}
-			// for 平滑升级 we need to retain Payload field to handle upgrade agent command
-			if wp.Data != nil {
-				glog.V(1).Info("receive command : ", wp)
-				c.crChannel.CommandChan <- wp.Data
-			} else {
-				glog.V(1).Info("receive command: ", wp.Key, wp.Type)
-				c.crChannel.CommandChan <- &model.Packet{
-					Key:     wp.Key,
-					Type:    wp.Type,
-					Payload: wp.Payload,
-				}
+			packet := &model.Packet{}
+			glog.V(1).Infof("receive command: %s %s", wp.Key, wp.Group)
+			err = json.Unmarshal([]byte(wp.Message), packet)
+			if err != nil {
+				glog.Error(err)
 			}
-
+			c.crChannel.CommandChan <- packet
 		}
 	}()
 
@@ -210,29 +205,19 @@ func (c *appClient) connect() error {
 	}
 }
 
-type WsPacket struct {
-	Type string        `json:"type,omitempty"`
-	Key  string        `json:"key,omitempty"`
-	Data *model.Packet `json:"data"`
-	// Deprecated; will remove at 0.20
-	Payload string `json:"payload,omitempty"`
+type WsReceivePacket struct {
+	Type    string `json:"type,omitempty"`
+	Key     string `json:"key,omitempty"`
+	Message string `json:"message"`
+	Group   string `json:"group,omitempty"`
 }
 
 func (c *appClient) sendResponse(resp *model.Packet) error {
 
-	wp := WsPacket{
-		Type: "agent",
-		Key:  fmt.Sprintf("cluster:%d", c.clusterId),
-		Data: resp,
-	}
-	content, _ := json.Marshal(wp)
-		glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
-		glog.V(1).Info("send response: ", string(content))
-
-	c.mtx.Lock()
-	err := c.conn.WriteMessage(websocket.TextMessage, content)
-	c.mtx.Unlock()
-	return err
+	content, _ := json.Marshal(resp)
+	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
+	glog.V(1).Info("send response: ", string(content))
+	return c.conn.WriteMessage(websocket.TextMessage, content)
 }
 
 func (c *appClient) hasQuit() bool {
@@ -270,12 +255,12 @@ func (c *appClient) URL() *url.URL {
 	return c.url
 }
 
-func (c *appClient) PipeConnection(id string, pipe pipeutil.Pipe) error {
+func (c *appClient) PipeConnection(id string, key string, token string, pipe pipeutil.Pipe) error {
 	go func() {
 		glog.Infof("Pipe %s connection to %s starting", id, c.url)
 		defer glog.Infof("Pipe %s connection to %s exiting", id, c.url)
 		c.doWithBackOff(id, func() (bool, error) {
-			return c.pipeConnection(id, pipe)
+			return c.pipeConnection(id, key, token, pipe)
 		})
 	}()
 	return nil
@@ -337,12 +322,12 @@ func (c *appClient) closePipeConn(id string) {
 	}
 }
 
-func (c *appClient) pipeConnection(id string, pipe pipeutil.Pipe) (bool, error) {
+func (c *appClient) pipeConnection(id string, key string, token string, pipe pipeutil.Pipe, ) (bool, error) {
 	newURL, err := util_url.ParseURL(c.url, pipe.PipeType())
 	if err != nil {
 		return false, err
 	}
-	newURLStr := fmt.Sprintf("%s.%s:%s", newURL.String(), pipe.PipeType(), id)
+	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, pipe.PipeType(), token, kube.AgentVersion)
 	headers := http.Header{}
 	conn, resp, err := dialWS(newURLStr, headers)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
@@ -359,12 +344,23 @@ func (c *appClient) pipeConnection(id string, pipe pipeutil.Pipe) (bool, error) 
 	defer c.closePipeConn(id)
 
 	_, remote := pipe.Ends()
-	if err := pipe.CopyToWebsocket(remote, conn); err != nil {
-		glog.Errorf("pipe copy to websocket: %v", err)
-		if !IsExpectedWSCloseError(err) {
-			return false, err
+	switch pipe.PipeType() {
+	case pipeutil.Log:
+		if err := pipe.CopyToWebsocketForLog(remote, conn); err != nil {
+			glog.Errorf("pipe copy to websocket: %v", err)
+			if !IsExpectedWSCloseError(err) {
+				return false, err
+			}
+		}
+	case pipeutil.Exec:
+		if err := pipe.CopyToWebsocketForExec(remote, conn); err != nil {
+			glog.Errorf("pipe copy to websocket: %v", err)
+			if !IsExpectedWSCloseError(err) {
+				return false, err
+			}
 		}
 	}
+
 	pipe.Close()
 	return true, nil
 }

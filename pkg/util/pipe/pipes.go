@@ -1,14 +1,17 @@
 package pipe
 
 import (
+	"bufio"
 	"io"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 type Pipe interface {
-	CopyToWebsocket(io.ReadWriter, *websocket.Conn) error
+	CopyToWebsocketForLog(io.ReadWriter, *websocket.Conn) error
+	CopyToWebsocketForExec(io.ReadWriter, *websocket.Conn) error
 	Ends() (io.ReadWriter, io.ReadWriter)
 
 	Close() error
@@ -18,8 +21,10 @@ type Pipe interface {
 }
 
 const (
-	Log  = "log"
-	Exec = "exec"
+	Log          = "agent_log"
+	Exec         = "agent_exec"
+	IntervalTime = 3 * time.Second
+	TimeoutTime  = 2 * time.Second
 )
 
 type pipe struct {
@@ -105,7 +110,7 @@ func (p *pipe) Ends() (io.ReadWriter, io.ReadWriter) {
 	return p.local, p.remote
 }
 
-func (p *pipe) CopyToWebsocket(end io.ReadWriter, conn *websocket.Conn) error {
+func (p *pipe) CopyToWebsocketForExec(end io.ReadWriter, conn *websocket.Conn) error {
 	p.mtx.Lock()
 	if p.closed {
 		p.mtx.Unlock()
@@ -162,6 +167,156 @@ func (p *pipe) CopyToWebsocket(end io.ReadWriter, conn *websocket.Conn) error {
 	}
 }
 
+func (p *pipe) CopyToWebsocketForLog(end io.ReadWriter, conn *websocket.Conn) error {
+	p.mtx.Lock()
+	if p.closed {
+		p.mtx.Unlock()
+		return nil
+	}
+	p.wg.Add(1)
+	p.mtx.Unlock()
+	defer p.wg.Done()
+
+	// 为了实现能够按行(也就是 '\n')读取
+	r := bufio.NewReader(end)
+	errors := make(chan error, 2)
+
+	go func() {
+		for {
+			_, buf, err := conn.ReadMessage()
+			if err != nil {
+				errors <- err
+				return
+			}
+
+			if p.Closed() {
+				return
+			}
+			if _, err := end.Write(buf); err != nil {
+				errors <- err
+				return
+			}
+		}
+	}()
+
+	go func() {
+		msgChan := make(chan []byte, 100)
+		done := make(chan bool, 1)
+		defer func() {
+			done <- true
+		}()
+		go trafficAntiShake(nil, conn, p, done, msgChan, errors)
+		for {
+			buf, err := r.ReadBytes('\n')
+			if err != nil {
+				errors <- err
+				return
+			}
+
+			if p.Closed() {
+				return
+			}
+			msgChan <- buf
+		}
+	}()
+
+	select {
+	case err := <-errors:
+		return err
+	case <-p.quit:
+		return nil
+	}
+}
+
 func (p *pipe) PipeType() string {
 	return p.pipeType
+}
+
+// 流量防抖作用
+// 在未使用该方法以前，有在较短时间内多次发送消息给客户端(这里指devops)，引起客户端线程数激增，性能下降
+// 使用该方法后，在一定时间，会把读取的消息拼接起来，达到指定时间后再返回给客户端，减少了消息发送次数，客户端处理线程数随之减少
+func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done chan bool, msgChan chan []byte, errors chan error) {
+	// 最大等待时间
+	interval := time.NewTimer(500 * time.Millisecond)
+	// 读取超时时间
+	timeout := time.NewTimer(TimeoutTime)
+	message := make([]byte, 0)
+	message = append(message, <-msgChan...)
+	for {
+		select {
+		// 如果done可读，退出协程
+		case <-done:
+			return
+		// 达到最大发送等待时间，立即发送，并重置定时器
+		case <-interval.C:
+			if len(message) == 0 {
+				// 即使没有消息发送，也需要重置最大发送等待定时器和读取超时定时器
+				timeout.Reset(TimeoutTime)
+				interval.Reset(IntervalTime)
+				continue
+			}
+			if end != nil {
+				if _, err := end.Write(message); err != nil {
+					p.Close()
+					errors <- err
+					return
+				}
+			}
+			if conn != nil {
+				if err := conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
+					p.Close()
+					errors <- err
+					return
+				}
+			}
+			message = []byte{}
+			if !timeout.Stop() {
+				select {
+				case <-timeout.C:
+				default:
+				}
+			}
+			timeout.Reset(TimeoutTime)
+			interval.Reset(IntervalTime)
+		// 读超时了，立即发送消息，并重置定时器
+		case <-timeout.C:
+			if len(message) == 0 {
+				// 即使没有消息发送，也需要重置读取超时定时器
+				timeout.Reset(TimeoutTime)
+				continue
+			}
+			if end != nil {
+				if _, err := end.Write(message); err != nil {
+					p.Close()
+					errors <- err
+					return
+				}
+			}
+			if conn != nil {
+				if err := conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
+					p.Close()
+					errors <- err
+					return
+				}
+			}
+			message = []byte{}
+			if !interval.Stop() {
+				select {
+				case <-interval.C:
+				default:
+				}
+			}
+			timeout.Reset(TimeoutTime)
+		// 从websocket读到了消息，把消息写到message中，并重置定时器
+		case msg := <-msgChan:
+			message = append(message, msg...)
+			if !timeout.Stop() {
+				select {
+				case <-timeout.C:
+				default:
+				}
+			}
+			timeout.Reset(TimeoutTime)
+		}
+	}
 }

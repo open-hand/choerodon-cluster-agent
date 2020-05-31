@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	kube2 "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/validator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -27,12 +28,6 @@ type ResponseInfo struct {
 	PolarisResult Result `json:"polarisResult"`
 }
 
-type PolarisPacket struct {
-	Type string       `json:"type,omitempty"`
-	Key  string       `json:"key,omitempty"`
-	Data ResponseInfo `json:"data"`
-}
-
 func ScanSystem(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	go func() {
 		var req ScanRequestInfo
@@ -53,15 +48,11 @@ func ScanSystem(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		}
 		responseInfo := ResponseInfo{RecordId: req.RecordId, PolarisResult: Result{AuditData: auditData, Summary: auditData.GetSummary()}}
 		rawURL := opts.WsClient.URL()
-		nowURL := fmt.Sprintf("%s://%s%spolaris?%s", rawURL.Scheme, rawURL.Host, rawURL.Path, rawURL.RawQuery)
+		nowURL := fmt.Sprintf(ws.BaseUrl, rawURL.Scheme, rawURL.Host, cmd.Key, cmd.Key, kube2.ClusterId, "agent_polaris", opts.Token, kube2.AgentVersion)
 		conn, _, err := ws.DialWS(nowURL, http.Header{})
-		wp := PolarisPacket{
-			Type: "polaris",
-			Key:  cmd.Key,
-			Data: ResponseInfo{
-				RecordId:      responseInfo.RecordId,
-				PolarisResult: responseInfo.PolarisResult,
-			},
+		wp := ResponseInfo{
+			RecordId:      responseInfo.RecordId,
+			PolarisResult: responseInfo.PolarisResult,
 		}
 		bytes, err := json.Marshal(wp)
 		if err != nil {

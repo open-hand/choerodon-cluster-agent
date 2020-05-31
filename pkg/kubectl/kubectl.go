@@ -61,7 +61,7 @@ func (c *Kubectl) apply(namespace string, cs kubernetes.ChangeSet) (errs kuberne
 		if len(objs) == 0 {
 			return
 		}
-		glog.Infof("cmd: %s, args: %s, cout: %d", cmd, strings.Join(args, " "), len(objs))
+		glog.Infof("cmd: %s, args: %s, count: %d", cmd, strings.Join(args, " "), len(objs))
 		args = append(args, cmd, "-n", namespace, "--wait=false")
 		if err := c.doCommand(makeMultidoc(objs), args...); err != nil {
 			for _, obj := range objs {

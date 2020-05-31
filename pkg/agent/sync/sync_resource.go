@@ -35,7 +35,7 @@ func syncStatefulSet(ctx *Context) error {
 		if err != nil {
 			glog.Warning("StatefulSets v1 not support on your cluster ", err)
 		} else {
-			var podList []string
+			podList := make([]string, 0)
 			for _, statefulset := range instances.Items {
 				if statefulset.Labels[model.ReleaseLabel] != "" {
 					podList = append(podList, statefulset.GetName())
@@ -69,7 +69,7 @@ func syncReplicaSet(ctx *Context) error {
 		if err != nil {
 			glog.Fatal(err)
 		} else {
-			var resourceSyncList []string
+			resourceSyncList := make([]string, 0)
 			for _, resource := range rsList.Items {
 				if resource.Labels[model.ReleaseLabel] != "" {
 					resourceSyncList = append(resourceSyncList, resource.GetName())
@@ -102,7 +102,7 @@ func syncService(ctx *Context) error {
 		if err != nil {
 			glog.Fatal(err)
 		} else {
-			var serviceList []string
+			serviceList := make([]string, 0)
 			for _, instance := range instances.Items {
 				if instance.Labels[model.ReleaseLabel] != "" {
 					serviceList = append(serviceList, instance.GetName())
@@ -146,7 +146,7 @@ func syncPod(ctx *Context) error {
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
 		} else {
-			var podList []string
+			podList := make([]string, 0)
 			for _, pod := range pods.Items {
 				if pod.Labels[model.ReleaseLabel] != "" {
 					podList = append(podList, pod.GetName())

@@ -3,6 +3,7 @@ package endpoints
 import (
 	"context"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"strings"
 
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	corev1 "k8s.io/api/core/v1"
@@ -89,6 +90,10 @@ func (r *ReconcileEndpoints) Reconcile(request reconcile.Request) (reconcile.Res
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	if strings.Contains(instance.Labels["release"], "prometheus-operator") {
+		return reconcile.Result{}, nil
 	}
 
 	if _, ok := instance.Annotations[resourcelock.LeaderElectionRecordAnnotationKey]; ok {
