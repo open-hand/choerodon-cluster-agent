@@ -28,6 +28,8 @@ const (
 	pongWait = 60 * time.Second
 	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
+	// Maximum length that message can be sent
+	maxLength = 102400
 )
 
 var reconnectFlag = false
@@ -215,6 +217,10 @@ type WsReceivePacket struct {
 func (c *appClient) sendResponse(resp *model.Packet) error {
 
 	content, _ := json.Marshal(resp)
+	if len(content) >= maxLength {
+		glog.Infof("the length of message key %s, type %s is more than %d , discard", resp.Key, resp.Type, maxLength)
+		return nil
+	}
 	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
 	glog.V(1).Info("send response: ", string(content))
 	return c.conn.WriteMessage(websocket.TextMessage, content)
