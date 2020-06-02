@@ -26,7 +26,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
-	"k8s.io/kubernetes/pkg/api/legacyscheme"
+	"k8s.io/kubectl/pkg/scheme"
 	"net/http"
 	"strconv"
 	"strings"
@@ -435,7 +435,7 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 			TTY:       true,
 			Container: containerName,
 			Command:   cmd,
-		}, legacyscheme.ParameterCodec)
+		}, scheme.ParameterCodec)
 
 		exec, err := remotecommand.NewSPDYExecutor(config, http.MethodPost, req.URL())
 		if err == nil {
