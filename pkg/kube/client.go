@@ -42,8 +42,6 @@ type Client interface {
 	GetDiscoveryClient() (discovery.DiscoveryInterface, error)
 	DeleteService(namespace string, name string) error
 	DeleteIngress(namespace string, name string) error
-	StartResources(namespace string, manifest string) error
-	StopResources(namespace string, manifest string) error
 	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
@@ -391,46 +389,6 @@ func (c *client) DeleteIngress(namespace string, name string) error {
 	return client.ExtensionsV1beta1().Ingresses(namespace).Delete(name, &meta_v1.DeleteOptions{})
 }
 
-func (c *client) StopResources(namespace string, manifest string) error {
-	result, err := c.BuildUnstructured(namespace, manifest)
-	if err != nil {
-		return fmt.Errorf("build unstructured: %v", err)
-	}
-
-	for _, info := range result {
-		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-			t := info.Object.(*unstructured.Unstructured)
-			var replicas int64 = 0
-			err := setScale(t.Object, replicas)
-			if err != nil {
-				return err
-			}
-			_, err = resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
-			if err != nil {
-				return fmt.Errorf("replace: %v", err)
-			}
-		}
-	}
-	return nil
-}
-
-func (c *client) StartResources(namespace string, manifest string) error {
-	result, err := c.BuildUnstructured(namespace, manifest)
-	if err != nil {
-		return fmt.Errorf("build unstructured: %v", err)
-	}
-
-	for _, info := range result {
-		if inArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-			_, err := resource.NewHelper(info.Client, info.Mapping).Replace(info.Namespace, info.Name, true, info.Object)
-			if err != nil {
-				return fmt.Errorf("replace: %v", err)
-			}
-		}
-	}
-	return nil
-}
-
 func (c *client) GetLogs(namespace string, pod string, containerName string) (io.ReadCloser, error) {
 	var tailLinesDefault int64 = 1000
 	req := c.client.CoreV1().Pods(namespace).GetLogs(
@@ -738,7 +696,7 @@ func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *co
 	return c.client.CoreV1().Secrets(namespace).Update(secret)
 }
 
-func inArray(expectedResourceKind []string, kind string) bool {
+func InArray(expectedResourceKind []string, kind string) bool {
 	for _, item := range expectedResourceKind {
 		if item == kind {
 			return true

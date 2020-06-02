@@ -141,6 +141,29 @@ func (c *Kubectl) describe(namespace, sourceKind, sourceName string) (info strin
 	return strings.TrimSpace(stdout.String())
 }
 
+func (c *Kubectl) Scaler(namespace, sourceKind, sourceName, replicas string) error {
+	return c.scaler(namespace, sourceKind, sourceName, replicas)
+}
+
+func (c *Kubectl) scaler(namespace, sourceKind, sourceName, replicas string) error {
+	args := []string{"scale", "--replicas", replicas, sourceKind, sourceName}
+	if len(namespace) != 0 {
+		args = append(args, "-n", namespace)
+	}
+	cmd := c.kubectlCommand(args...)
+	stderr := &bytes.Buffer{}
+	cmd.Stderr = stderr
+	stdout := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	begin := time.Now()
+	err := cmd.Run()
+	if err != nil {
+		glog.Infof("kubectl %s , took %v, err: %v, output: \n%s", strings.Join(args, " "), time.Since(begin), err, strings.TrimSpace(stdout.String()))
+		return err
+	}
+	return nil
+}
+
 func (c *Kubectl) doCommand(r io.Reader, args ...string) error {
 	args = append(args, "-f", "-")
 	cmd := c.kubectlCommand(args...)

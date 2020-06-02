@@ -7,6 +7,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	envkube "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	"github.com/choerodon/helm/pkg/action"
 	"github.com/choerodon/helm/pkg/chart"
 	"github.com/choerodon/helm/pkg/chart/loader"
@@ -20,10 +21,12 @@ import (
 	"github.com/pkg/errors"
 	"html/template"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -44,8 +47,8 @@ type Client interface {
 	PreUpgradeRelease(request *UpgradeReleaseRequest) ([]*ReleaseHook, error)
 	UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error)
 	DeleteRelease(request *DeleteReleaseRequest) (*release.UninstallReleaseResponse, error)
-	StartRelease(request *StartReleaseRequest) (*StartReleaseResponse, error)
-	StopRelease(request *StopReleaseRequest) (*StopReleaseResponse, error)
+	StartRelease(request *StartReleaseRequest, cluster *kubernetes.Cluster) (*StartReleaseResponse, error)
+	StopRelease(request *StopReleaseRequest, cluster *kubernetes.Cluster) (*StopReleaseResponse, error)
 	GetRelease(request *GetReleaseContentRequest) (*Release, error)
 	DeleteNamespaceReleases(namespaces string) error
 	//GetReleaseContent(request *GetReleaseContentRequest) (*Release, error)
@@ -701,7 +704,7 @@ func (c *client) DeleteRelease(request *DeleteReleaseRequest) (*release.Uninstal
 }
 
 // 停用实例
-func (c *client) StopRelease(request *StopReleaseRequest) (*StopReleaseResponse, error) {
+func (c *client) StopRelease(request *StopReleaseRequest, cluster *kubernetes.Cluster) (*StopReleaseResponse, error) {
 	cfg, _ := getCfg(request.Namespace)
 	getClient := action.NewGet(cfg)
 	responseRelease, err := getClient.Run(request.ReleaseName)
@@ -712,10 +715,21 @@ func (c *client) StopRelease(request *StopReleaseRequest) (*StopReleaseResponse,
 		return nil, fmt.Errorf("release: not found")
 	}
 
-	err = c.kubeClient.StopResources(request.Namespace, responseRelease.Manifest)
+	result, err := c.kubeClient.BuildUnstructured(request.Namespace, responseRelease.Manifest)
+
 	if err != nil {
-		return nil, fmt.Errorf("get resource: %v", err)
+		return nil, fmt.Errorf("build unstructured: %v", err)
 	}
+
+	for _, info := range result {
+		if envkube.InArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+			err := cluster.ScaleResource(request.Namespace, info.Object.GetObjectKind().GroupVersionKind().Kind, info.Name, "0")
+			if err != nil {
+				return nil, fmt.Errorf("scale: %v", err)
+			}
+		}
+	}
+
 	resp := &StopReleaseResponse{
 		ReleaseName: request.ReleaseName,
 	}
@@ -723,7 +737,7 @@ func (c *client) StopRelease(request *StopReleaseRequest) (*StopReleaseResponse,
 }
 
 // 开启实例
-func (c *client) StartRelease(request *StartReleaseRequest) (*StartReleaseResponse, error) {
+func (c *client) StartRelease(request *StartReleaseRequest, cluster *kubernetes.Cluster) (*StartReleaseResponse, error) {
 	cfg, _ := getCfg(request.Namespace)
 	getClient := action.NewGet(cfg)
 	responseRelease, err := getClient.Run(request.ReleaseName)
@@ -734,10 +748,25 @@ func (c *client) StartRelease(request *StartReleaseRequest) (*StartReleaseRespon
 		return nil, fmt.Errorf("release: not found")
 	}
 
-	err = c.kubeClient.StartResources(request.Namespace, responseRelease.Manifest)
+	result, err := c.kubeClient.BuildUnstructured(request.Namespace, responseRelease.Manifest)
 	if err != nil {
-		return nil, fmt.Errorf("get resource: %v", err)
+		return nil, fmt.Errorf("build unstructured: %v", err)
 	}
+
+	for _, info := range result {
+		if envkube.InArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+			t := info.Object.(*unstructured.Unstructured)
+			replicas, _, err := unstructured.NestedInt64(t.Object, "spec", "replicas")
+			if err != nil {
+				glog.Warningf("Get Template replicas failed, %v", err)
+			}
+			err = cluster.ScaleResource(request.Namespace, info.Object.GetObjectKind().GroupVersionKind().Kind, info.Name, strconv.FormatInt(replicas, 10))
+			if err != nil {
+				return nil, fmt.Errorf("scale: %v", err)
+			}
+		}
+	}
+
 	resp := &StartReleaseResponse{
 		ReleaseName: request.ReleaseName,
 	}

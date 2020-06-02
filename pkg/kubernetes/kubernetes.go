@@ -57,6 +57,10 @@ type Describer interface {
 	Describe(namespace, sourceKind, sourceName string) string
 }
 
+type Scaler interface {
+	Scaler(namespace, sourceKind, sourceName, replicas string) error
+}
+
 // Cluster is a handle to a Kubernetes API server.
 // (Typically, this code is deployed into the same cluster.)
 type Cluster struct {
@@ -65,6 +69,7 @@ type Cluster struct {
 	applier   Applier
 	describer Describer
 	mu        sync.Mutex
+	scaler    Scaler
 }
 
 // NewCluster returns a usable cluster.
@@ -73,7 +78,8 @@ func NewCluster(
 	crdClientSet versioned.Interface,
 	mgrs *operatorutil.MgrList,
 	applier Applier,
-	describer Describer) *Cluster {
+	describer Describer,
+	scaler Scaler) *Cluster {
 
 	c := &Cluster{
 		client: extendedClient{
@@ -84,6 +90,7 @@ func NewCluster(
 		mgrs:      mgrs,
 		applier:   applier,
 		describer: describer,
+		scaler:    scaler,
 	}
 
 	return c
@@ -117,6 +124,10 @@ func (c *Cluster) Export(namespace string) ([]byte, error) {
 
 func (c *Cluster) DescribeResource(namespace, sourceKind, sourceName string) string {
 	return c.describer.Describe(namespace, sourceKind, sourceName)
+}
+
+func (c *Cluster) ScaleResource(namespace, sourceKind, sourceName, replicas string) error {
+	return c.scaler.Scaler(namespace, sourceKind, sourceName, replicas)
 }
 
 // Sync performs the given actions on resources. Operations are

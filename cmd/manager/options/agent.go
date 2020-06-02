@@ -251,12 +251,13 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		cfg, _ := f.ToRESTConfig()
 		kubectlApplier := kubectl.NewKubectl(kubectlPath, cfg)
 		kubectlDescriber := kubectl.NewKubectl(kubectlPath, cfg)
+		kubectlScaler := kubectl.NewKubectl(kubectlPath, cfg)
 
 		if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML); err != nil {
 			glog.V(1).Info(err)
 		}
 
-		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetCrdClient(), mgrs, kubectlApplier, kubectlDescriber)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetCrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
 	}
 	polarisConfig, err := config.ParseFile(o.polarisFile)
 	if err != nil {

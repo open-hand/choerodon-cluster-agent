@@ -21,7 +21,7 @@ func StartHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err)
 	}
-	startResp, err := opts.HelmClient.StartRelease(&req)
+	startResp, err := opts.HelmClient.StartRelease(&req, opts.Cluster)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseStartFailed, err)
 	}
@@ -42,7 +42,7 @@ func StopHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *m
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err)
 	}
-	resp, err := opts.HelmClient.StopRelease(&req)
+	resp, err := opts.HelmClient.StopRelease(&req, opts.Cluster)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseStopFailed, err)
 	}
