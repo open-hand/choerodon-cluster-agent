@@ -131,7 +131,9 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 		//不存在说明cert-manager可能是由helm2管理的，尝试升级到helm3
 		if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
 			helm2to3.RunConvert(delRequest.ReleaseName)
-			helm2to3.RunCleanup(delRequest.ReleaseName)
+			if opts.ClearHelmHistory {
+				helm2to3.RunCleanup(delRequest.ReleaseName)
+			}
 		} else {
 			return nil, command.NewResponseError(cmd.Key, cmd.Type, err)
 		}

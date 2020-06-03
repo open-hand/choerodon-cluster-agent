@@ -227,12 +227,16 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 				// 实例不存在有可能是实例未升级，尝试升级操作
 				if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
 					helm2to3.RunConvert(releases[i])
-					helm2to3.RunCleanup(releases[i])
+					if opts.ClearHelmHistory {
+						helm2to3.RunCleanup(releases[i])
+					}
 					upgradeCount++
 				}
 			} else {
 				// 实例存在表明实例被helm3管理，尝试进行数据清理，然后upgradeCount加1
-				helm2to3.RunCleanup(releases[i])
+				if opts.ClearHelmHistory {
+					helm2to3.RunCleanup(releases[i])
+				}
 				upgradeCount++
 			}
 		}
@@ -282,7 +286,9 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 			err = helm2to3.RunConvert(agentName)
 			// 如果从helm2升级到helm3没有问题，就清理helm2的数据并给agent的deployment添加标签
 			if err == nil {
-				helm2to3.RunCleanup(agentName)
+				if opts.ClearHelmHistory {
+					helm2to3.RunCleanup(agentName)
+				}
 				labels[model.HelmVersion] = "helm3"
 				deployment.SetLabels(labels)
 				opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Update(deployment)

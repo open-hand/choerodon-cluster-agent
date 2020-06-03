@@ -82,6 +82,7 @@ type AgentOptions struct {
 	statusSyncInterval time.Duration
 	syncAll            bool
 	polarisFile        string
+	clearHelmHistory   bool
 }
 
 func printVersion() {
@@ -283,6 +284,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.PlatformCode,
 		o.syncAll,
 		&polarisConfig,
+		o.clearHelmHistory,
 	)
 
 	go workerManager.Start()
@@ -329,6 +331,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.kubernetesKubectl, "kubernetes-kubectl", "", "Optional, explicit path to kubectl tool")
 	fs.BoolVar(&o.syncAll, "sync-all", false, "sync all or change")
 	fs.StringVar(&o.polarisFile, "polaris-file", "", "the polaris config file")
+	fs.BoolVar(&o.clearHelmHistory, "clear-helm-history", false, "clear helm2 release deploy history")
 }
 
 func checkKube(client *k8sclient.Clientset) {

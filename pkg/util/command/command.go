@@ -34,4 +34,5 @@ type Opts struct {
 	WsClient          websocket.Client
 	Token             string
 	PolarisConfig     *config.Configuration
+	ClearHelmHistory  bool
 }

@@ -47,6 +47,7 @@ type workerManager struct {
 	syncAll            bool
 	mgrs               *operatorutil.MgrList
 	polarisConfig      *config.Configuration
+	clearHelmHistory   bool
 }
 
 func NewWorkerManager(
@@ -67,7 +68,8 @@ func NewWorkerManager(
 	token string,
 	platformCode string,
 	syncAll bool,
-	polarisConfig *config.Configuration) *workerManager {
+	polarisConfig *config.Configuration,
+	clearHelmHistory bool) *workerManager {
 	return &workerManager{
 		chans:              chans,
 		helmClient:         helmClient,
@@ -89,6 +91,7 @@ func NewWorkerManager(
 		syncAll:            syncAll,
 		mgrs:               mgrs,
 		polarisConfig:      polarisConfig,
+		clearHelmHistory:   clearHelmHistory,
 	}
 }
 
@@ -136,6 +139,7 @@ func (w *workerManager) runWorker() {
 						Token:             w.token,
 						Mgrs:              w.mgrs,
 						PolarisConfig:     w.polarisConfig,
+						ClearHelmHistory:  w.clearHelmHistory,
 					}
 					newCmds, resp = processCmdFunc(opts, cmd)
 				} else {
