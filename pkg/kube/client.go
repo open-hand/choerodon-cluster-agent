@@ -8,11 +8,8 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"io"
-	appsv1 "k8s.io/api/apps/v1"
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	appsv1beta2 "k8s.io/api/apps/v1beta2"
-	batch "k8s.io/api/batch/v1"
 	core_v1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,6 +58,7 @@ type Client interface {
 	BuildUnstructured(namespace string, manifest string) (Result, error)
 	//todo: delete follow func
 	GetSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error)
+	GetPodByLabelSelector(info *resource.Info) (*v1.PodList, error)
 }
 
 const testContainer string = "automation-test"
@@ -644,45 +642,38 @@ func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
 }
 
 func getSelectorFromObject(obj runtime.Object) (map[string]string, bool) {
-	switch typed := obj.(type) {
-
-	case *core_v1.ReplicationController:
-		return typed.Spec.Selector, true
-
-	case *ext_v1beta1.ReplicaSet:
-		return typed.Spec.Selector.MatchLabels, true
-	case *appsv1.ReplicaSet:
-		return typed.Spec.Selector.MatchLabels, true
-
-	case *ext_v1beta1.Deployment:
-		return typed.Spec.Selector.MatchLabels, true
-	case *appsv1beta1.Deployment:
-		return typed.Spec.Selector.MatchLabels, true
-	case *appsv1beta2.Deployment:
-		return typed.Spec.Selector.MatchLabels, true
-	case *appsv1.Deployment:
-		return typed.Spec.Selector.MatchLabels, true
-
-	case *ext_v1beta1.DaemonSet:
-		return typed.Spec.Selector.MatchLabels, true
-	case *appsv1beta2.DaemonSet:
-		return typed.Spec.Selector.MatchLabels, true
-	case *appsv1.DaemonSet:
-		return typed.Spec.Selector.MatchLabels, true
-
-	case *batch.Job:
-		return typed.Spec.Selector.MatchLabels, true
-
-	case *appsv1beta1.StatefulSet:
-		return typed.Spec.Selector.MatchLabels, true
-	case *appsv1beta2.StatefulSet:
-		return typed.Spec.Selector.MatchLabels, true
-	case *appsv1.StatefulSet:
-		return typed.Spec.Selector.MatchLabels, true
-
-	default:
-		return nil, false
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
+	t := obj.(*unstructured.Unstructured)
+	if kind == "ReplicationController" {
+		matchLabels, result, err := unstructured.NestedStringMap(t.Object, "spec", "selector")
+		if result == false && err != nil {
+			return nil, false
+		}
+		return matchLabels, true
+	} else {
+		matchLabels, result, err := unstructured.NestedStringMap(t.Object, "spec", "selector", "matchLabels")
+		if result == false && err != nil {
+			return nil, false
+		}
+		return matchLabels, true
 	}
+}
+
+func (c *client) GetPodByLabelSelector(info *resource.Info) (*v1.PodList, error) {
+
+	selector, ok := getSelectorFromObject(info.Object)
+	if !ok {
+		return nil, nil
+	}
+
+	pods, err := c.client.CoreV1().Pods(info.Namespace).List(meta_v1.ListOptions{
+		FieldSelector: fields.Everything().String(),
+		LabelSelector: labels.Set(selector).AsSelector().String(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return pods, err
 }
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {
