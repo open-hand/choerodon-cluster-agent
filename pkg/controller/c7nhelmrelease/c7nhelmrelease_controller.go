@@ -156,8 +156,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			responseChan <- newReleaseSyncFailRep(instance, "release already in other namespace!")
 			glog.Error("release already in other namespace!")
 		}
-		// 现在是获取集群中对应实例的deployment, 而helm2.x版本是从release.manifest中获取的，可能不是集群中最新的状态。
-		results := strings.Split(rls.Manifest, "---")
+		manifests := strings.Split(rls.Manifest, "---")
 		var commandId int = 0
 		var appServiceId int64 = 0
 
@@ -171,20 +170,29 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		// 标志helm的release中是否能够找到这两个值
 		hasCommandId, hasAppServiceId := false, false
 
-		for _, result := range results {
+		for _, manifest := range manifests {
 			// 找到第一个deployment对象，根据name取出集群中的deployment，然后获得commandId和appServiceId信息
-			if result != "" && result != "\n" {
+			if manifest != "" && manifest != "\n" {
 				// 将原始yaml格式的文件转换成易操作的k8s通用对象
-				helmResource, err := kubeClient.BuildUnstructured(namespace, result)
+				helmResource, err := kubeClient.BuildUnstructured(namespace, manifest)
 				if err != nil {
 					continue
 				}
 				// 这个helmResource的length应该是1
 				for _, info := range helmResource {
-					// 只有特定的资源有template这个结构
+					// 只有特定的资源有template这个结构，在helm3中，cheordon添加的标签不会保存到helm的release中，所以直接从集群中获得对应pod的label
 					if inArray(labeledResourceKinds, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-						objectMap := info.Object.(*unstructured.Unstructured)
-						objectLabels := getTemplateLabels(objectMap.Object)
+						pods, err := r.args.KubeClient.GetPodByLabelSelector(info)
+						if err != nil {
+							responseChan <- newReleaseSyncFailRep(instance, "failed to get pod by labelSelector")
+							return result, fmt.Errorf("get pod: %v", err)
+						}
+						if len(pods.Items) == 0 {
+							hasCommandId = false
+							hasAppServiceId = false
+							continue
+						}
+						objectLabels := pods.Items[0].Labels
 						// 判断资源是否有这个值
 						resourceCommandId, hasValue := objectLabels[model.CommandLabel]
 						if hasValue {
