@@ -276,6 +276,10 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 		}
 		rls, _ := opts.HelmClient.GetRelease(releaseRequest)
 
+		if rls.Status != "deployed" {
+			return fmt.Errorf("agent: %s,status %s", agentName, rls.Status)
+		}
+
 		// 实例由helm3管理，更新标签
 		if rls != nil {
 			labels[model.HelmVersion] = "helm3"
