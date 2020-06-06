@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned"
+	choerodon_version "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/clientset/versioned"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"io"
@@ -25,6 +27,7 @@ import (
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/scheme"
 	"net/http"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -52,6 +55,7 @@ type Client interface {
 	GetSecret(namespace string, secretName string) (string, error)
 	GetKubeClient() *kubernetes.Clientset
 	GetCrdClient() *versioned.Clientset
+	GetC7nClient() *choerodon_version.Clientset
 	GetRESTConfig() (*rest.Config, error)
 	IsReleaseJobRun(namespace, releaseName string) bool
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
@@ -59,6 +63,7 @@ type Client interface {
 	//todo: delete follow func
 	GetSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error)
 	GetPodByLabelSelector(info *resource.Info) (*v1.PodList, error)
+	GetC7NHelmRelease(name, namespace string) *v1alpha1.C7NHelmRelease
 }
 
 const testContainer string = "automation-test"
@@ -72,6 +77,7 @@ type client struct {
 	cmdutil.Factory
 	client    *kubernetes.Clientset
 	crdClient *versioned.Clientset
+	c7nClient *choerodon_version.Clientset
 }
 
 func NewClient(f cmdutil.Factory) (Client, error) {
@@ -87,6 +93,10 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get crd client: %v", err)
 	}
+	c7nClient, err := choerodon_version.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("get c7n client: %v", err)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
 	}
@@ -97,6 +107,7 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 		Factory:   f,
 		client:    kubeClient,
 		crdClient: crdClient,
+		c7nClient: c7nClient,
 	}, nil
 }
 
@@ -134,6 +145,10 @@ func (c *client) GetCrdClient() *versioned.Clientset {
 	return c.crdClient
 }
 
+func (c *client) GetC7nClient() *choerodon_version.Clientset {
+	return c.c7nClient
+}
+
 func (c *client) BuildUnstructured(namespace string, manifest string) (Result, error) {
 	var result Result
 
@@ -146,6 +161,15 @@ func (c *client) BuildUnstructured(namespace string, manifest string) (Result, e
 		Flatten().
 		Do().Infos()
 	return result, err
+}
+
+func (c *client) GetC7NHelmRelease(name, namespace string) *v1alpha1.C7NHelmRelease {
+	c7nHelmRelease, err := c.c7nClient.C7NHelmReleaseV1alpha1().C7nHelmReleases(namespace).Get(name, meta_v1.GetOptions{})
+	if errors.IsNotFound(err) {
+		glog.Infof("C7nHelmRelease:%s not exists", name)
+		return nil
+	}
+	return c7nHelmRelease
 }
 
 func (c *client) LogsForJob(namespace string, name string, jobLabel string) (string, string, error) {
@@ -499,7 +523,7 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelRepoObj(info, namespace, version)
+		obj, err := labelRepoObj(info, namespace, version, c)
 
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
@@ -548,16 +572,23 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 }
 
 // 给资源加标签
-func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Object, error) {
+func labelRepoObj(info *resource.Info, namespace, version string, c *client) (runtime.Object, error) {
 
 	obj := info.Object.(*unstructured.Unstructured)
 
 	l := obj.GetLabels()
+	annotation := obj.GetAnnotations()
 
 	if l == nil {
 		l = make(map[string]string)
 	}
+
+	if annotation == nil {
+		annotation = make(map[string]string)
+	}
+
 	defer obj.SetLabels(l)
+	defer obj.SetAnnotations(annotation)
 
 	switch info.Mapping.GroupVersionKind.Kind {
 	case "Service":
@@ -568,6 +599,36 @@ func labelRepoObj(info *resource.Info, namespace, version string) (runtime.Objec
 	case "C7NHelmRelease":
 		if namespace == "choerodon" {
 			l[model.C7NHelmReleaseClusterLabel] = strconv.Itoa(int(ClusterId))
+		}
+		// 从集群中查出C7NHelmRelease，如果资源不存在，添加label["choerodon.io/C7NHelmRelease-status"]="INSTALL"，即安装操作
+		// 如果资源存在，判断已更新的spec和集群存在的spec是否相同，相同添加label["choerodon.io/C7NHelmRelease-status"]="COMPLETE",即不会进行升级操作
+		// 不同添加label["choerodon.io/C7NHelmRelease-status"]="UPGRADE",即进行升级操作
+		c7nHelmRelease := c.GetC7NHelmRelease(obj.GetName(), namespace)
+		newSpecMap := getSpecField(obj.Object)
+
+		if c7nHelmRelease == nil {
+			annotation[model.C7NHelmReleaseOperateAnnotation] = model.INSTALL
+		} else {
+			oldSpec := v1alpha1.C7NHelmReleaseSpec{}
+			newSpec := v1alpha1.C7NHelmReleaseSpec{}
+
+			// 获得集群中C7nHelmRelease的spec
+			oldSpec = c7nHelmRelease.Spec
+
+			// 获得更新后的spec
+			newSpecJsonByte, err := json.Marshal(newSpecMap)
+			if err != nil {
+				glog.Info(err)
+				break
+			}
+			if err := json.Unmarshal(newSpecJsonByte, &newSpec); err != nil {
+				glog.Info(err)
+				break
+			}
+
+			if !reflect.DeepEqual(newSpec, oldSpec) {
+				annotation[model.C7NHelmReleaseOperateAnnotation] = model.UPGRADE
+			}
 		}
 	case "PersistentVolumeClaim":
 		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
@@ -611,6 +672,17 @@ func nestedLocalObjectReferences(obj map[string]interface{}, fields ...string) (
 		return secrets, true, nil
 	}
 	return m, true, nil
+}
+
+func getSpecField(obj map[string]interface{}) map[string]interface{} {
+	specFields, _, err := unstructured.NestedMap(obj, "spec")
+	if err != nil {
+		glog.Warningf("Get Template Labels failed, %v", err)
+	}
+	if specFields == nil {
+		specFields = make(map[string]interface{})
+	}
+	return specFields
 }
 
 func getTemplateLabels(obj map[string]interface{}) map[string]string {
