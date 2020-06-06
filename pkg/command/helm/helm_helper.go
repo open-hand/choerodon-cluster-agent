@@ -14,7 +14,6 @@ import (
 	"strings"
 )
 
-// todo: maybe a wrong operator
 func StartHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.StartReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
@@ -131,7 +130,7 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 			} else if chr != nil {
 				if chr.Annotations[model.CommitLabel] == syncRequest.Commit {
-					release, err := helmClient.GetRelease(&helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName})
+					release, err := helmClient.GetRelease(&helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName, Namespace: syncRequest.Namespace})
 					if err != nil {
 						glog.Infof("release %s get error ", syncRequest.ResourceName, err)
 						if strings.Contains(err.Error(), "not exist") {
