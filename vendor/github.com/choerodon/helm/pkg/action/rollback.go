@@ -25,7 +25,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/choerodon/helm/pkg/release"
-	helmtime"github.com/choerodon/helm/pkg/time"
+	helmtime "github.com/choerodon/helm/pkg/time"
 )
 
 // Rollback is the action for rolling back to a given release.
@@ -152,7 +152,7 @@ func (r *Rollback) performRollback(currentRelease, targetRelease *release.Releas
 
 	// pre-rollback hooks
 	if !r.DisableHooks {
-		if err := r.cfg.execHook(targetRelease, release.HookPreRollback, r.Timeout); err != nil {
+		if err := r.cfg.execHook(targetRelease, release.HookPreRollback, r.Timeout, nil, 0, 0, "", "", "", "", "", false); err != nil {
 			return targetRelease, err
 		}
 	} else {
@@ -205,7 +205,7 @@ func (r *Rollback) performRollback(currentRelease, targetRelease *release.Releas
 
 	// post-rollback hooks
 	if !r.DisableHooks {
-		if err := r.cfg.execHook(targetRelease, release.HookPostRollback, r.Timeout); err != nil {
+		if err := r.cfg.execHook(targetRelease, release.HookPostRollback, r.Timeout, nil, 0, 0, "", "", "", "", "", false); err != nil {
 			return targetRelease, err
 		}
 	}

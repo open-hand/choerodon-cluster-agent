@@ -24,7 +24,7 @@ import (
 
 	"github.com/choerodon/helm/pkg/release"
 	"github.com/choerodon/helm/pkg/releaseutil"
-	helmtime"github.com/choerodon/helm/pkg/time"
+	helmtime "github.com/choerodon/helm/pkg/time"
 )
 
 // Uninstall is the action for uninstalling releases.
@@ -96,7 +96,7 @@ func (u *Uninstall) Run(name string) (*release.UninstallReleaseResponse, error) 
 	res := &release.UninstallReleaseResponse{Release: rel}
 
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(rel, release.HookPreDelete, u.Timeout); err != nil {
+		if err := u.cfg.execHook(rel, release.HookPreDelete, u.Timeout, nil, 0, 0, "", "", "", "", "", false); err != nil {
 			return res, err
 		}
 	} else {
@@ -113,7 +113,7 @@ func (u *Uninstall) Run(name string) (*release.UninstallReleaseResponse, error) 
 	res.Info = kept
 
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(rel, release.HookPostDelete, u.Timeout); err != nil {
+		if err := u.cfg.execHook(rel, release.HookPostDelete, u.Timeout, nil, 0, 0, "", "", "", "", "", false); err != nil {
 			errs = append(errs, err)
 		}
 	}

@@ -65,7 +65,7 @@ func GetTestStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 }
 
 func releaseStatus(opts *command.Opts, releaseName string) string {
-	_, err := opts.HelmClient.GetRelease(&helm.GetReleaseContentRequest{ReleaseName: releaseName})
+	_, err := opts.HelmClient.GetRelease(&helm.GetReleaseContentRequest{ReleaseName: releaseName, Namespace: helm.TestNamespace})
 	if err != nil {
 		if strings.Contains(err.Error(), "not exist") {
 			return "delete"

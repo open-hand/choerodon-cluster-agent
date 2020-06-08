@@ -17,17 +17,28 @@ package action
 
 import (
 	"bytes"
+	"github.com/choerodon/helm/pkg/agent/action"
+	v1 "k8s.io/api/core/v1"
 	"sort"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/choerodon/helm/pkg/release"
-	helmtime"github.com/choerodon/helm/pkg/time"
+	helmtime "github.com/choerodon/helm/pkg/time"
 )
 
 // execHook executes all of the hooks for the given hook event.
-func (cfg *Configuration) execHook(rl *release.Release, hook release.HookEvent, timeout time.Duration) error {
+func (cfg *Configuration) execHook(rl *release.Release, hook release.HookEvent, timeout time.Duration,
+	imagePullSecret []v1.LocalObjectReference,
+	command int,
+	appServiceId int64,
+	chartVersion,
+	releaseName,
+	chartName,
+	agentVersion,
+	testLabel string,
+	isTest bool) error {
 	executingHooks := []*release.Hook{}
 
 	for _, h := range rl.Hooks {
@@ -56,6 +67,16 @@ func (cfg *Configuration) execHook(rl *release.Release, hook release.HookEvent, 
 		}
 
 		resources, err := cfg.KubeClient.Build(bytes.NewBufferString(h.Manifest), true)
+		// 如果是agent升级，则跳过添加标签这一步，因为agent原本是直接在集群中安装的没有对应标签，如果在这里加标签k8s会报错
+		if chartName != "choerodon-cluster-agent" {
+			// 在这里对要新chart包中的对象添加标签
+			for _, r := range resources {
+				err = action.AddLabel(imagePullSecret, command, appServiceId, r, chartVersion, releaseName, chartName, agentVersion, testLabel, isTest)
+				if err != nil {
+					return err
+				}
+			}
+		}
 		if err != nil {
 			return errors.Wrapf(err, "unable to build kubernetes object for %s hook %s", hook, h.Path)
 		}

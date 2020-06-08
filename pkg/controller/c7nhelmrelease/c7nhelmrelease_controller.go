@@ -25,7 +25,6 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strconv"
-	"strings"
 )
 
 var log = logf.Log.WithName("controller_c7nhelmrelease")
@@ -93,8 +92,6 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	reqLogger.Info("Reconciling C7NHelmRelease")
 
 	commandChan := r.args.CrChan.CommandChan
-	responseChan := r.args.CrChan.ResponseChan
-	helmClient := r.args.HelmClient
 
 	result := reconcile.Result{}
 
@@ -134,107 +131,33 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		return result, fmt.Errorf("c7nhelmrelease has no commit annotations")
 	}
 
-	// 查看C7NHelmRelease对应的实例是否已经安装。需要注意这里获取的helmRelease下manifest中的信息和k8s中实际运行时对象的信息不是一致的。
-	// 因为在安装的时候，对象被添加了额外的标签，但是标签信息没有同步到manifest里面
-	rls, err := helmClient.GetRelease(&modelhelm.GetReleaseContentRequest{ReleaseName: name, Namespace: namespace})
-
-	if err != nil {
-		//不存在的话打印实例不存在的日志 然后开始安装
-		if strings.Contains(err.Error(), modelhelm.ErrReleaseNotFound) {
+	operate, ok := instance.Annotations[model.C7NHelmReleaseOperateAnnotation]
+	if ok {
+		switch operate {
+		case model.INSTALL:
+			// 安装操作
 			glog.Infof("release %s not found", instance.Name)
 			if cmd := installHelmReleaseCmd(instance); cmd != nil {
 				glog.Infof("release %s start to install", instance.Name)
 				commandChan <- cmd
 			}
-		} else {
-			responseChan <- newReleaseSyncFailRep(instance, "failed to get release by helm")
-			return result, fmt.Errorf("get release content: %v", err)
-		}
-		//如果存在 说明release已经存 就是更新？
-	} else {
-		if instance.Namespace != rls.Namespace {
-			responseChan <- newReleaseSyncFailRep(instance, "release already in other namespace!")
-			glog.Error("release already in other namespace!")
-		}
-		manifests := strings.Split(rls.Manifest, "---")
-		var commandId int = 0
-		var appServiceId int64 = 0
-
-		// 获取kube客户端对象
-		kubeClient, kubeError := helmClient.GetKubeClient()
-		if kubeError != nil {
-			glog.Error("could not normally get kube client")
-			return result, nil
-		}
-
-		// 标志helm的release中是否能够找到这两个值
-		hasCommandId, hasAppServiceId := false, false
-
-		for _, manifest := range manifests {
-			// 找到第一个deployment对象，根据name取出集群中的deployment，然后获得commandId和appServiceId信息
-			if manifest != "" && manifest != "\n" {
-				// 将原始yaml格式的文件转换成易操作的k8s通用对象
-				helmResource, err := kubeClient.BuildUnstructured(namespace, manifest)
-				if err != nil {
-					continue
-				}
-				// 这个helmResource的length应该是1
-				for _, info := range helmResource {
-					// 只有特定的资源有template这个结构，在helm3中，cheordon添加的标签不会保存到helm的release中，所以直接从集群中获得对应pod的label
-					if inArray(labeledResourceKinds, info.Object.GetObjectKind().GroupVersionKind().Kind) {
-						pods, err := r.args.KubeClient.GetPodByLabelSelector(info)
-						if err != nil {
-							responseChan <- newReleaseSyncFailRep(instance, "failed to get pod by labelSelector")
-							return result, fmt.Errorf("get pod: %v", err)
-						}
-						if len(pods.Items) == 0 {
-							hasCommandId = false
-							hasAppServiceId = false
-							continue
-						}
-						objectLabels := pods.Items[0].Labels
-						// 判断资源是否有这个值
-						resourceCommandId, hasValue := objectLabels[model.CommandLabel]
-						if hasValue {
-							hasCommandId = true
-							commandId, _ = strconv.Atoi(resourceCommandId)
-						}
-						// 判断资源是否有这个值
-						resourceAppServiceId, hasValue := objectLabels[model.AppServiceIdLabel]
-						if hasValue {
-							hasAppServiceId = true
-							appServiceId, _ = strconv.ParseInt(resourceAppServiceId, 10, 64)
-						}
-					}
-
-					// 都查到了就退出循环
-					if hasCommandId && hasAppServiceId {
-						break
-					}
-				}
-
-				// 都查到了就退出循环
-				if hasCommandId && hasAppServiceId {
-					break
-				}
+			break
+		case model.UPGRADE:
+			// 升级操作
+			if cmd := updateHelmReleaseCmd(instance); cmd != nil {
+				glog.Infof("release %s upgrade", instance.Name)
+				commandChan <- cmd
 			}
 		}
-		//这边 devops那边已经做判断，所以这段代码相当于，忽略不计
-		// 判断不用更新的情形
-		if instance.Spec.ChartName == rls.ChartName && instance.Spec.ChartVersion == rls.ChartVersion && instance.Spec.Values == rls.Config {
-			// 如果有command id和appServiceId才比对两方的这两个值
-			if !(hasCommandId && hasAppServiceId) || (hasCommandId && hasAppServiceId && instance.Spec.CommandId == commandId && instance.Spec.AppServiceId == appServiceId) {
-				glog.Infof("release %s chart、version、values、commandId、appserviceid not change", rls.Name)
-				payload, _ := json.Marshal(rls)
-				responseChan <- UpgradeInstanceStatusCmd(instance, string(payload))
-				return result, nil
-			}
+		annotations := instance.Annotations
+		delete(annotations, model.C7NHelmReleaseOperateAnnotation)
+		instance.SetAnnotations(annotations)
+		err = r.client.Update(context.TODO(), instance)
+		if err != nil {
+			glog.Info(err)
+			return reconcile.Result{}, err
 		}
-		// 要更新实例的情况
-		if cmd := updateHelmReleaseCmd(instance); cmd != nil {
-			glog.Infof("release %s upgrade", rls.Name)
-			commandChan <- cmd
-		}
+		return reconcile.Result{}, nil
 	}
 	return reconcile.Result{}, nil
 }

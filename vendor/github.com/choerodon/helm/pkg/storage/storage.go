@@ -126,6 +126,43 @@ func (s *Storage) Deployed(name string) (*rspb.Release, error) {
 	return ls[0], nil
 }
 
+// Installed returns the last installed release with the provided release name, or
+//// returns ErrReleaseNotFound if not found
+func (s *Storage) Installed(name string) (*rspb.Release, error) {
+	ls, err := s.InstalledAll(name)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ls) == 0 {
+		return nil, errors.Errorf("%q has no deployed releases", name)
+	}
+
+	// If executed concurrently, Helm's database gets corrupted
+	// and multiple releases are DEPLOYED. Take the latest.
+	relutil.Reverse(ls, relutil.SortByRevision)
+
+	return ls[0], nil
+}
+
+// InstalledAll returns all installed releases with the provided name, or
+// returns ErrReleaseNotFound if not found.
+func (s *Storage) InstalledAll(name string) ([]*rspb.Release, error) {
+	s.Log("getting deployed releases from %q history", name)
+
+	ls, err := s.Driver.Query(map[string]string{
+		"name":  name,
+		"owner": "helm",
+	})
+	if err == nil {
+		return ls, nil
+	}
+	if strings.Contains(err.Error(), "not found") {
+		return nil, errors.Errorf("%q has no deployed releases", name)
+	}
+	return nil, err
+}
+
 // DeployedAll returns all deployed releases with the provided name, or
 // returns ErrReleaseNotFound if not found.
 func (s *Storage) DeployedAll(name string) ([]*rspb.Release, error) {
