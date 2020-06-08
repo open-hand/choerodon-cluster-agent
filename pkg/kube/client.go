@@ -600,9 +600,9 @@ func labelRepoObj(info *resource.Info, namespace, version string, c *client) (ru
 		if namespace == "choerodon" {
 			l[model.C7NHelmReleaseClusterLabel] = strconv.Itoa(int(ClusterId))
 		}
-		// 从集群中查出C7NHelmRelease，如果资源不存在，添加label["choerodon.io/C7NHelmRelease-status"]="INSTALL"，即安装操作
-		// 如果资源存在，判断已更新的spec和集群存在的spec是否相同，相同添加label["choerodon.io/C7NHelmRelease-status"]="COMPLETE",即不会进行升级操作
-		// 不同添加label["choerodon.io/C7NHelmRelease-status"]="UPGRADE",即进行升级操作
+		// 从集群中查出C7NHelmRelease，如果资源不存在，添加Annotation["choerodon.io/C7NHelmRelease-status"]="INSTALL"，即安装操作
+		// 如果资源存在，判断已更新的spec和集群存在的spec是否相同,相同不做任何操作,即不会进行升级操作
+		// 不同添加Annotation["choerodon.io/C7NHelmRelease-status"]="UPGRADE",即进行升级操作
 		c7nHelmRelease := c.GetC7NHelmRelease(obj.GetName(), namespace)
 		newSpecMap := getSpecField(obj.Object)
 
