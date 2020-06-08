@@ -163,8 +163,8 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 		return nil, nil, errMissingChart
 	}
 
-	// finds the deployed release with the given name
-	currentRelease, err := u.cfg.Releases.Deployed(name)
+	// finds the installed release with the given name
+	currentRelease, err := u.cfg.Releases.Installed(name)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -306,7 +306,7 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 
 	// pre-upgrade hooks
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(upgradedRelease, release.HookPreUpgrade, u.Timeout); err != nil {
+		if err := u.cfg.execHook(upgradedRelease, release.HookPreUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.AppServiceId, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", false); err != nil {
 			return u.failRelease(upgradedRelease, kube.ResourceList{}, fmt.Errorf("pre-upgrade hooks failed: %s", err))
 		}
 	} else {
@@ -338,7 +338,7 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 
 	// post-upgrade hooks
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout); err != nil {
+		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.AppServiceId, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", false); err != nil {
 			return u.failRelease(upgradedRelease, results.Created, fmt.Errorf("post-upgrade hooks failed: %s", err))
 		}
 	}

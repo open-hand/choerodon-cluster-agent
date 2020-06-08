@@ -63,7 +63,7 @@ github.com/chai2010/gettext-go/gettext
 github.com/chai2010/gettext-go/gettext/mo
 github.com/chai2010/gettext-go/gettext/plural
 github.com/chai2010/gettext-go/gettext/po
-# github.com/choerodon/helm v0.0.0-20200403091208-14fe3786b076
+# github.com/choerodon/helm v0.0.0-20200608060359-7500eb8cc5ba
 github.com/choerodon/helm/internal/experimental/registry
 github.com/choerodon/helm/internal/ignore
 github.com/choerodon/helm/internal/resolver
@@ -795,7 +795,6 @@ k8s.io/kubectl/pkg/util/templates
 k8s.io/kubectl/pkg/util/term
 k8s.io/kubectl/pkg/validation
 # k8s.io/kubernetes v1.17.3
-k8s.io/kubernetes/pkg/api/legacyscheme
 k8s.io/kubernetes/pkg/api/v1/endpoints
 k8s.io/kubernetes/pkg/api/v1/pod
 k8s.io/kubernetes/pkg/apis/core
