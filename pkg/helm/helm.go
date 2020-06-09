@@ -28,6 +28,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -265,6 +266,8 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 		return nil, err
 	}
 	if rls.Name == "choerodon-cert-manager" {
+		// 睡眠等待3秒，防止创建cert-manager对象的时候crd还没创建成功
+		time.Sleep(3 * time.Second)
 		kubectlPath, err := exec.LookPath("kubectl")
 		if err != nil {
 			glog.Fatal(err)
@@ -276,7 +279,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error
 	}
 	//数据量太大
 
-	if rls.Name == "prometheus-operator" {
+	if rls.ChartName == "prometheus-operator" || rls.ChartName == "cert-manager" {
 		rls.Hooks = nil
 		rls.Resources = nil
 	}
@@ -684,7 +687,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 	}
 	rls.Commit = request.Commit
 	rls.Command = request.Command
-	if rls.ChartName == "prometheus-operator" {
+	if rls.ChartName == "prometheus-operator" || rls.ChartName == "cert-manager" {
 		rls.Hooks = nil
 		rls.Resources = nil
 	}
@@ -697,6 +700,12 @@ func (c *client) DeleteRelease(request *DeleteReleaseRequest) (*release.Uninstal
 	uninstall := action.NewUninstall(cfg)
 
 	rls, err := uninstall.Run(request.ReleaseName)
+	if rls != nil {
+		if rls.Release.Chart.Metadata.Name == "prometheus-operator" || rls.Release.Chart.Metadata.Name == "cert-manager" {
+			rls.Release.Hooks = nil
+			rls.Release.Manifest = ""
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

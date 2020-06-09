@@ -144,7 +144,7 @@ func (r *ReconcileEvent) Reconcile(request reconcile.Request) (reconcile.Result,
 			responseChan <- newInstanceEventRep(instance, pod.Labels[model.ReleaseLabel])
 			return reconcile.Result{}, nil
 
-		} else if pod.Labels[model.TestLabel] == r.args.PlatformCode {
+		} else if pod.Labels[model.TestLabel] != "" && pod.Labels[model.TestLabel] == r.args.PlatformCode {
 			//测试pod事件
 			responseChan <- newTestPodEventRep(instance, pod.Labels[model.ReleaseLabel], pod.Labels[model.TestLabel])
 		} else {
