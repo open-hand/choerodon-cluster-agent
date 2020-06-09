@@ -147,9 +147,8 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 	if err != nil {
 		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
-	if req.Namespace == "" {
-		req.Namespace = cmd.Namespace()
-	}
+
+	req.Namespace = kube.AgentNamespace
 
 	ch := opts.CrChan
 
