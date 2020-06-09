@@ -11,7 +11,6 @@ import (
 	"github.com/golang/glog"
 	"io"
 	core_v1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,8 +60,7 @@ type Client interface {
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
 	BuildUnstructured(namespace string, manifest string) (Result, error)
 	//todo: delete follow func
-	GetSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error)
-	GetPodByLabelSelector(info *resource.Info) (*v1.PodList, error)
+	GetSelectRelationPod(info *resource.Info) (map[string][]core_v1.Pod, error)
 	GetC7NHelmRelease(name, namespace string) *v1alpha1.C7NHelmRelease
 }
 
@@ -477,14 +475,15 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 	return nil
 }
 
-func (c *client) GetSelectRelationPod(info *resource.Info, objPods map[string][]core_v1.Pod) (map[string][]core_v1.Pod, error) {
+func (c *client) GetSelectRelationPod(info *resource.Info) (map[string][]core_v1.Pod, error) {
+	objPods := make(map[string][]core_v1.Pod)
 	if info == nil {
-		return objPods, nil
+		return nil, nil
 	}
 
 	selector, ok := getSelectorFromObject(info.Object)
 	if !ok {
-		return objPods, nil
+		return nil, nil
 	}
 
 	pods, err := c.client.CoreV1().Pods(info.Namespace).List(meta_v1.ListOptions{
@@ -492,7 +491,7 @@ func (c *client) GetSelectRelationPod(info *resource.Info, objPods map[string][]
 		LabelSelector: labels.Set(selector).AsSelector().String(),
 	})
 	if err != nil {
-		return objPods, err
+		return nil, err
 	}
 
 	for _, pod := range pods.Items {
@@ -646,34 +645,6 @@ func labelRepoObj(info *resource.Info, namespace, version string, c *client) (ru
 	return obj, nil
 }
 
-func nestedLocalObjectReferences(obj map[string]interface{}, fields ...string) ([]core_v1.LocalObjectReference, bool, error) {
-	val, found, err := unstructured.NestedFieldNoCopy(obj, fields...)
-	if !found || err != nil {
-		return nil, found, err
-	}
-
-	m, ok := val.([]core_v1.LocalObjectReference)
-	if ok {
-		return m, true, nil
-		//return nil, false, fmt.Errorf("%v accessor error: %v is of the type %T, expected []core_v1.LocalObjectReference", strings.Join(fields, "."), val, val)
-	}
-
-	if m, ok := val.([]interface{}); ok {
-		secrets := make([]core_v1.LocalObjectReference, 0)
-		for _, v := range m {
-			if v1, ok := v.(map[string]interface{}); ok {
-				v2 := v1["name"]
-				secret := core_v1.LocalObjectReference{}
-				if secret.Name, ok = v2.(string); ok {
-					secrets = append(secrets, secret)
-				}
-			}
-		}
-		return secrets, true, nil
-	}
-	return m, true, nil
-}
-
 func getSpecField(obj map[string]interface{}) map[string]interface{} {
 	specFields, _, err := unstructured.NestedMap(obj, "spec")
 	if err != nil {
@@ -683,25 +654,6 @@ func getSpecField(obj map[string]interface{}) map[string]interface{} {
 		specFields = make(map[string]interface{})
 	}
 	return specFields
-}
-
-func getTemplateLabels(obj map[string]interface{}) map[string]string {
-	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "template", "metadata", "labels")
-	if err != nil {
-		glog.Warningf("Get Template Labels failed, %v", err)
-	}
-	if tplLabels == nil {
-		tplLabels = make(map[string]string)
-	}
-	return tplLabels
-}
-
-func setTemplateLabels(obj map[string]interface{}, templateLabels map[string]string) error {
-	return unstructured.SetNestedStringMap(obj, templateLabels, "spec", "template", "metadata", "labels")
-}
-
-func setScale(obj map[string]interface{}, replicas int64) error {
-	return unstructured.SetNestedField(obj, replicas, "spec", "replicas")
 }
 
 func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
@@ -716,36 +668,22 @@ func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {
 func getSelectorFromObject(obj runtime.Object) (map[string]string, bool) {
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 	t := obj.(*unstructured.Unstructured)
-	if kind == "ReplicationController" {
+	switch kind {
+	case "ReplicationController":
 		matchLabels, result, err := unstructured.NestedStringMap(t.Object, "spec", "selector")
 		if result == false && err != nil {
 			return nil, false
 		}
 		return matchLabels, true
-	} else {
+	case "Deployment", "Job", "ReplicaSet", "DaemonSet", "StatefulSet":
 		matchLabels, result, err := unstructured.NestedStringMap(t.Object, "spec", "selector", "matchLabels")
 		if result == false && err != nil {
 			return nil, false
 		}
 		return matchLabels, true
+	default:
+		return nil, false
 	}
-}
-
-func (c *client) GetPodByLabelSelector(info *resource.Info) (*v1.PodList, error) {
-
-	selector, ok := getSelectorFromObject(info.Object)
-	if !ok {
-		return nil, nil
-	}
-
-	pods, err := c.client.CoreV1().Pods(info.Namespace).List(meta_v1.ListOptions{
-		FieldSelector: fields.Everything().String(),
-		LabelSelector: labels.Set(selector).AsSelector().String(),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return pods, err
 }
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {

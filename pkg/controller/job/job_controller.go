@@ -127,7 +127,7 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 			}
 		}
 
-	} else if instance.Labels[model.TestLabel] == r.args.PlatformCode {
+	} else if instance.Labels[model.TestLabel] != "" && instance.Labels[model.TestLabel] == r.args.PlatformCode {
 		//监听
 		if finsish, succeed := IsJobFinished(instance); finsish {
 			jobLogs, jobstatus, err := kubeClient.LogsForJob(namespace, instance.Name, model.TestLabel)
@@ -143,7 +143,7 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 			}
 			_, err = r.args.HelmClient.DeleteRelease(&helm.DeleteReleaseRequest{ReleaseName: instance.Labels[model.ReleaseLabel], Namespace: helm.TestNamespace})
 			if err != nil {
-				glog.Error("delete release error", err)
+				glog.Errorf("error delete release %s: ", instance.Labels[model.ReleaseLabel], err)
 			}
 		}
 	}

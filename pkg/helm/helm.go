@@ -20,7 +20,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"html/template"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
 	"log"
@@ -416,7 +415,6 @@ func (c *client) GetResources(namespace string, manifest string) ([]*ReleaseReso
 		return nil, fmt.Errorf("build unstructured: %v", err)
 	}
 
-	var objPods = make(map[string][]v1.Pod)
 	for _, info := range result {
 		if err := info.Get(); err != nil {
 			continue
@@ -438,7 +436,7 @@ func (c *client) GetResources(namespace string, manifest string) ([]*ReleaseReso
 		}
 
 		resources = append(resources, hrr)
-		objPods, err = c.kubeClient.GetSelectRelationPod(info, objPods)
+		objPods, err := c.kubeClient.GetSelectRelationPod(info)
 		if err != nil {
 			glog.Error("Warning: get the relation pod is failed, err:%s", err.Error())
 		}
