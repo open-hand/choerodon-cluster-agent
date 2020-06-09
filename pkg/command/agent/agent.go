@@ -155,7 +155,7 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 
 	resp, err := opts.HelmClient.UpgradeRelease(&req)
 	if err != nil {
-		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == "choerodon" {
+		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == kube.AgentNamespace {
 			go func() {
 				//maybe avoid lot request devOps-service in a same time
 				rand.Seed(time.Now().UnixNano())
@@ -262,7 +262,7 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 
 func agentConvert(opts *commandutil.Opts, agentName string) error {
 
-	deployment, err := opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Get(agentName, metav1.GetOptions{})
+	deployment, err := opts.KubeClient.GetKubeClient().AppsV1().Deployments(kube.AgentNamespace).Get(agentName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -272,7 +272,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 	if labels[model.HelmVersion] != "helm3" {
 		releaseRequest := &helm.GetReleaseContentRequest{
 			ReleaseName: agentName,
-			Namespace:   "choerodon",
+			Namespace:   kube.AgentNamespace,
 		}
 		rls, _ := opts.HelmClient.GetRelease(releaseRequest)
 
@@ -283,7 +283,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 			}
 			labels[model.HelmVersion] = "helm3"
 			deployment.SetLabels(labels)
-			opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Update(deployment)
+			opts.KubeClient.GetKubeClient().AppsV1().Deployments(kube.AgentNamespace).Update(deployment)
 		} else {
 			// 实例由helm2管理，先升级成helm3管理，然后更新标签
 			err = helm2to3.RunConvert(agentName)
@@ -294,7 +294,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 				}
 				labels[model.HelmVersion] = "helm3"
 				deployment.SetLabels(labels)
-				opts.KubeClient.GetKubeClient().AppsV1().Deployments("choerodon").Update(deployment)
+				opts.KubeClient.GetKubeClient().AppsV1().Deployments(kube.AgentNamespace).Update(deployment)
 			} else {
 				return err
 			}

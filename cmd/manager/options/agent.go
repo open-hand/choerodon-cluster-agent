@@ -130,6 +130,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	printVersion()
 
+	kube.AgentNamespace = os.Getenv("POD_NAMESPACE")
+
 	kube.ClusterId = o.ClusterId
 	if o.PrintVersion {
 		fmt.Println(version.GetVersion())

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
@@ -22,14 +23,14 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 
 	skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True"
 
-	if err = opts.KubeClient.GetNamespace(agentInitOpts.Envs[0].Namespace); err == nil && agentInitOpts.Envs[0].Namespace != "choerodon" && !skipCheckNamespace {
+	if err = opts.KubeClient.GetNamespace(agentInitOpts.Envs[0].Namespace); err == nil && agentInitOpts.Envs[0].Namespace != kube.AgentNamespace && !skipCheckNamespace {
 		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, fmt.Errorf("env %s already exist", agentInitOpts.Envs[0].Namespace))
 	}
 	opts.AgentInitOps.Envs = append(opts.AgentInitOps.Envs, agentInitOpts.Envs[0])
 
 	namespace := agentInitOpts.Envs[0].Namespace
 	opts.Namespaces.Add(namespace)
-	if namespace != "choerodon" {
+	if namespace != kube.AgentNamespace {
 		err := createNamespace(opts, namespace, []string{})
 		if err != nil {
 			return nil, commandutil.NewResponseError(cmd.Key, cmd.Type, err)
