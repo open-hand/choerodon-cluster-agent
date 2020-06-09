@@ -152,7 +152,7 @@ func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8s
 	var k8sResources []k8sResource
 	for i := range instances.Items {
 		release := instances.Items[i]
-		if namespace == "choerodon" {
+		if namespace == kube.AgentNamespace {
 			if release.Labels[model.C7NHelmReleaseClusterLabel] == strconv.Itoa(int(kube.ClusterId)) {
 				k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
 			}

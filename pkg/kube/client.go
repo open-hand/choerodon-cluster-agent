@@ -71,7 +71,7 @@ const testContainer string = "automation-test"
 var ClusterId int32
 var KubernetesVersion string
 var AgentVersion string
-var expectedResourceKind = []string{"Deployment", "ReplicaSet", "ReplicationController", "StatefulSet"}
+var AgentNamespace string
 
 type client struct {
 	cmdutil.Factory
@@ -597,7 +597,7 @@ func labelRepoObj(info *resource.Info, namespace, version string, c *client) (ru
 		l[model.NetworkLabel] = "ingress"
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
-		if namespace == "choerodon" {
+		if namespace == AgentNamespace {
 			l[model.C7NHelmReleaseClusterLabel] = strconv.Itoa(int(ClusterId))
 		}
 		// 从集群中查出C7NHelmRelease，如果资源不存在，添加Annotation["choerodon.io/C7NHelmRelease-status"]="INSTALL"，即安装操作
