@@ -12,6 +12,7 @@ import (
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
+	"github.com/choerodon/helm/pkg/release"
 	"github.com/golang/glog"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -277,7 +278,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 
 		// 实例由helm3管理，更新标签
 		if rls != nil {
-			if rls.Status != "deployed" {
+			if rls.Status != release.StatusDeployed.String() {
 				return fmt.Errorf("agent: %s,status %s", agentName, rls.Status)
 			}
 			labels[model.HelmVersion] = "helm3"

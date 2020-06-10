@@ -8,6 +8,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
+	helm_release "github.com/choerodon/helm/pkg/release"
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -141,7 +142,7 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 							}
 						}
 					}
-					if release != nil && release.Status == "DEPLOYED" {
+					if release != nil && release.Status == helm_release.StatusDeployed.String() {
 						if release.ChartVersion != chr.Spec.ChartVersion || release.Config != chr.Spec.Values {
 							glog.Infof("release deployed but not consistent")
 							reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
