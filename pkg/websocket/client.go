@@ -269,7 +269,7 @@ func (c *appClient) URL() *url.URL {
 func (c *appClient) PipeConnection(id string, key string, token string, pipe pipeutil.Pipe) error {
 	go func() {
 		glog.Infof("Pipe %s connection to %s starting", id, c.url)
-		defer glog.Infof("Pipe %s connection to %s exiting", id, c.url)
+		defer glog.Infof("Pipe %s connection to %s closed", id, c.url)
 		c.doWithBackOff(id, func() (bool, error) {
 			return c.pipeConnection(id, key, token, pipe)
 		})
