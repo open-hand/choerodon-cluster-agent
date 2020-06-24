@@ -22,7 +22,7 @@ RUN cp /etc/apt/sources.list /etc/apt/sources.list.bak && \
        "http://mirror.azure.cn/kubernetes/kubectl/$(curl -sSL http://mirror.azure.cn/kubernetes/kubectl/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/bin/kubectl && \
     curl -sSL -o /usr/bin/tini \
-        "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini" && \
+        "http://files.saas.hand-china.com/tini/${TINI_VERSION}/tini" && \
     chmod a+x /usr/bin/tini && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone
