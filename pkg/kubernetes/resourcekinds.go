@@ -16,29 +16,29 @@ import (
 )
 
 var (
-	resourceKinds = make(map[string]resourceKind)
+	ResourceKinds = make(map[string]ResourceKind)
 )
 
-type resourceKind interface {
-	getResources(c *Cluster, namespace string) ([]k8sResource, error)
+type ResourceKind interface {
+	GetResources(c *Cluster, namespace string) ([]K8sResource, error)
 }
 
 func init() {
-	resourceKinds["service"] = &serviceKind{}
-	resourceKinds["ingress"] = &ingressKind{}
-	resourceKinds["c7nhelmrelease"] = &c7nHelmReleaseKind{}
-	resourceKinds["configmap"] = &configMap{}
-	resourceKinds["secret"] = &secret{}
-	resourceKinds["persistentvolumeclaim"] = &persistentVolumeClaim{}
-	resourceKinds["persistentvolume"] = &persistentVolume{}
-	resourceKinds["certificate"] = &certificateKind{}
+	ResourceKinds["service"] = &serviceKind{}
+	ResourceKinds["ingress"] = &ingressKind{}
+	ResourceKinds["c7nhelmrelease"] = &c7nHelmReleaseKind{}
+	ResourceKinds["configmap"] = &configMap{}
+	ResourceKinds["secret"] = &secret{}
+	ResourceKinds["persistentvolumeclaim"] = &persistentVolumeClaim{}
+	ResourceKinds["persistentvolume"] = &persistentVolume{}
+	ResourceKinds["certificate"] = &certificateKind{}
 }
 
-type k8sResource struct {
-	k8sObject
-	apiVersion string
-	kind       string
-	name       string
+type K8sResource struct {
+	K8sObject
+	ApiVersion string
+	Kind       string
+	Name       string
 }
 
 // ==============================================
@@ -46,25 +46,25 @@ type k8sResource struct {
 type certificateKind struct {
 }
 
-func (dk *certificateKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	var k8sResources []k8sResource
-	certificates, err := c.client.Certificates(namespace).List(meta_v1.ListOptions{})
+func (dk *certificateKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	var K8sResources []K8sResource
+	certificates, err := c.Client.Certificates(namespace).List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	for i := range certificates.Items {
-		k8sResources = append(k8sResources, makeCertificateK8sResource(&certificates.Items[i]))
+		K8sResources = append(K8sResources, makeCertificateK8sResource(&certificates.Items[i]))
 	}
 
-	return k8sResources, nil
+	return K8sResources, nil
 }
-func makeCertificateK8sResource(certificate *v1alpha1.Certificate) k8sResource {
-	return k8sResource{
-		apiVersion: "v1alpha1",
-		kind:       "Certificate",
-		name:       certificate.Name,
-		k8sObject:  certificate,
+func makeCertificateK8sResource(certificate *v1alpha1.Certificate) K8sResource {
+	return K8sResource{
+		ApiVersion: "v1alpha1",
+		Kind:       "Certificate",
+		Name:       certificate.Name,
+		K8sObject:  certificate,
 	}
 }
 
@@ -73,29 +73,29 @@ func makeCertificateK8sResource(certificate *v1alpha1.Certificate) k8sResource {
 type serviceKind struct {
 }
 
-func (dk *serviceKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	services, err := c.client.Services(namespace).List(meta_v1.ListOptions{})
+func (dk *serviceKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	services, err := c.Client.Services(namespace).List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	var k8sResources []k8sResource
+	var K8sResources []K8sResource
 	for i := range services.Items {
 		_, noDelete := services.Items[i].Labels[model.NetworkNoDelLabel]
 		if _, ok := services.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
 			continue
 		}
-		k8sResources = append(k8sResources, makeServiceK8sResource(&services.Items[i]))
+		K8sResources = append(K8sResources, makeServiceK8sResource(&services.Items[i]))
 	}
 
-	return k8sResources, nil
+	return K8sResources, nil
 }
-func makeServiceK8sResource(service *core_v1.Service) k8sResource {
-	return k8sResource{
-		apiVersion: "v1",
-		kind:       "Service",
-		name:       service.Name,
-		k8sObject:  service,
+func makeServiceK8sResource(service *core_v1.Service) K8sResource {
+	return K8sResource{
+		ApiVersion: "v1",
+		Kind:       "Service",
+		Name:       service.Name,
+		K8sObject:  service,
 	}
 }
 
@@ -104,30 +104,30 @@ func makeServiceK8sResource(service *core_v1.Service) k8sResource {
 type ingressKind struct {
 }
 
-func (dk *ingressKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	ingresses, err := c.client.Ingresses(namespace).List(meta_v1.ListOptions{})
+func (dk *ingressKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	ingresses, err := c.Client.Ingresses(namespace).List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	var k8sResources []k8sResource
+	var K8sResources []K8sResource
 	for i := range ingresses.Items {
 		_, noDelete := ingresses.Items[i].Labels[model.NetworkNoDelLabel]
 		if _, ok := ingresses.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
 			continue
 		}
-		k8sResources = append(k8sResources, makeIngressK8sResource(&ingresses.Items[i]))
+		K8sResources = append(K8sResources, makeIngressK8sResource(&ingresses.Items[i]))
 	}
 
-	return k8sResources, nil
+	return K8sResources, nil
 }
 
-func makeIngressK8sResource(ingress *ext_v1beta1.Ingress) k8sResource {
-	return k8sResource{
-		apiVersion: "extensions/v1beta1",
-		kind:       "Ingress",
-		name:       ingress.Name,
-		k8sObject:  ingress,
+func makeIngressK8sResource(ingress *ext_v1beta1.Ingress) K8sResource {
+	return K8sResource{
+		ApiVersion: "extensions/v1beta1",
+		Kind:       "Ingress",
+		Name:       ingress.Name,
+		K8sObject:  ingress,
 	}
 }
 
@@ -137,9 +137,9 @@ func makeIngressK8sResource(ingress *ext_v1beta1.Ingress) k8sResource {
 type c7nHelmReleaseKind struct {
 }
 
-func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
+func (crk *c7nHelmReleaseKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 
-	client := c.mgrs.Get(namespace).GetClient()
+	client := c.Mgrs.Get(namespace).GetClient()
 
 	instances := &c7nv1alpha1.C7NHelmReleaseList{}
 
@@ -149,27 +149,27 @@ func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8s
 		return nil, err
 	}
 
-	var k8sResources []k8sResource
+	var K8sResources []K8sResource
 	for i := range instances.Items {
 		release := instances.Items[i]
 		if namespace == kube.AgentNamespace {
 			if release.Labels[model.C7NHelmReleaseClusterLabel] == strconv.Itoa(int(kube.ClusterId)) {
-				k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
+				K8sResources = append(K8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
 			}
 		} else {
-			k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
+			K8sResources = append(K8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
 		}
 	}
 
-	return k8sResources, nil
+	return K8sResources, nil
 }
 
-func makeC7nHelmReleaseK8sResource(chr *c7nv1alpha1.C7NHelmRelease) k8sResource {
-	return k8sResource{
-		apiVersion: "choerodon.io/v1alpha1",
-		kind:       "C7NHelmRelease",
-		name:       chr.Name,
-		k8sObject:  chr,
+func makeC7nHelmReleaseK8sResource(chr *c7nv1alpha1.C7NHelmRelease) K8sResource {
+	return K8sResource{
+		ApiVersion: "choerodon.io/v1alpha1",
+		Kind:       "C7NHelmRelease",
+		Name:       chr.Name,
+		K8sObject:  chr,
 	}
 }
 
@@ -179,29 +179,29 @@ func makeC7nHelmReleaseK8sResource(chr *c7nv1alpha1.C7NHelmRelease) k8sResource 
 type configMap struct {
 }
 
-func (cm *configMap) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	configMaps, err := c.client.ConfigMaps(namespace).List(meta_v1.ListOptions{})
+func (cm *configMap) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	configMaps, err := c.Client.ConfigMaps(namespace).List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	var k8sResources []k8sResource
+	var K8sResources []K8sResource
 	for i := range configMaps.Items {
 		cm := configMaps.Items[i]
 		if cm.Labels[model.ReleaseLabel] == "" && cm.Labels[model.AgentVersionLabel] != "" {
-			k8sResources = append(k8sResources, makeConfigMapK8sResource(&configMaps.Items[i]))
+			K8sResources = append(K8sResources, makeConfigMapK8sResource(&configMaps.Items[i]))
 		}
 	}
 
-	return k8sResources, nil
+	return K8sResources, nil
 }
 
-func makeConfigMapK8sResource(cm *core_v1.ConfigMap) k8sResource {
-	return k8sResource{
-		apiVersion: "v1",
-		kind:       "ConfigMap",
-		name:       cm.Name,
-		k8sObject:  cm,
+func makeConfigMapK8sResource(cm *core_v1.ConfigMap) K8sResource {
+	return K8sResource{
+		ApiVersion: "v1",
+		Kind:       "ConfigMap",
+		Name:       cm.Name,
+		K8sObject:  cm,
 	}
 }
 
@@ -211,29 +211,29 @@ func makeConfigMapK8sResource(cm *core_v1.ConfigMap) k8sResource {
 type secret struct {
 }
 
-func (s *secret) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	configMaps, err := c.client.Secrets(namespace).List(meta_v1.ListOptions{})
+func (s *secret) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	configMaps, err := c.Client.Secrets(namespace).List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	var k8sResources []k8sResource
+	var K8sResources []K8sResource
 	for i := range configMaps.Items {
 		cm := configMaps.Items[i]
 		if cm.Labels[model.ReleaseLabel] == "" && cm.Labels[model.AgentVersionLabel] != "" {
-			k8sResources = append(k8sResources, makeSecretK8sResource(&configMaps.Items[i]))
+			K8sResources = append(K8sResources, makeSecretK8sResource(&configMaps.Items[i]))
 		}
 	}
 
-	return k8sResources, nil
+	return K8sResources, nil
 }
 
-func makeSecretK8sResource(cm *core_v1.Secret) k8sResource {
-	return k8sResource{
-		apiVersion: "v1",
-		kind:       "Secret",
-		name:       cm.Name,
-		k8sObject:  cm,
+func makeSecretK8sResource(cm *core_v1.Secret) K8sResource {
+	return K8sResource{
+		ApiVersion: "v1",
+		Kind:       "Secret",
+		Name:       cm.Name,
+		K8sObject:  cm,
 	}
 }
 
@@ -243,29 +243,29 @@ func makeSecretK8sResource(cm *core_v1.Secret) k8sResource {
 type persistentVolumeClaim struct {
 }
 
-func (s *persistentVolumeClaim) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	persistentVolumeClaims, err := c.client.PersistentVolumeClaims(namespace).List(meta_v1.ListOptions{})
+func (s *persistentVolumeClaim) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	persistentVolumeClaims, err := c.Client.PersistentVolumeClaims(namespace).List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	var k8sResources []k8sResource
+	var K8sResources []K8sResource
 	for i := range persistentVolumeClaims.Items {
 		pvc := persistentVolumeClaims.Items[i]
 		if pvc.Labels[model.ReleaseLabel] == "" && pvc.Labels[model.AgentVersionLabel] != "" && pvc.Labels[model.PvcLabel] == fmt.Sprintf(model.PvcLabelValueFormat, kube.ClusterId) {
-			k8sResources = append(k8sResources, makePersistentVolumeClaimK8sResource(&persistentVolumeClaims.Items[i]))
+			K8sResources = append(K8sResources, makePersistentVolumeClaimK8sResource(&persistentVolumeClaims.Items[i]))
 		}
 	}
 
-	return k8sResources, nil
+	return K8sResources, nil
 }
 
-func makePersistentVolumeClaimK8sResource(pvc *core_v1.PersistentVolumeClaim) k8sResource {
-	return k8sResource{
-		apiVersion: "v1",
-		kind:       "PersistentVolumeClaim",
-		name:       pvc.Name,
-		k8sObject:  pvc,
+func makePersistentVolumeClaimK8sResource(pvc *core_v1.PersistentVolumeClaim) K8sResource {
+	return K8sResource{
+		ApiVersion: "v1",
+		Kind:       "PersistentVolumeClaim",
+		Name:       pvc.Name,
+		K8sObject:  pvc,
 	}
 }
 
@@ -275,9 +275,9 @@ func makePersistentVolumeClaimK8sResource(pvc *core_v1.PersistentVolumeClaim) k8
 type persistentVolume struct {
 }
 
-func (s *persistentVolume) getResources(c *Cluster, namespace string) ([]k8sResource, error) {
-	var k8sResources []k8sResource
-	persistentVolumes, err := c.client.PersistentVolumes().List(meta_v1.ListOptions{})
+func (s *persistentVolume) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	var K8sResources []K8sResource
+	persistentVolumes, err := c.Client.PersistentVolumes().List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -285,18 +285,18 @@ func (s *persistentVolume) getResources(c *Cluster, namespace string) ([]k8sReso
 	for i := range persistentVolumes.Items {
 		pv := persistentVolumes.Items[i]
 		if pv.Labels[model.ReleaseLabel] == "" && pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] == fmt.Sprintf(model.PvLabelValueFormat, kube.ClusterId) && pv.Labels[model.EnvLabel] == namespace {
-			k8sResources = append(k8sResources, makePersistentVolumeK8sResource(&persistentVolumes.Items[i]))
+			K8sResources = append(K8sResources, makePersistentVolumeK8sResource(&persistentVolumes.Items[i]))
 		}
 	}
 
-	return k8sResources, nil
+	return K8sResources, nil
 }
 
-func makePersistentVolumeK8sResource(pv *core_v1.PersistentVolume) k8sResource {
-	return k8sResource{
-		apiVersion: "v1",
-		kind:       "PersistentVolume",
-		name:       pv.Name,
-		k8sObject:  pv,
+func makePersistentVolumeK8sResource(pv *core_v1.PersistentVolume) K8sResource {
+	return K8sResource{
+		ApiVersion: "v1",
+		Kind:       "PersistentVolume",
+		Name:       pv.Name,
+		K8sObject:  pv,
 	}
 }
