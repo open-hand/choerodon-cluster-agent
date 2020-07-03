@@ -42,7 +42,6 @@ func New(cfg *rest.Config, namespace string, args *controllerutil.Args) (crmanag
 		if err := addSchemaFunc(mgr.GetScheme()); err != nil {
 			return nil, err
 		}
-
 	}
 
 	// Setup all Controllers

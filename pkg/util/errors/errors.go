@@ -92,3 +92,11 @@ func (e *Error) UnmarshalJSON(data []byte) error {
 	}
 	return nil
 }
+
+func JoinErrors(errs []error) string {
+	es := make([]string, 0, len(errs))
+	for _, e := range errs {
+		es = append(es, e.Error())
+	}
+	return strings.Join(es, "; ")
+}

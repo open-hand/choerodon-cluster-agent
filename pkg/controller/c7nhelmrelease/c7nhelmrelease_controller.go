@@ -11,9 +11,9 @@ import (
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
+	apiextensions_v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	runtimeutil "k8s.io/apimachinery/pkg/util/runtime"
@@ -83,7 +83,7 @@ type ReconcileC7NHelmRelease struct {
 // a Pod as an example
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
-// Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
+// ResourceList.Requeue is true, otherwise upon completion it will remove the work from the queue.
 func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	namespace := request.Namespace
 	//对应实例的名字 如：helm-lll-1f3b8
@@ -247,10 +247,8 @@ func deleteHelmReleaseCmd(namespace, name string) *model.Packet {
 }
 
 func (r *ReconcileC7NHelmRelease) checkCrdDeleted(instance *choerodonv1alpha1.C7NHelmRelease) bool {
-	c7nHelmCrd := newC7NHelmCRDForCr(instance)
-
-	found := &apiextensions.CustomResourceDefinition{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: c7nHelmCrd.Name, Namespace: c7nHelmCrd.Namespace}, found)
+	found := &apiextensions_v1.CustomResourceDefinition{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: "c7nhelmreleases.choerodon.io", Namespace: ""}, found)
 
 	if err != nil && errors.IsNotFound(err) {
 		return true
@@ -267,24 +265,4 @@ func newC7NHelmCRDForCr(cr *choerodonv1alpha1.C7NHelmRelease) *apiextensions.Cus
 			Namespace: cr.Namespace,
 		},
 	}
-}
-
-func inArray(expectedResourceKind []string, kind string) bool {
-	for _, item := range expectedResourceKind {
-		if item == kind {
-			return true
-		}
-	}
-	return false
-}
-
-func getTemplateLabels(obj map[string]interface{}) map[string]string {
-	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "template", "metadata", "labels")
-	if err != nil {
-		glog.Warningf("Get Template Labels failed, %v", err)
-	}
-	if tplLabels == nil {
-		tplLabels = make(map[string]string)
-	}
-	return tplLabels
 }
