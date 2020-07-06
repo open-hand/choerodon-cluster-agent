@@ -208,7 +208,9 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	glog.Info("Starting the Cmd.")
 	// --------------- operator sdk end  -----------------  //
 
-	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan, o.ClusterId)
+	gitRepos := map[string]*git.Repo{}
+
+	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan, o.ClusterId, gitRepos)
 	if err != nil {
 		errChan <- err
 		return
@@ -289,6 +291,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.syncAll,
 		&polarisConfig,
 		o.clearHelmHistory,
+		gitRepos,
 	)
 
 	go workerManager.Start()

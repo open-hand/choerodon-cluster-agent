@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
 	"net/http"
@@ -53,6 +54,7 @@ type appClient struct {
 	pipeConns      map[string]*websocket.Conn
 	respQueue      []*model.Packet
 	clusterId      int32
+	gitRepos       map[string]*git.Repo
 }
 
 // Token 参数里面的token
@@ -61,7 +63,8 @@ func NewClient(
 	t Token,
 	endpoint string,
 	crChannel *channel.CRChan,
-	clusterId int32) (Client, error) {
+	clusterId int32,
+	gitRepos map[string]*git.Repo) (Client, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("no upstream URL given")
 	}
@@ -82,6 +85,7 @@ func NewClient(
 		pipeConns: make(map[string]*websocket.Conn),
 		respQueue: make([]*model.Packet, 0, 100),
 		clusterId: clusterId,
+		gitRepos:  gitRepos,
 	}
 
 	return c, nil
@@ -102,6 +106,10 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 		case err := <-errCh:
 			if err != nil {
 				glog.Error(err)
+				for _, value := range c.gitRepos {
+					value.RefreshChan <- struct{}{}
+					value.SyncChan <- struct{}{}
+				}
 				reconnectFlag = true
 			}
 			time.Sleep(backOff)
