@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	expectedResourceKind = []string{"Deployment", "ReplicaSet", "Pod"}
+	ExpectedResourceKind = []string{"Deployment", "ReplicaSet", "StatefulSet"}
 )
 
 type Client interface {
@@ -729,7 +729,7 @@ func (c *client) StopRelease(request *StopReleaseRequest, cluster *kubernetes.Cl
 	}
 
 	for _, info := range result {
-		if envkube.InArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+		if envkube.InArray(ExpectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
 			err := cluster.ScaleResource(request.Namespace, info.Object.GetObjectKind().GroupVersionKind().Kind, info.Name, "0")
 			if err != nil {
 				return nil, fmt.Errorf("scale: %v", err)
@@ -761,7 +761,7 @@ func (c *client) StartRelease(request *StartReleaseRequest, cluster *kubernetes.
 	}
 
 	for _, info := range result {
-		if envkube.InArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+		if envkube.InArray(ExpectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
 			t := info.Object.(*unstructured.Unstructured)
 			replicas, _, err := unstructured.NestedInt64(t.Object, "spec", "replicas")
 			if err != nil {
