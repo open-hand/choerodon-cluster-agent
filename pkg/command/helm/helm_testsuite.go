@@ -16,7 +16,13 @@ func ExecuteTestRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 		return nil, command.NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
 	}
 	req.Label = opts.PlatformCode
-	resp, err := opts.HelmClient.ExecuteTest(&req)
+
+	username, password, err := GetCharUsernameAndPassword(opts, cmd)
+	if err != nil {
+		return nil, command.NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
+	}
+
+	resp, err := opts.HelmClient.ExecuteTest(&req, username, password)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.ExecuteTestFailed, err)
 	}

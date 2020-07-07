@@ -35,8 +35,13 @@ func InstallJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 		return newCmds, nil
 	}
 
+	username, password, err := GetCharUsernameAndPassword(opts, cmd)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+
 	// 这一步获得的hook信息似乎就只返回给了devops，并没有其他的实质性作用
-	hooks, err := opts.HelmClient.PreInstallRelease(&req)
+	hooks, err := opts.HelmClient.PreInstallRelease(&req, username, password)
 	if err != nil {
 		// 如果是EOF错误，则是chart包下载或者读取问题，再重新执行安装操作，如果失败次数达到5次，则安装失败
 		if strings.Contains(err.Error(), "EOF") {
@@ -101,10 +106,13 @@ func UpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 			Payload: cmd.Payload,
 		}
 		newCmds = append(newCmds, installPrometheusCmd)
-		return newCmds,nil
+		return newCmds, nil
 	}
-	//这是在干嘛
-	hooks, err := opts.HelmClient.PreUpgradeRelease(&req)
+	username, password, err := GetCharUsernameAndPassword(opts, cmd)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+	hooks, err := opts.HelmClient.PreUpgradeRelease(&req, username, password)
 	if err != nil {
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
