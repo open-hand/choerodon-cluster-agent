@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	expectedResourceKind = []string{"Deployment", "ReplicaSet", "Pod"}
+	expectedResourceKind = []string{"Deployment", "ReplicaSet", "StatefulSet"}
 )
 
 type Client interface {
