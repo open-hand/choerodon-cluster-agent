@@ -29,10 +29,14 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// secret 不存在，创建secret
-			secret = &v1.Secret{}
 			secret.SetName(SecretName)
-			chartAccountJsonContent, err := makechartaccountJsonContent([]byte{}, chartAccount)
-			secret.Data["info"] = chartAccountJsonContent
+			chartAccountJsonContent, err := makeChartAccountJsonContent([]byte{}, chartAccount)
+			if err != nil {
+				return nil, command.NewResponseError(cmd.Key, model.ChartMuseumAuthenticationFailed, err)
+			}
+			data := make(map[string][]byte)
+			data["info"] = chartAccountJsonContent
+			secret.Data = data
 
 			if secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(kube.AgentNamespace).Create(secret); err != nil {
 				return nil, command.NewResponseError(cmd.Key, model.ChartMuseumAuthenticationFailed, err)
@@ -46,7 +50,7 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 		return nil, command.NewResponseError(cmd.Key, model.ChartMuseumAuthenticationFailed, err)
 	}
 	// secret存在，更新secret
-	chartAccountJsonContent, err := makechartaccountJsonContent(secret.Data["info"], chartAccount)
+	chartAccountJsonContent, err := makeChartAccountJsonContent(secret.Data["info"], chartAccount)
 
 	secret.Data["info"] = chartAccountJsonContent
 
@@ -59,10 +63,12 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 	return nil, resp
 }
 
-func makechartaccountJsonContent(info []byte, chartAccount ChartAccount) ([]byte, error) {
+func makeChartAccountJsonContent(info []byte, chartAccount ChartAccount) ([]byte, error) {
 	chartAccountMap := make(map[string]ChartAccount)
-	if err := json.Unmarshal(info, &chartAccountMap); err != nil {
-		return nil, err
+	if len(info) != 0 {
+		if err := json.Unmarshal(info, &chartAccountMap); err != nil {
+			return nil, err
+		}
 	}
 	chartAccountMap[chartAccount.RepoUrl] = chartAccount
 
