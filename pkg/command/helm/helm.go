@@ -22,7 +22,12 @@ func InstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 		req.Namespace = cmd.Namespace()
 	}
 
-	resp, err := opts.HelmClient.InstallRelease(&req)
+	username, password, err := GetCharUsernameAndPassword(opts, cmd)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+
+	resp, err := opts.HelmClient.InstallRelease(&req, username, password)
 	if err != nil {
 		// 如果是EOF错误，则是chart包下载或者读取问题，再重新执行安装操作，如果失败次数达到5次，则安装失败
 		if strings.Contains(err.Error(), "EOF") {
@@ -94,7 +99,12 @@ func UpgradeHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 		req.Namespace = cmd.Namespace()
 	}
 
-	resp, err := opts.HelmClient.UpgradeRelease(&req)
+	username, password, err := GetCharUsernameAndPassword(opts, cmd)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+
+	resp, err := opts.HelmClient.UpgradeRelease(&req, username, password)
 	if err != nil {
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
