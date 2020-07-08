@@ -5,7 +5,7 @@ import (
 )
 
 type InstallReleaseRequest struct {
-	RepoURL                  string                         `json:"repoURL,omitempty"`
+	RepoURL                  string                         `json:"repoUrl,omitempty"`
 	ChartName                string                         `json:"chartName,omitempty"`
 	ChartVersion             string                         `json:"chartVersion,omitempty"`
 	Values                   string                         `json:"values,omitempty"`
@@ -20,7 +20,7 @@ type InstallReleaseRequest struct {
 }
 
 type TestReleaseRequest struct {
-	RepoURL          string                         `json:"repoURL,omitempty"`
+	RepoURL          string                         `json:"repoUrl,omitempty"`
 	ChartName        string                         `json:"chartName,omitempty"`
 	ChartVersion     string                         `json:"chartVersion,omitempty"`
 	Values           string                         `json:"values,omitempty"`
