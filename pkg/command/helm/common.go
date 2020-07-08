@@ -17,7 +17,7 @@ func GetCharUsernameAndPassword(opts *command.Opts, cmd *model.Packet) (string, 
 		return "", "", err
 	}
 
-	repo, err := url.Parse(payload["repoURL"].(string))
+	repo, err := url.Parse(payload["repoUrl"].(string))
 	if err != nil {
 		return "", "", err
 	}

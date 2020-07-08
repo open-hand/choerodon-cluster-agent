@@ -84,7 +84,7 @@ type ReleaseHook struct {
 
 type UpgradeReleaseRequest struct {
 	ReleaseName      string                         `json:"releaseName,omitempty"`
-	RepoURL          string                         `json:"repoURL,omitempty,omitempty"`
+	RepoURL          string                         `json:"repoUrl,omitempty,omitempty"`
 	ChartName        string                         `json:"chartName,omitempty"`
 	ChartVersion     string                         `json:"chartVersion,omitempty"`
 	Values           string                         `json:"values,omitempty"`
