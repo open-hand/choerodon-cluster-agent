@@ -134,7 +134,7 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 					release, err := helmClient.GetRelease(&helm.GetReleaseContentRequest{ReleaseName: syncRequest.ResourceName, Namespace: syncRequest.Namespace})
 					if err != nil {
 						glog.Infof("release %s get error ", syncRequest.ResourceName, err)
-						if strings.Contains(err.Error(), "not exist") {
+						if strings.Contains(err.Error(), "not found") {
 							if kubeClient.IsReleaseJobRun(namespace, syncRequest.ResourceName) {
 								glog.Errorf("release %s not exist and not job run ", syncRequest.ResourceName, err)
 							} else {
