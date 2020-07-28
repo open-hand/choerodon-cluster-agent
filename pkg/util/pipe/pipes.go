@@ -21,10 +21,11 @@ type Pipe interface {
 }
 
 const (
-	Log          = "agent_log"
-	Exec         = "agent_exec"
-	IntervalTime = 3 * time.Second
-	TimeoutTime  = 2 * time.Second
+	Log           = "agent_log"
+	Exec          = "agent_exec"
+	IntervalTime  = 3 * time.Second
+	TimeoutTime   = 2 * time.Second
+	CloseWaitTime = 5 * time.Second
 )
 
 type pipe struct {
@@ -175,7 +176,10 @@ func (p *pipe) CopyToWebsocketForLog(end io.ReadWriter, conn *websocket.Conn) er
 	}
 	p.wg.Add(1)
 	p.mtx.Unlock()
-	defer p.wg.Done()
+	defer func() {
+		conn.Close()
+		p.onClose()
+	}()
 
 	// 为了实现能够按行(也就是 '\n')读取
 	r := bufio.NewReader(end)
@@ -209,6 +213,8 @@ func (p *pipe) CopyToWebsocketForLog(end io.ReadWriter, conn *websocket.Conn) er
 		for {
 			buf, err := r.ReadBytes('\n')
 			if err != nil {
+				// 等待一段时间，让websocket有充足时间发送缓存中的消息
+				time.Sleep(CloseWaitTime)
 				errors <- err
 				return
 			}
@@ -257,14 +263,12 @@ func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done cha
 			}
 			if end != nil {
 				if _, err := end.Write(message); err != nil {
-					p.Close()
 					errors <- err
 					return
 				}
 			}
 			if conn != nil {
 				if err := conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
-					p.Close()
 					errors <- err
 					return
 				}
@@ -287,14 +291,12 @@ func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done cha
 			}
 			if end != nil {
 				if _, err := end.Write(message); err != nil {
-					p.Close()
 					errors <- err
 					return
 				}
 			}
 			if conn != nil {
 				if err := conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
-					p.Close()
 					errors <- err
 					return
 				}

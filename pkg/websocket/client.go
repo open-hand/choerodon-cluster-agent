@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
@@ -124,6 +125,7 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 func (c *appClient) connect() error {
 	glog.V(1).Info("Start connect to DevOps service")
 	var err error
+	ctx, cancel := context.WithCancel(context.Background())
 	c.conn, err = dial(c.url.String(), c.token)
 	if err != nil {
 		return err
@@ -146,7 +148,7 @@ func (c *appClient) connect() error {
 	}
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	ticker := time.NewTicker(pingPeriod)
-	go func() {
+	go func(ctx context.Context) {
 		for {
 			select {
 			case <-ticker.C:
@@ -158,13 +160,14 @@ func (c *appClient) connect() error {
 					return
 				}
 				c.mtx.Unlock()
+			case <-ctx.Done():
+				return
 			}
 		}
-	}()
+	}(ctx)
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
+	go func(cancel context.CancelFunc) {
+		defer cancel()
 
 		c.conn.SetPingHandler(nil)
 		for {
@@ -177,14 +180,14 @@ func (c *appClient) connect() error {
 				break
 			}
 			packet := &model.Packet{}
-			glog.V(1).Infof("receive command: %s %s", wp.Key, wp.Group)
+			glog.V(1).Infof("receive command: ", wp)
 			err = json.Unmarshal([]byte(wp.Message), packet)
 			if err != nil {
 				glog.Error(err)
 			}
 			c.crChannel.CommandChan <- packet
 		}
-	}()
+	}(cancel)
 
 	end := 0
 	for ; end < len(c.respQueue); end++ {
@@ -199,7 +202,7 @@ func (c *appClient) connect() error {
 
 	for {
 		select {
-		case <-done:
+		case <-ctx.Done():
 			return nil
 		case resp, ok := <-c.crChannel.ResponseChan:
 			c.conn.SetWriteDeadline(time.Now().Add(WriteWait))
@@ -231,6 +234,8 @@ func (c *appClient) sendResponse(resp *model.Packet) error {
 	}
 	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
 	glog.V(1).Info("send response: ", string(content))
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	return c.conn.WriteMessage(websocket.TextMessage, content)
 }
 
@@ -272,7 +277,7 @@ func (c *appClient) URL() *url.URL {
 func (c *appClient) PipeConnection(id string, key string, token string, pipe pipeutil.Pipe) error {
 	go func() {
 		glog.Infof("Pipe %s connection to %s starting", id, c.url)
-		defer glog.Infof("Pipe %s connection to %s exiting", id, c.url)
+		defer glog.Infof("Pipe %s connection to %s closed", id, c.url)
 		c.doWithBackOff(id, func() (bool, error) {
 			return c.pipeConnection(id, key, token, pipe)
 		})
