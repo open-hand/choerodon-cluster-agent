@@ -208,7 +208,9 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	glog.Info("Starting the Cmd.")
 	// --------------- operator sdk end  -----------------  //
 
-	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan, o.ClusterId)
+	gitRepos := map[string]*git.Repo{}
+
+	appClient, err := websocket.NewClient(websocket.Token(o.Token), o.UpstreamURL, crChan, o.ClusterId, gitRepos)
 	if err != nil {
 		errChan <- err
 		return
@@ -256,8 +258,10 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		kubectlDescriber := kubectl.NewKubectl(kubectlPath, cfg)
 		kubectlScaler := kubectl.NewKubectl(kubectlPath, cfg)
 
-		if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML); err != nil {
-			glog.V(1).Info(err)
+		for _, crdYaml := range model.CRD_YAMLS {
+			if err := kubectlApplier.ApplySingleObj("kube-system", crdYaml); err != nil {
+				glog.V(1).Info(err)
+			}
 		}
 
 		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetCrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
@@ -287,6 +291,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.syncAll,
 		&polarisConfig,
 		o.clearHelmHistory,
+		gitRepos,
 	)
 
 	go workerManager.Start()

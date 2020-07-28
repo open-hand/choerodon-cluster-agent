@@ -2,24 +2,24 @@ package model
 
 import "time"
 
-type GitInitConfig struct {
-	SshKey string `json:"sshKey,omitempty"`
-	GitUrl string `json:"gitUrl,omitempty"`
-}
+var CRD_YAMLS []string
 
-const CRD_YAML string = "apiVersion: apiextensions.k8s.io/v1beta1\n" +
-	"kind: CustomResourceDefinition\n" +
-	"metadata:\n" +
-	"  name: c7nhelmreleases.choerodon.io\n" +
-	"spec:\n" +
-	"  group: choerodon.io\n" +
-	"  names:\n" +
-	"    kind: C7NHelmRelease\n" +
-	"    listKind: C7NHelmReleaseList\n" +
-	"    plural: c7nhelmreleases\n" +
-	"    singular: c7nhelmrelease\n" +
-	"  scope: Namespaced\n" +
-	"  version: v1alpha1\n"
+func init() {
+	CrdC7NHemReleaseYaml := "apiVersion: apiextensions.k8s.io/v1beta1\n" +
+		"kind: CustomResourceDefinition\n" +
+		"metadata:\n" +
+		"  name: c7nhelmreleases.choerodon.io\n" +
+		"spec:\n" +
+		"  group: choerodon.io\n" +
+		"  names:\n" +
+		"    kind: C7NHelmRelease\n" +
+		"    listKind: C7NHelmReleaseList\n" +
+		"    plural: c7nhelmreleases\n" +
+		"    singular: c7nhelmrelease\n" +
+		"  scope: Namespaced\n" +
+		"  version: v1alpha1\n"
+	CRD_YAMLS = append(CRD_YAMLS, CrdC7NHemReleaseYaml)
+}
 
 const CertManagerClusterIssuer = `apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
@@ -44,6 +44,11 @@ spec:
     privateKeySecretRef:
       name: letsencrypt-prod
     http01: {}`
+
+type GitInitConfig struct {
+	SshKey string `json:"sshKey,omitempty"`
+	GitUrl string `json:"gitUrl,omitempty"`
+}
 
 type AgentInitOptions struct {
 	Envs      []EnvParas `json:"envs,omitempty"`

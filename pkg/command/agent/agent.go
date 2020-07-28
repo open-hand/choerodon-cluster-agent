@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	helm_common "github.com/choerodon/choerodon-cluster-agent/pkg/command/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3"
@@ -153,7 +154,12 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 
 	ch := opts.CrChan
 
-	resp, err := opts.HelmClient.UpgradeRelease(&req)
+	username, password, err := helm_common.GetCharUsernameAndPassword(opts, cmd)
+	if err != nil {
+		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+
+	resp, err := opts.HelmClient.UpgradeRelease(&req, username, password)
 	if err != nil {
 		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == kube.AgentNamespace {
 			go func() {

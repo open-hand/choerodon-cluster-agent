@@ -6,6 +6,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
+	vlog "github.com/vinkdong/gox/log"
 	"io"
 	"k8s.io/client-go/rest"
 	"os/exec"
@@ -185,6 +186,29 @@ func (c *Kubectl) doCommand(r io.Reader, args ...string) error {
 
 func (c *Kubectl) kubectlCommand(args ...string) *exec.Cmd {
 	return exec.Command(c.exe, append(c.connectArgs(), args...)...)
+}
+
+func (c *Kubectl) kubectlCommandInShell(command string) *exec.Cmd {
+	return exec.Command("sh", "-c", c.exe+" "+command)
+}
+
+func (c *Kubectl) Do(command string) (string, error) {
+	return c.do(command)
+}
+
+func (c *Kubectl) do(command string) (string, error) {
+	cmd := c.kubectlCommandInShell(command)
+	stderr := &bytes.Buffer{}
+	cmd.Stderr = stderr
+	stdout := &bytes.Buffer{}
+	cmd.Stdout = stdout
+	begin := time.Now()
+	err := cmd.Run()
+	if err != nil {
+		vlog.Infof("kubectl: %s , took %v, err: %v, output: %s", command, time.Since(begin), err, strings.TrimSpace(stderr.String()))
+		return "", err
+	}
+	return stdout.String(), err
 }
 
 type applyOrder []*kubernetes.ApiObject

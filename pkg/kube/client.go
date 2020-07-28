@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned"
 	choerodon_version "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/clientset/versioned"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
@@ -29,8 +30,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
-	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 )
 
 type Client interface {
@@ -58,7 +57,7 @@ type Client interface {
 	GetRESTConfig() (*rest.Config, error)
 	IsReleaseJobRun(namespace, releaseName string) bool
 	CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error)
-	BuildUnstructured(namespace string, manifest string) (Result, error)
+	BuildUnstructured(namespace string, manifest string) (ResourceList, error)
 	//todo: delete follow func
 	GetSelectRelationPod(info *resource.Info) (map[string][]core_v1.Pod, error)
 	GetC7NHelmRelease(name, namespace string) *v1alpha1.C7NHelmRelease
@@ -92,12 +91,6 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 		return nil, fmt.Errorf("get crd client: %v", err)
 	}
 	c7nClient, err := choerodon_version.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("get c7n client: %v", err)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("error building choerodon clientset: %v", err)
-	}
 	if err != nil {
 		return nil, fmt.Errorf("error building c7n clientset: %v", err)
 	}
@@ -147,8 +140,8 @@ func (c *client) GetC7nClient() *choerodon_version.Clientset {
 	return c.c7nClient
 }
 
-func (c *client) BuildUnstructured(namespace string, manifest string) (Result, error) {
-	var result Result
+func (c *client) BuildUnstructured(namespace string, manifest string) (ResourceList, error) {
+	var result ResourceList
 
 	result, err := c.NewBuilder().
 		Unstructured().
