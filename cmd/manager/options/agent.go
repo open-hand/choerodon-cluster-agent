@@ -65,7 +65,7 @@ type AgentOptions struct {
 	ConcurrentConfigMapSyncs      int32
 	ConcurrentPodSyncs            int32
 	ConcurrentC7NHelmReleaseSyncs int32
-	ClusterId                     int32
+	ClusterId                     int64
 	// git repo
 	gitURL             string
 	gitBranch          string
@@ -308,7 +308,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	// upstream
 	fs.StringVar(&o.UpstreamURL, "connect", "", "Connect to an upstream service")
 	fs.StringVar(&o.Token, "token", "", "Authentication token for upstream service")
-	fs.Int32Var(&o.ClusterId, "clusterId", 0, "the env cluster id in devops")
+	fs.Int64Var(&o.ClusterId, "clusterId", 0, "the env cluster id in devops")
 
 	// kubernetes controller
 	fs.StringVar(&o.PlatformCode, "choerodon-id", "", "choerodon platform id label")

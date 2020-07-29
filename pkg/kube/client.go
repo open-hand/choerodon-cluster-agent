@@ -65,7 +65,7 @@ type Client interface {
 
 const testContainer string = "automation-test"
 
-var ClusterId int32
+var ClusterId int64
 var KubernetesVersion string
 var AgentVersion string
 var AgentNamespace string
