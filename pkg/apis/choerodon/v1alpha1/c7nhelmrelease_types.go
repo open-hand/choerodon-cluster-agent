@@ -17,12 +17,11 @@ type C7NHelmReleaseSpec struct {
 	RepoURL          string                        `json:"repoUrl,omitempty"`
 	ChartName        string                        `json:"chartName,omitempty"`
 	ChartVersion     string                        `json:"chartVersion,omitempty"`
-	CommandId        int                           `json:"commandId,omitempty"`
+	CommandId        int64                         `json:"commandId,omitempty"`
 	Values           string                        `json:"values,omitempty"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-    //12.01新增字段，Deployment要打的label多加一个choerodon.io/app-service-id
+	//12.01新增字段，Deployment要打的label多加一个choerodon.io/app-service-id
 	AppServiceId int64 `json:"appServiceId,omitempty"`
-
 }
 
 
