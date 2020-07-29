@@ -66,14 +66,14 @@ type AgentStatus struct {
 
 type EnvStatus struct {
 	EnvCode       string
-	EnvId         int32
+	EnvId         int64
 	GitReady      bool
 	GitOpDuration time.Duration
 }
 
 type EnvParas struct {
 	Namespace string   `json:"namespace,omitempty"`
-	EnvId     int32    `json:"envId,omitempty"`
+	EnvId     int64    `json:"envId,omitempty"`
 	GitRsaKey string   `json:"gitRsaKey,omitempty"`
 	GitUrl    string   `json:"gitUrl,omitempty"`
 	Releases  []string `json:"instances,omitempty"`
@@ -87,5 +87,5 @@ type UpgradeInfo struct {
 
 type OldEnv struct {
 	Namespace string `json:"namespace,omitempty"`
-	EnvId     int    `json:"envId,omitempty"`
+	EnvId     int64  `json:"envId,omitempty"`
 }

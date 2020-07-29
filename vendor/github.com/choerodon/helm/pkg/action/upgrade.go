@@ -76,7 +76,7 @@ type Upgrade struct {
 	DisableOpenAPIValidation bool
 
 	ReleaseName     string
-	Command         int
+	Command         int64
 	ImagePullSecret []v1.LocalObjectReference
 	ChartName       string
 	ChartVersion    string
@@ -87,7 +87,7 @@ type Upgrade struct {
 // NewUpgrade creates a new Upgrade object with the given configuration.
 func NewUpgrade(cfg *Configuration,
 	chartPathOptions ChartPathOptions,
-	command int,
+	command int64,
 	imagePullSecret []v1.LocalObjectReference,
 	ReleaseName string,
 	chartName string,
