@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"strconv"
 )
 
 var log = logf.Log.WithName("controller_c7nhelmrelease")
@@ -122,7 +121,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	// 相同表示是该agent的资源
 	// 不同则表示不是该agent资源，不进行处理
 	if namespace == kube.AgentNamespace {
-		if instance.Labels[model.C7NHelmReleaseClusterLabel] != strconv.Itoa(int(kube.ClusterId)) {
+		if instance.Labels[model.C7NHelmReleaseClusterLabel] != kube.ClusterId {
 			return result, nil
 		}
 	}

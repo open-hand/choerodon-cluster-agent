@@ -10,7 +10,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
-	"strconv"
 	"sync"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
@@ -179,7 +178,7 @@ func (w *workerManager) monitorCertMgr() {
 		if podStatus != podStatusTmp {
 			podStatusTmp = podStatus
 			w.chans.ResponseChan <- &model.Packet{
-				Key:     "cluster:" + strconv.Itoa(int(kube.ClusterId)),
+				Key:     "cluster:" + kube.ClusterId,
 				Type:    model.CertManagerStatus,
 				Payload: fmt.Sprintf(model.PodStatus, podStatus),
 			}
