@@ -20,10 +20,10 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"sigs.k8s.io/yaml"
 	"strings"
 
 	"github.com/pkg/errors"
-	"sigs.k8s.io/yaml"
 
 	"github.com/choerodon/helm/pkg/getter"
 	"github.com/choerodon/helm/pkg/strvals"
