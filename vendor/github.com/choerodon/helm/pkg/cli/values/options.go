@@ -17,13 +17,13 @@ limitations under the License.
 package values
 
 import (
+	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
 
 	"github.com/pkg/errors"
-	"sigs.k8s.io/yaml"
 
 	"github.com/choerodon/helm/pkg/getter"
 	"github.com/choerodon/helm/pkg/strvals"

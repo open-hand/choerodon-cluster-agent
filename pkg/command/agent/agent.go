@@ -145,7 +145,6 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 // 以前用于重新部署实例，现在仅用于升级Agent
 func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	var req helm.UpgradeReleaseRequest
-	cmd.Payload = `{"namespace":"choerodon","repoUrl":"https://chart.choerodon.com.cn/hzero/c7ncd/","chartName":"choerodon-cluster-agent","chartVersion":"2020.7.30-104847-master","values":"config:\n    choerodonId: 62a0c1fb\n    clusterId: \"76281684902944768\"\n    connect: ws://devsop.c7n.devops.hand-china.com/websocket\n    token: b4eac941-83a8-4b46-8d98-d1e220bd8497\nrbac:\n    create: true\n","releaseName":"choerodon-cluster-agent-approval"}`
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
