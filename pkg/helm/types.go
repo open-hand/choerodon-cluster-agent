@@ -11,7 +11,7 @@ type InstallReleaseRequest struct {
 	Values                   string                         `json:"values,omitempty"`
 	ReleaseName              string                         `json:"releaseName,omitempty"`
 	Commit                   string                         `json:"commit,omitempty"`
-	Command                  int                            `json:"command,omitempty"`
+	Command                  int64                          `json:"command,omitempty"`
 	Namespace                string                         `json:"namespace,omitempty"`
 	AppServiceId             int64                          `json:"appServiceId,omitempty"`
 	ImagePullSecrets         []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
@@ -62,7 +62,7 @@ type Release struct {
 	Resources    []*ReleaseResource `json:"resources,omitempty"`
 	Config       string             `json:"config,omitempty"`
 	Commit       string             `json:"commit,omitempty"`
-	Command      int                `json:"command,omitempty"`
+	Command      int64              `json:"command,omitempty"`
 }
 
 type ReleaseResource struct {
@@ -88,7 +88,7 @@ type UpgradeReleaseRequest struct {
 	ChartName        string                         `json:"chartName,omitempty"`
 	ChartVersion     string                         `json:"chartVersion,omitempty"`
 	Values           string                         `json:"values,omitempty"`
-	Command          int                            `json:"command,omitempty"`
+	Command          int64                          `json:"command,omitempty"`
 	Commit           string                         `json:"commit,omitempty"`
 	Namespace        string                         `json:"namespace,omitempty"`
 	AppServiceId     int64                          `json:"appServiceId,omitempty"`
@@ -134,7 +134,7 @@ type SyncRequest struct {
 	ResourceType   string `json:"resourceType,omitempty"`
 	ResourceName   string `json:"resourceName,omitempty"`
 	Commit         string `json:"commit,omitempty"`
-	Id             int32  `json:"id,omitempty"`
+	Id             int64  `json:"id,omitempty"`
 	Namespace      string `json:"namespace,omitempty"`
 	ResourceStatus string `json:"resourceStatus,omitempty"`
 }

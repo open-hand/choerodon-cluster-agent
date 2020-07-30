@@ -210,7 +210,7 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 	}
 }
 
-func newSyncResponse(name, reType, commit, status string, id int32, ) *helm.SyncRequest {
+func newSyncResponse(name, reType, commit, status string, id int64) *helm.SyncRequest {
 	return &helm.SyncRequest{
 		ResourceName:   name,
 		ResourceType:   reType,

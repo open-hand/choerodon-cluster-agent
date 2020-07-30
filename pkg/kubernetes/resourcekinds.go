@@ -3,16 +3,14 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/apis/certmanager/v1alpha1"
+	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-
-	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 )
 
 var (
@@ -153,7 +151,7 @@ func (crk *c7nHelmReleaseKind) getResources(c *Cluster, namespace string) ([]k8s
 	for i := range instances.Items {
 		release := instances.Items[i]
 		if namespace == kube.AgentNamespace {
-			if release.Labels[model.C7NHelmReleaseClusterLabel] == strconv.Itoa(int(kube.ClusterId)) {
+			if release.Labels[model.C7NHelmReleaseClusterLabel] == kube.ClusterId {
 				k8sResources = append(k8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
 			}
 		} else {

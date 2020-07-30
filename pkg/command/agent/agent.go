@@ -127,7 +127,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		Pods:       len(podList.Items),
 		Namespaces: len(namespaceList.Items),
 		Nodes:      len(nodeList.Items),
-		ClusterId:  int(kube.ClusterId),
+		ClusterId:  kube.ClusterId,
 	}
 	response, err := json.Marshal(clusterInfo)
 	if err != nil {

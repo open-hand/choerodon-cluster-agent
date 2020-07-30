@@ -103,7 +103,7 @@ type Install struct {
 	UseReleaseName bool
 	PostRenderer   postrender.PostRenderer
 
-	Command         int
+	Command         int64
 	ImagePullSecret []v1.LocalObjectReference
 	ChartName       string
 	ChartVersion    string
@@ -129,7 +129,7 @@ type ChartPathOptions struct {
 // NewInstall creates a new Install object with the given configuration.
 func NewInstall(cfg *Configuration,
 	chartPathOptions ChartPathOptions,
-	command int,
+	command int64,
 	imagePullSecret []v1.LocalObjectReference,
 	namespace string,
 	releaseName string,

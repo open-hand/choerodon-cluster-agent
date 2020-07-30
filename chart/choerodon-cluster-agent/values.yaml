@@ -18,6 +18,8 @@ config:
   envId: ""
   extraArgs:
   email: change_it@choerodon.io
+  clusterId: "0"
+  choerodonId: "default"
 
 logs:
   parser: docker

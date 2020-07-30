@@ -10,7 +10,7 @@ import (
 )
 
 func AddLabel(imagePullSecret []v1.LocalObjectReference,
-	command int,
+	command int64,
 	appServiceId int64,
 	info *resource.Info,
 	version, releaseName, chartName, agentVersion, testLabel string,
@@ -39,10 +39,10 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		//12.05 新增打标签。
 		//0 表示的是安装未填入值 -1代表更新
 		if appServiceId != 0 && appServiceId != -1 {
-			tplLabels[model.AppServiceIdLabel] = strconv.FormatInt(int64(appServiceId), 10)
+			tplLabels[model.AppServiceIdLabel] = strconv.FormatInt(appServiceId, 10)
 		}
 		if !isTest {
-			tplLabels[model.CommandLabel] = strconv.Itoa(command)
+			tplLabels[model.CommandLabel] = strconv.Itoa(int(command))
 		}
 		tplLabels[model.AppLabel] = chartName
 		tplLabels[model.AppVersionLabel] = version

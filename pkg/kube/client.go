@@ -27,7 +27,6 @@ import (
 	"k8s.io/kubectl/pkg/scheme"
 	"net/http"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
@@ -66,7 +65,7 @@ type Client interface {
 
 const testContainer string = "automation-test"
 
-var ClusterId int32
+var ClusterId string
 var KubernetesVersion string
 var AgentVersion string
 var AgentNamespace string
@@ -597,7 +596,7 @@ func labelRepoObj(info *resource.Info, namespace, version string, c *client) (ru
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
 		if namespace == AgentNamespace {
-			l[model.C7NHelmReleaseClusterLabel] = strconv.Itoa(int(ClusterId))
+			l[model.C7NHelmReleaseClusterLabel] = ClusterId
 		}
 		// 从集群中查出C7NHelmRelease，如果资源不存在，添加Annotation["choerodon.io/C7NHelmRelease-status"]="INSTALL"，即安装操作
 		// 如果资源存在，判断已更新的spec和集群存在的spec是否相同,相同不做任何操作,即不会进行升级操作

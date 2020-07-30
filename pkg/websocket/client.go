@@ -53,7 +53,7 @@ type appClient struct {
 	backgroundWait sync.WaitGroup
 	pipeConns      map[string]*websocket.Conn
 	respQueue      []*model.Packet
-	clusterId      int32
+	clusterId      string
 }
 
 // Token 参数里面的token
@@ -62,7 +62,7 @@ func NewClient(
 	t Token,
 	endpoint string,
 	crChannel *channel.CRChan,
-	clusterId int32) (Client, error) {
+	clusterId string) (Client, error) {
 	if endpoint == "" {
 		return nil, fmt.Errorf("no upstream URL given")
 	}
