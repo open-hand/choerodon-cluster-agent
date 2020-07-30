@@ -5,5 +5,5 @@ type ClusterInfo struct {
 	Pods       int    `json:"pods"`
 	Namespaces int    `json:"namespaces"`
 	Nodes      int    `json:"nodes"`
-	ClusterId  int    `json:"clusterId"`
+	ClusterId  string `json:"clusterId"`
 }

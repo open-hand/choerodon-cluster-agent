@@ -19,7 +19,7 @@ func NamespacePacket(namespaces *v1.NamespaceList) *model.Packet {
 		glog.Error(err)
 	}
 	return &model.Packet{
-		Key:     fmt.Sprintf("cluster:%d", kube.ClusterId),
+		Key:     fmt.Sprintf("cluster:%s", kube.ClusterId),
 		Type:    "namespace_info",
 		Payload: string(payload),
 	}

@@ -19,6 +19,6 @@ const (
 	PvLabel                         = "choerodon.io/pv"
 	NameLabel                       = "choerodon.io/name"
 	PvcLabel                        = "choerodon.io/pvc"
-	PvLabelValueFormat              = "pv-cluster-%d"
-	PvcLabelValueFormat             = "pvc-cluster-%d"
+	PvLabelValueFormat              = "pv-cluster-%s"
+	PvcLabelValueFormat             = "pvc-cluster-%s"
 )

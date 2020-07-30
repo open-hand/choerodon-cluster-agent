@@ -32,7 +32,6 @@ import (
 	"os/signal"
 	"runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -65,7 +64,7 @@ type AgentOptions struct {
 	ConcurrentConfigMapSyncs      int32
 	ConcurrentPodSyncs            int32
 	ConcurrentC7NHelmReleaseSyncs int32
-	ClusterId                     int64
+	ClusterId                     string
 	// git repo
 	gitURL             string
 	gitBranch          string
@@ -164,7 +163,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	ctx := context.TODO()
 
 	// Become the leader before proceeding
-	err := leader.Become(ctx, "c7n-agent-lock-"+strconv.Itoa(int(o.ClusterId)))
+	err := leader.Become(ctx, "c7n-agent-lock-"+o.ClusterId)
 	if err != nil {
 		errChan <- err
 		return
@@ -308,7 +307,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	// upstream
 	fs.StringVar(&o.UpstreamURL, "connect", "", "Connect to an upstream service")
 	fs.StringVar(&o.Token, "token", "", "Authentication token for upstream service")
-	fs.Int64Var(&o.ClusterId, "clusterId", 0, "the env cluster id in devops")
+	fs.StringVar(&o.ClusterId, "clusterId", "0", "the env cluster id in devops")
 
 	// kubernetes controller
 	fs.StringVar(&o.PlatformCode, "choerodon-id", "", "choerodon platform id label")
