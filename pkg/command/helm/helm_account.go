@@ -8,6 +8,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
 )
 
 const SecretName = "chart-authentication"
@@ -21,6 +22,7 @@ type ChartAccount struct {
 func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	chartAccount := ChartAccount{}
 	err := json.Unmarshal([]byte(cmd.Payload), &chartAccount)
+	chartAccount.RepoUrl = strings.TrimSuffix(chartAccount.RepoUrl, "/")
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.ChartMuseumAuthenticationFailed, err)
 	}
