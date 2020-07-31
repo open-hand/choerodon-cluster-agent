@@ -78,6 +78,7 @@ func NewWorkerManager(
 		syncInterval:       syncInterval,
 		statusSyncInterval: statusSyncInterval,
 		gitTimeout:         gitTimeout,
+		gitRepos:           map[string]*git.Repo{},
 		gitConfig:          gitConfig,
 		syncSoon:           map[string]chan struct{}{},
 		wg:                 wg,
