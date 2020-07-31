@@ -68,8 +68,7 @@ func NewWorkerManager(
 	platformCode string,
 	syncAll bool,
 	polarisConfig *config.Configuration,
-	clearHelmHistory bool,
-	gitRepos map[string]*git.Repo) *workerManager {
+	clearHelmHistory bool) *workerManager {
 	return &workerManager{
 		chans:              chans,
 		helmClient:         helmClient,
@@ -79,7 +78,6 @@ func NewWorkerManager(
 		syncInterval:       syncInterval,
 		statusSyncInterval: statusSyncInterval,
 		gitTimeout:         gitTimeout,
-		gitRepos:           gitRepos,
 		gitConfig:          gitConfig,
 		syncSoon:           map[string]chan struct{}{},
 		wg:                 wg,
