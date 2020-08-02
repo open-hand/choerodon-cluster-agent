@@ -14,7 +14,8 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
 	"github.com/choerodon/helm/pkg/release"
 	"github.com/golang/glog"
-	v1 "k8s.io/api/core/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/rand"
 	"strings"
@@ -43,7 +44,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
-	nsList := []string{}
+	nsList := make([]string, 10)
 	// 检查devops管理的命名空间
 	for _, envPara := range agentInitOpts.Envs {
 		nsList = append(nsList, envPara.Namespace)
@@ -192,7 +193,7 @@ func createNamespace(opts *commandutil.Opts, namespaceName string, releases []st
 	if err != nil {
 		// 如果命名空间不存在的话，则创建
 		if errors.IsNotFound(err) {
-			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&v1.Namespace{
+			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:   namespaceName,
 					Labels: map[string]string{model.HelmVersion: "helm3"},
@@ -251,10 +252,10 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 	}
 
 	labels[model.HelmVersion] = "helm3"
-	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Update(&v1.Namespace{
+	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   namespaceName,
-			Labels: map[string]string{model.HelmVersion: "helm3"},
+			Labels: labels,
 		},
 	})
 	return err
@@ -281,9 +282,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 			if rls.Status != release.StatusDeployed.String() {
 				return fmt.Errorf("agent: %s,status %s", agentName, rls.Status)
 			}
-			labels[model.HelmVersion] = "helm3"
-			deployment.SetLabels(labels)
-			opts.KubeClient.GetKubeClient().AppsV1().Deployments(kube.AgentNamespace).Update(deployment)
+			updateAgentDeploymentLabels(opts, deployment, labels)
 		} else {
 			// 实例由helm2管理，先升级成helm3管理，然后更新标签
 			err = helm2to3.RunConvert(agentName)
@@ -292,13 +291,20 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 				if opts.ClearHelmHistory {
 					helm2to3.RunCleanup(agentName)
 				}
-				labels[model.HelmVersion] = "helm3"
-				deployment.SetLabels(labels)
-				opts.KubeClient.GetKubeClient().AppsV1().Deployments(kube.AgentNamespace).Update(deployment)
+				updateAgentDeploymentLabels(opts, deployment, labels)
 			} else {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+func updateAgentDeploymentLabels(opts *commandutil.Opts, deployment *appsv1.Deployment, labels map[string]string) {
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[model.HelmVersion] = "helm3"
+	deployment.SetLabels(labels)
+	opts.KubeClient.GetKubeClient().AppsV1().Deployments(kube.AgentNamespace).Update(deployment)
 }
