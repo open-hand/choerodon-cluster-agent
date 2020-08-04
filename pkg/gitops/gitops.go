@@ -47,6 +47,9 @@ func (g *GitOps) Process() {
 
 	// 增加等待超时时间
 	envNum := len(g.Envs)
+	if envNum == 0 {
+		envNum = 1
+	}
 	g.gitTimeout = time.Minute * time.Duration(envNum)
 
 	g.listenEnvs()
