@@ -44,7 +44,11 @@ func New(wg *sync.WaitGroup, gitConfig git.Config, gitRepos map[string]*git.Repo
 func (g *GitOps) Process() {
 	// todo read from config
 	g.syncInterval = time.Minute * 5
-	g.gitTimeout = time.Minute * 1
+
+	// 增加等待超时时间
+	envNum := len(g.Envs)
+	g.gitTimeout = time.Minute * time.Duration(envNum)
+
 	g.listenEnvs()
 }
 
