@@ -22,7 +22,6 @@ type GitOps struct {
 	syncSoon     map[string]chan struct{}
 	gitRepos     map[string]*git.Repo
 	syncInterval time.Duration
-	gitTimeout   time.Duration
 	gitConfig    git.Config
 	kubeClient   kube.Client
 	cluster      *kubernetes.Cluster
@@ -50,7 +49,7 @@ func (g *GitOps) Process() {
 	if envNum == 0 {
 		envNum = 1
 	}
-	g.gitTimeout = time.Minute * time.Duration(envNum)
+	git.Timeout = time.Minute * time.Duration(envNum)
 
 	g.listenEnvs()
 }

@@ -16,14 +16,13 @@ import (
 )
 
 const (
-	defaultInterval = 5 * time.Minute
-	opTimeout       = 1 * time.Minute
-
-	DefaultCloneTimeout = 2 * time.Minute
-	CheckPushTag        = "choerodon-write-check"
-	MirrorRepoPrefix    = "choerodon-git-clone"
-	WorkingRepoPrefix   = "choerodon-working"
+	defaultInterval   = 5 * time.Minute
+	CheckPushTag      = "choerodon-write-check"
+	MirrorRepoPrefix  = "choerodon-git-clone"
+	WorkingRepoPrefix = "choerodon-working"
 )
+
+var Timeout = 1 * time.Minute
 
 var (
 	ErrNoChanges = errors.New("no changes made in repo")
@@ -233,14 +232,14 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 				return err
 			}
 
-			ctx, cancel := context.WithTimeout(bg, opTimeout)
+			ctx, cancel := context.WithTimeout(bg, Timeout)
 			// 克隆配置库(注意git clone --mirror的作用是只拉下.git的内容，正式的代码文件并不会拉取下来)
 			dir, err = mirror(ctx, rootdir, url)
 			cancel()
 			if err == nil {
 				r.mu.Lock()
 				r.dir = dir
-				ctx, cancel := context.WithTimeout(bg, opTimeout)
+				ctx, cancel := context.WithTimeout(bg, Timeout)
 				err = r.fetch(ctx)
 				cancel()
 				r.mu.Unlock()
@@ -256,7 +255,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 			r.setStatus(RepoNew, err)
 
 		case RepoCloned:
-			ctx, cancel := context.WithTimeout(bg, opTimeout)
+			ctx, cancel := context.WithTimeout(bg, Timeout)
 			// 检查是否能够向远程分支提交tag
 			err := checkPush(ctx, dir, url)
 			cancel()
@@ -268,7 +267,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 				continue // with new status, skipping timer
 			}
 			glog.Errorf("env: %s repo clone error: %v", r.Env, err)
-			ctx, cancel = context.WithTimeout(bg, opTimeout)
+			ctx, cancel = context.WithTimeout(bg, Timeout)
 			r.fetch(ctx)
 			cancel()
 			r.setStatus(RepoCloned, err)
@@ -339,7 +338,7 @@ func (r *Repo) refreshLoop(shutdown <-chan struct{}, repoRefreshShutdown chan st
 				default:
 				}
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
+			ctx, cancel := context.WithTimeout(context.Background(), Timeout)
 			err := r.Refresh(ctx)
 			cancel()
 			if err != nil {

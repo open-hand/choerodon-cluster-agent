@@ -47,7 +47,7 @@ func clone(ctx context.Context, workingDir, repoURL, repoBranch string) (path st
 	defer func() {
 		rand.Seed(time.Now().Unix())
 		randTime := rand.Intn(5)
-		sleepTime := randTime + 5
+		sleepTime := randTime + 3
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
@@ -82,7 +82,7 @@ func mirror(ctx context.Context, workingDir, repoURL string) (path string, err e
 	defer func() {
 		rand.Seed(time.Now().Unix())
 		randTime := rand.Intn(5)
-		sleepTime := randTime + 5
+		sleepTime := randTime + 3
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
@@ -117,7 +117,7 @@ func checkPush(ctx context.Context, workingDir, upstream string) error {
 	defer func() {
 		rand.Seed(time.Now().Unix())
 		randTime := rand.Intn(5)
-		sleepTime := randTime + 5
+		sleepTime := randTime + 3
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
@@ -179,7 +179,7 @@ func commit(ctx context.Context, workingDir string, commitAction CommitAction) e
 	defer func() {
 		rand.Seed(time.Now().Unix())
 		randTime := rand.Intn(5)
-		sleepTime := randTime + 5
+		sleepTime := randTime + 3
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
@@ -237,7 +237,7 @@ func push(ctx context.Context, workingDir, upstream string, refs []string) error
 	defer func() {
 		rand.Seed(time.Now().Unix())
 		randTime := rand.Intn(5)
-		sleepTime := randTime + 5
+		sleepTime := randTime + 3
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
@@ -268,7 +268,7 @@ func fetch(ctx context.Context, workingDir, upstream string, refspec ...string) 
 	defer func() {
 		rand.Seed(time.Now().Unix())
 		randTime := rand.Intn(5)
-		sleepTime := randTime + 5
+		sleepTime := randTime + 3
 		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
