@@ -12,17 +12,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
-	"math/rand"
+	"log"
 	"os/exec"
 	"runtime"
 	"strings"
 	"sync"
-	"time"
-
-	"github.com/pkg/errors"
-	"log"
 )
 
 // If true, every git invocation will be echoed to stdout
@@ -45,10 +42,6 @@ func config(ctx context.Context, workingDir, user, email string) error {
 func clone(ctx context.Context, workingDir, repoURL, repoBranch string) (path string, err error) {
 	mu.Lock()
 	defer func() {
-		rand.Seed(time.Now().Unix())
-		randTime := rand.Intn(5)
-		sleepTime := randTime + 3
-		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
 
@@ -80,10 +73,6 @@ func clone(ctx context.Context, workingDir, repoURL, repoBranch string) (path st
 func mirror(ctx context.Context, workingDir, repoURL string) (path string, err error) {
 	mu.Lock()
 	defer func() {
-		rand.Seed(time.Now().Unix())
-		randTime := rand.Intn(5)
-		sleepTime := randTime + 3
-		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
 
@@ -115,10 +104,6 @@ func mirror(ctx context.Context, workingDir, repoURL string) (path string, err e
 func checkPush(ctx context.Context, workingDir, upstream string) error {
 	mu.Lock()
 	defer func() {
-		rand.Seed(time.Now().Unix())
-		randTime := rand.Intn(5)
-		sleepTime := randTime + 3
-		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
 
@@ -177,10 +162,6 @@ func checkPush(ctx context.Context, workingDir, upstream string) error {
 func commit(ctx context.Context, workingDir string, commitAction CommitAction) error {
 	mu.Lock()
 	defer func() {
-		rand.Seed(time.Now().Unix())
-		randTime := rand.Intn(5)
-		sleepTime := randTime + 3
-		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
 
@@ -235,10 +216,6 @@ func commit(ctx context.Context, workingDir string, commitAction CommitAction) e
 func push(ctx context.Context, workingDir, upstream string, refs []string) error {
 	mu.Lock()
 	defer func() {
-		rand.Seed(time.Now().Unix())
-		randTime := rand.Intn(5)
-		sleepTime := randTime + 3
-		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
 
@@ -266,10 +243,6 @@ func push(ctx context.Context, workingDir, upstream string, refs []string) error
 func fetch(ctx context.Context, workingDir, upstream string, refspec ...string) error {
 	mu.Lock()
 	defer func() {
-		rand.Seed(time.Now().Unix())
-		randTime := rand.Intn(5)
-		sleepTime := randTime + 3
-		time.Sleep(time.Duration(sleepTime) * time.Second)
 		mu.Unlock()
 	}()
 	args := append([]string{"fetch", "--tags", upstream}, refspec...)

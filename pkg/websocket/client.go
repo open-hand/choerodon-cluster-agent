@@ -33,7 +33,7 @@ const (
 	maxLength = 4194304
 )
 
-var reconnectFlag = false
+var ReconnectFlag = false
 
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
@@ -103,7 +103,7 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 		case err := <-errCh:
 			if err != nil {
 				glog.Error(err)
-				reconnectFlag = true
+				ReconnectFlag = true
 			}
 			time.Sleep(backOff)
 		case <-stop:
@@ -125,7 +125,7 @@ func (c *appClient) connect() error {
 	glog.V(1).Info("Connect to DevOps service success")
 
 	// 建立连接，同步资源对象
-	if reconnectFlag {
+	if ReconnectFlag {
 		c.crChannel.CommandChan <- newReConnectCommand()
 	}
 

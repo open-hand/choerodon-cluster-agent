@@ -44,7 +44,7 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 		case <-syncTimer.C:
 			g.AskForSync(namespace)
 		case <-g.gitRepos[namespace].C:
-			ctx, cancel := context.WithTimeout(context.Background(), git.Timeout)
+			ctx, cancel := context.WithTimeout(context.Background(), g.gitTimeout)
 			// 获得devops-sync这个tag最新的提交commit,作为最新的提交记录
 			newSyncHead, err := g.gitRepos[namespace].Revision(ctx, g.gitConfig.DevOpsTag)
 			cancel()
@@ -89,7 +89,7 @@ func (g *GitOps) doSync(namespace string) error {
 	var working *git.Checkout
 	{
 		var err error
-		ctx, cancel := context.WithTimeout(ctx, git.Timeout)
+		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
 		defer cancel()
 		// 把devops-sync这个tag下的配置库拉下来
 		working, err = g.gitRepos[namespace].Clone(ctx, g.gitConfig)
@@ -154,7 +154,7 @@ func (g *GitOps) doSync(namespace string) error {
 		}
 	} else {
 		// 不是第一次同步，则需要与上一次同步的结果进行比较，得出还未同步的文件
-		ctx, cancel := context.WithTimeout(ctx, git.Timeout)
+		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
 		changedFiles, fileList, err := working.ChangedFiles(ctx, oldTagRev)
 		if err == nil && len(changedFiles) > 0 {
 
@@ -219,7 +219,7 @@ func (g *GitOps) doSync(namespace string) error {
 		if fileCommitMap[syncErrors[i].Path] != "" {
 			syncErrors[i].Commit = fileCommitMap[syncErrors[i].Path]
 		} else {
-			ctx, cancel := context.WithTimeout(ctx, git.Timeout)
+			ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
 			commit, err := working.FileLastCommit(ctx, syncErrors[i].Path)
 			if err != nil {
 				glog.Errorf("get file commit error : v%", err)
@@ -268,7 +268,7 @@ func (g *GitOps) doSync(namespace string) error {
 
 	// Move the tag and push it so we know how far we've gotten.
 	{
-		ctx, cancel := context.WithTimeout(ctx, git.Timeout)
+		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
 		// 将远程配置库agent-sync的tag更新到和devops-sync的tag一致
 		err := working.MoveSyncTagAndPush(ctx, newTagRev, "Sync pointer")
 		cancel()
@@ -279,7 +279,7 @@ func (g *GitOps) doSync(namespace string) error {
 	// 再次拉取远程仓库，刷新本地仓库
 	{
 		glog.Infof("%s tag: %s, old: %s, new: %s", namespace, g.gitConfig.SyncTag, oldTagRev, newTagRev)
-		ctx, cancel := context.WithTimeout(ctx, git.Timeout)
+		ctx, cancel := context.WithTimeout(ctx, g.gitTimeout)
 		err := g.gitRepos[namespace].Refresh(ctx)
 		cancel()
 		return err
