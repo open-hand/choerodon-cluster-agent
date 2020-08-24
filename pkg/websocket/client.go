@@ -290,8 +290,14 @@ func (c *appClient) doWithBackOff(msg string, f func() (bool, error)) {
 	}
 	defer c.releaseGoroutine()
 
+	retryCount := 0
+
 	backOff := initialBackOff
 	for {
+		if retryCount > 10 {
+			glog.Errorf("maximum number 10 of retries exceeded")
+			return
+		}
 		done, err := f()
 		if done {
 			return
@@ -306,6 +312,7 @@ func (c *appClient) doWithBackOff(msg string, f func() (bool, error)) {
 		case <-c.quit:
 			return
 		}
+		retryCount++
 		backOff *= 2
 		if backOff > maxBackOff {
 			backOff = maxBackOff
