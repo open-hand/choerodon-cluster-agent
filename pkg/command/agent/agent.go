@@ -45,7 +45,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
-	nsList := make([]string, 10)
+	nsList := []string{}
 	// 检查devops管理的命名空间
 	for _, envPara := range agentInitOpts.Envs {
 		nsList = append(nsList, envPara.Namespace)

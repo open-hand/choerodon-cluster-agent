@@ -5,7 +5,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -83,10 +82,7 @@ func writeSshConfig(content string) error {
 	filename := "/etc/ssh/ssh_config"
 	var f *os.File
 	if util.CheckFileIsExist(filename) { //如果文件存在
-		err := os.Remove(filename)
-		if err != nil {
-			glog.Info(err.Error())
-		}
+		_ = os.Remove(filename)
 	}
 	f, err := os.OpenFile(filename, os.O_CREATE, 0666)
 	if err != nil {
