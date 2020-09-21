@@ -24,7 +24,6 @@ const (
 	Log           = "agent_log"
 	Exec          = "agent_exec"
 	IntervalTime  = 3 * time.Second
-	TimeoutTime   = 2 * time.Second
 	CloseWaitTime = 5 * time.Second
 )
 
@@ -244,8 +243,6 @@ func (p *pipe) PipeType() string {
 func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done chan bool, msgChan chan []byte, errors chan error) {
 	// 最大等待时间
 	interval := time.NewTimer(500 * time.Millisecond)
-	// 读取超时时间
-	timeout := time.NewTimer(TimeoutTime)
 	message := make([]byte, 0)
 	message = append(message, <-msgChan...)
 	for {
@@ -256,8 +253,7 @@ func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done cha
 		// 达到最大发送等待时间，立即发送，并重置定时器
 		case <-interval.C:
 			if len(message) == 0 {
-				// 即使没有消息发送，也需要重置最大发送等待定时器和读取超时定时器
-				timeout.Reset(TimeoutTime)
+				// 即使没有消息发送，也需要重置最大发送等待定时器
 				interval.Reset(IntervalTime)
 				continue
 			}
@@ -274,51 +270,10 @@ func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done cha
 				}
 			}
 			message = []byte{}
-			if !timeout.Stop() {
-				select {
-				case <-timeout.C:
-				default:
-				}
-			}
-			timeout.Reset(TimeoutTime)
 			interval.Reset(IntervalTime)
-		// 读超时了，立即发送消息，并重置定时器
-		case <-timeout.C:
-			if len(message) == 0 {
-				// 即使没有消息发送，也需要重置读取超时定时器
-				timeout.Reset(TimeoutTime)
-				continue
-			}
-			if end != nil {
-				if _, err := end.Write(message); err != nil {
-					errors <- err
-					return
-				}
-			}
-			if conn != nil {
-				if err := conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
-					errors <- err
-					return
-				}
-			}
-			message = []byte{}
-			if !interval.Stop() {
-				select {
-				case <-interval.C:
-				default:
-				}
-			}
-			timeout.Reset(TimeoutTime)
 		// 从websocket读到了消息，把消息写到message中，并重置定时器
 		case msg := <-msgChan:
 			message = append(message, msg...)
-			if !timeout.Stop() {
-				select {
-				case <-timeout.C:
-				default:
-				}
-			}
-			timeout.Reset(TimeoutTime)
 		}
 	}
 }

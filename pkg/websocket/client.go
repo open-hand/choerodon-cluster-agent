@@ -24,7 +24,6 @@ const (
 	// Time allowed to write a message to the peer.
 	WriteWait      = 10 * time.Second
 	initialBackOff = 1 * time.Second
-	maxBackOff     = 60 * time.Second
 	// Time allowed to read the next pong message from the peer.
 	pongWait = 60 * time.Second
 	// Send pings to peer with this period. Must be less than pongWait.
@@ -290,8 +289,14 @@ func (c *appClient) doWithBackOff(msg string, f func() (bool, error)) {
 	}
 	defer c.releaseGoroutine()
 
+	retryCount := 0
+
 	backOff := initialBackOff
 	for {
+		if retryCount > 5 {
+			glog.Errorf("maximum number 10 of retries exceeded")
+			return
+		}
 		done, err := f()
 		if done {
 			return
@@ -306,10 +311,8 @@ func (c *appClient) doWithBackOff(msg string, f func() (bool, error)) {
 		case <-c.quit:
 			return
 		}
+		retryCount++
 		backOff *= 2
-		if backOff > maxBackOff {
-			backOff = maxBackOff
-		}
 	}
 }
 
