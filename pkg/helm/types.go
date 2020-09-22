@@ -11,9 +11,9 @@ type InstallReleaseRequest struct {
 	Values                   string                         `json:"values,omitempty"`
 	ReleaseName              string                         `json:"releaseName,omitempty"`
 	Commit                   string                         `json:"commit,omitempty"`
-	Command                  int64                          `json:"command,omitempty"`
+	Command                  string                          `json:"command,omitempty"`
 	Namespace                string                         `json:"namespace,omitempty"`
-	AppServiceId             int64                          `json:"appServiceId,omitempty"`
+	AppServiceId             string                          `json:"appServiceId,omitempty"`
 	ImagePullSecrets         []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	FailedCount              int                            `json:"failedCount,omitempty"`
 	LasttimeFailedInstallErr string                         `json:"lasttimeFailedInstallErr"`
@@ -62,7 +62,7 @@ type Release struct {
 	Resources    []*ReleaseResource `json:"resources,omitempty"`
 	Config       string             `json:"config,omitempty"`
 	Commit       string             `json:"commit,omitempty"`
-	Command      int64              `json:"command,omitempty"`
+	Command      string              `json:"command,omitempty"`
 }
 
 type ReleaseResource struct {
@@ -88,10 +88,10 @@ type UpgradeReleaseRequest struct {
 	ChartName        string                         `json:"chartName,omitempty"`
 	ChartVersion     string                         `json:"chartVersion,omitempty"`
 	Values           string                         `json:"values,omitempty"`
-	Command          int64                          `json:"command,omitempty"`
+	Command          string                          `json:"command,omitempty"`
 	Commit           string                         `json:"commit,omitempty"`
 	Namespace        string                         `json:"namespace,omitempty"`
-	AppServiceId     int64                          `json:"appServiceId,omitempty"`
+	AppServiceId     string                          `json:"appServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 }
 
