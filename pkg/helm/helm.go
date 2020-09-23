@@ -325,13 +325,13 @@ func (c *client) ExecuteTest(request *TestReleaseRequest, username, password str
 	installClient := action.NewInstall(
 		cfg,
 		chartPathOptions,
-		"0",
+		0,
 		request.ImagePullSecrets,
 		TestNamespace,
 		request.ReleaseName,
 		request.ChartName,
 		request.ChartVersion,
-		"0",
+		0,
 		envkube.AgentVersion,
 		request.Label,
 		true)
