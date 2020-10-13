@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+var SyncChan = make(chan SyncInfo, 10)
+
+type SyncInfo struct {
+	namespace string
+	syncTimer *time.Timer
+}
+
 func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-chan struct{}, done *sync.WaitGroup) {
 	defer done.Done()
 
@@ -42,7 +49,8 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 			glog.Infof("env %s sync loop stopping", namespace)
 			return
 		case <-syncTimer.C:
-			g.AskForSync(namespace)
+			syncInfo := SyncInfo{namespace: namespace, syncTimer: syncTimer}
+			SyncChan <- syncInfo
 		case <-g.gitRepos[namespace].C:
 			ctx, cancel := context.WithTimeout(context.Background(), g.gitTimeout)
 			// 获得devops-sync这个tag最新的提交commit,作为最新的提交记录
@@ -369,7 +377,6 @@ func prepareSyncDelete(repoResources map[string]resource.Resource, id string, re
 	}
 }
 
-// todo maybe no work
 func (g *GitOps) AskForSync(namespace string) {
 	select {
 	case g.syncSoon[namespace] <- struct{}{}:
@@ -381,4 +388,26 @@ func isUnknownRevision(err error) bool {
 	return err != nil &&
 		(strings.Contains(err.Error(), "unknown revision or path not in the working tree.") ||
 			strings.Contains(err.Error(), "bad revision"))
+}
+
+func (g *GitOps) SyncInterval(StopCh <-chan struct{}) {
+	for {
+		select {
+		case <-StopCh:
+			glog.V(1).Info("exit SyncLoop")
+			return
+		case syncInfo := <-SyncChan:
+			glog.Infof("start to sync:%s", syncInfo.namespace)
+			if !syncInfo.syncTimer.Stop() {
+				select {
+				case <-syncInfo.syncTimer.C:
+				default:
+				}
+			}
+			if err := g.doSync(syncInfo.namespace); err != nil {
+				glog.Errorf("%s do sync: %v", syncInfo.namespace, err)
+			}
+			syncInfo.syncTimer.Reset(g.syncInterval)
+		}
+	}
 }

@@ -19,13 +19,10 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"sync"
 )
 
 // If true, every git invocation will be echoed to stdout
 const trace = false
-
-var mu = sync.Mutex{}
 
 func config(ctx context.Context, workingDir, user, email string) error {
 	for k, v := range map[string]string{
@@ -40,11 +37,6 @@ func config(ctx context.Context, workingDir, user, email string) error {
 }
 
 func clone(ctx context.Context, workingDir, repoURL, repoBranch string) (path string, err error) {
-	mu.Lock()
-	defer func() {
-		mu.Unlock()
-	}()
-
 	repoPath := workingDir
 	args := []string{"clone"}
 	if repoBranch != "" {
@@ -71,11 +63,6 @@ func clone(ctx context.Context, workingDir, repoURL, repoBranch string) (path st
 }
 
 func mirror(ctx context.Context, workingDir, repoURL string) (path string, err error) {
-	mu.Lock()
-	defer func() {
-		mu.Unlock()
-	}()
-
 	repoPath := workingDir
 	args := []string{"clone", "--mirror"}
 	args = append(args, repoURL, repoPath)
@@ -102,11 +89,6 @@ func mirror(ctx context.Context, workingDir, repoURL string) (path string, err e
 // (being able to `clone` is an adequate check that we can read the
 // upstream).
 func checkPush(ctx context.Context, workingDir, upstream string) error {
-	mu.Lock()
-	defer func() {
-		mu.Unlock()
-	}()
-
 	// --force just in case we fetched the tag from upstream when cloning
 	if err := execGitCmd(ctx, workingDir, nil, "tag", "--force", CheckPushTag); err != nil {
 		buf := make([]byte, 1024)
@@ -160,11 +142,6 @@ func checkPush(ctx context.Context, workingDir, upstream string) error {
 }
 
 func commit(ctx context.Context, workingDir string, commitAction CommitAction) error {
-	mu.Lock()
-	defer func() {
-		mu.Unlock()
-	}()
-
 	commitAuthor := commitAction.Author
 	if commitAuthor != "" {
 		if err := execGitCmd(ctx,
@@ -214,11 +191,6 @@ func commit(ctx context.Context, workingDir string, commitAction CommitAction) e
 
 // push the refs given to the upstream repo
 func push(ctx context.Context, workingDir, upstream string, refs []string) error {
-	mu.Lock()
-	defer func() {
-		mu.Unlock()
-	}()
-
 	args := append([]string{"push", upstream}, refs...)
 	if err := execGitCmd(ctx, workingDir, nil, args...); err != nil {
 		buf := make([]byte, 1024)
@@ -241,10 +213,6 @@ func push(ctx context.Context, workingDir, upstream string, refs []string) error
 
 // fetch updates refs from the upstream.
 func fetch(ctx context.Context, workingDir, upstream string, refspec ...string) error {
-	mu.Lock()
-	defer func() {
-		mu.Unlock()
-	}()
 	args := append([]string{"fetch", "--tags", upstream}, refspec...)
 	if err := execGitCmd(ctx, workingDir, nil, args...); err != nil &&
 		!strings.Contains(err.Error(), "Couldn't find remote ref") {
