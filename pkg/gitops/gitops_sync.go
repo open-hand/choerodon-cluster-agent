@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-var SyncChan = make(chan SyncInfo, 10)
+var SyncChan = make(chan SyncInfo, 100)
 
 type SyncInfo struct {
 	namespace string
