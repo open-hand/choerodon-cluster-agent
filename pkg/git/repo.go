@@ -272,13 +272,7 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 			r.fetch(ctx)
 			cancel()
 			r.setStatus(RepoCloned, err)
-
 		case RepoReady:
-			if err := r.refreshLoop(shutdown, repoRefreshShutdown); err != nil {
-				glog.Errorf("env: %s repo ready: %v", r.Env, err)
-				r.setStatus(RepoNew, err)
-				continue // with new status, skipping timer
-			}
 		}
 
 		tryAgain := time.NewTimer(10 * time.Second)
@@ -313,41 +307,6 @@ func (r *Repo) Refresh(ctx context.Context) error {
 	}
 	r.refreshed()
 	return nil
-}
-
-func (r *Repo) refreshLoop(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}) error {
-	gitPoll := time.NewTimer(r.interval)
-	for {
-		select {
-		case <-shutdown:
-			if !gitPoll.Stop() {
-				<-gitPoll.C
-			}
-			return nil
-		case <-repoRefreshShutdown:
-			if !gitPoll.Stop() {
-				<-gitPoll.C
-			}
-			repoRefreshShutdown <- struct{}{}
-			return nil
-		case <-gitPoll.C:
-			r.Notify()
-		case <-r.notify:
-			if !gitPoll.Stop() {
-				select {
-				case <-gitPoll.C:
-				default:
-				}
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
-			err := r.Refresh(ctx)
-			cancel()
-			if err != nil {
-				return err
-			}
-			gitPoll.Reset(r.interval)
-		}
-	}
 }
 
 // fetch gets updated refs, and associated objects, from the upstream.

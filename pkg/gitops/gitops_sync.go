@@ -65,8 +65,18 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 			if newSyncHead != syncHead {
 				// 将agent的同步commit更新为最新的，即与devops-sync这个tag的最新提交
 				syncHead = newSyncHead
-				// 让agent开始同步
+				// 让agent开始同步，定时器的重置也放到该同步逻辑里面
 				g.AskForSync(namespace)
+			} else {
+				// 如果commit相同，重置定时器
+				if !syncTimer.Stop() {
+					select {
+					case <-syncTimer.C:
+					default:
+					}
+				}
+				// 再次开启倒计时
+				syncTimer.Reset(g.syncInterval)
 			}
 		case <-g.syncSoon[namespace]:
 			// 猜测 如果syncTimer停止失败，那么timer会继续倒计时，等待timer计时结束
@@ -330,36 +340,6 @@ func Sync(namespace string, m *kubernetes.Manifests, repoResources map[string]re
 	return clus.Sync(namespace, sync)
 }
 
-// todo: remove
-func SyncAll(namespace string, m *kubernetes.Manifests, repoResources map[string]resource.Resource, clus kubernetes.Cluster) error {
-	// Get a map of resources defined in the cluster
-	clusterBytes, err := clus.Export(namespace)
-
-	if err != nil {
-		return errors.Wrap(err, "exporting resource defs from cluster")
-	}
-	clusterResources, err := m.ParseManifests(namespace, clusterBytes)
-	if err != nil {
-		return errors.Wrap(err, "parsing exported resources")
-	}
-
-	// Everything that's in the cluster but not in the repo, delete;
-	// everything that's in the repo, apply. This is an approximation
-	// to figuring out what's changed, and applying that. We're
-	// relying on Kubernetes to decide for each application if it is a
-	// no-op.
-	sync := kubernetes.SyncDef{}
-
-	for id, res := range clusterResources {
-		prepareSyncDelete(repoResources, id, res, &sync)
-	}
-
-	for _, res := range repoResources {
-		prepareSyncApply(res, &sync)
-	}
-	return clus.Sync(namespace, sync)
-}
-
 func prepareSyncApply(res resource.Resource, sync *kubernetes.SyncDef) {
 	sync.Actions = append(sync.Actions, kubernetes.SyncAction{
 		Apply: res,
@@ -397,17 +377,20 @@ func (g *GitOps) SyncInterval(StopCh <-chan struct{}) {
 			glog.V(1).Info("exit SyncLoop")
 			return
 		case syncInfo := <-SyncChan:
-			glog.Infof("start to sync:%s", syncInfo.namespace)
-			if !syncInfo.syncTimer.Stop() {
-				select {
-				case <-syncInfo.syncTimer.C:
-				default:
+			glog.Infof("env %s start to sync", syncInfo.namespace)
+			repo := g.gitRepos[syncInfo.namespace]
+			ctx, _ := context.WithTimeout(context.Background(), g.gitTimeout)
+			err := repo.Refresh(ctx)
+			// 如果错误不为nil，表明gitops库同步未完成，重置定时器
+			if err != nil {
+				if !syncInfo.syncTimer.Stop() {
+					select {
+					case <-syncInfo.syncTimer.C:
+					default:
+					}
+					syncInfo.syncTimer.Reset(g.syncInterval)
 				}
 			}
-			if err := g.doSync(syncInfo.namespace); err != nil {
-				glog.Errorf("%s do sync: %v", syncInfo.namespace, err)
-			}
-			syncInfo.syncTimer.Reset(g.syncInterval)
 		}
 	}
 }

@@ -601,6 +601,7 @@ func execGitCmd(ctx context.Context, dir string, out io.Writer, args ...string) 
 		}
 		println()
 	}
+	glog.V(1).Info(args)
 	c := exec.CommandContext(ctx, "git", args...)
 	if dir != "" {
 		c.Dir = dir

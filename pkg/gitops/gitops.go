@@ -44,7 +44,6 @@ func New(wg *sync.WaitGroup, gitConfig git.Config, gitRepos map[string]*git.Repo
 }
 
 func (g *GitOps) Process() {
-	// todo read from config
 	g.syncInterval = time.Minute * 5
 	g.gitTimeout = time.Minute * 1
 	g.listenEnvs()
