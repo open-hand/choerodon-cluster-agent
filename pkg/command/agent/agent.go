@@ -64,7 +64,6 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, cmd.Type, err)
 	}
 
-	//启动控制器， todo: 重启metrics
 	//里面含有好多 启动时的方法， 比如启动时发送cert-mgr的情况
 	opts.ControllerContext.ReSync()
 

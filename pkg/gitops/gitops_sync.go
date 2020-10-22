@@ -6,6 +6,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	resource2 "github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes/resource"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -96,6 +97,7 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 }
 
 func (g *GitOps) doSync(namespace string) error {
+	glog.Infof("[Goroutine %d] namespace %s doSync", util.GetGID(), namespace)
 	started := time.Now().UTC()
 
 	// We don't care how long this takes overall, only about not
