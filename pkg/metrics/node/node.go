@@ -25,7 +25,7 @@ const (
 type NodeInfo struct {
 	NodeName          string `json:"nodeName,omitempty"`
 	Status            string `json:"status,omitempty"`
-	Type              string `json:"type,omitempty"`
+	Type              string `json:"role,omitempty"`
 	CreateTime        string `json:"createTime,omitempty"`
 	CpuCapacity       string `json:"cpuCapacity,omitempty"`
 	CpuAllocatable    string `json:"cpuAllocatable,omitempty"`
