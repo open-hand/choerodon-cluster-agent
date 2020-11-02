@@ -64,12 +64,12 @@ type Scaler interface {
 // Cluster is a handle to a Kubernetes API server.
 // (Typically, this code is deployed into the same cluster.)
 type Cluster struct {
-	client    extendedClient
-	mgrs      *operatorutil.MgrList
-	applier   Applier
-	describer Describer
-	mu        sync.Mutex
-	scaler    Scaler
+	Client    extendedClient
+	Mgrs      *operatorutil.MgrList
+	Applier   Applier
+	Describer Describer
+	Mu        sync.Mutex
+	Scaler    Scaler
 }
 
 // NewCluster returns a usable cluster.
@@ -82,15 +82,15 @@ func NewCluster(
 	scaler Scaler) *Cluster {
 
 	c := &Cluster{
-		client: extendedClient{
+		Client: extendedClient{
 			clientset.CoreV1(),
 			clientset.ExtensionsV1beta1(),
 			crdClientSet.Certmanager(),
 		},
-		mgrs:      mgrs,
-		applier:   applier,
-		describer: describer,
-		scaler:    scaler,
+		Mgrs:      mgrs,
+		Applier:   applier,
+		Describer: describer,
+		Scaler:    scaler,
 	}
 
 	return c
@@ -100,8 +100,8 @@ func NewCluster(
 func (c *Cluster) Export(namespace string) ([]byte, error) {
 	var config bytes.Buffer
 
-	for _, resourceKind := range resourceKinds {
-		resources, err := resourceKind.getResources(c, namespace)
+	for _, resourceKind := range ResourceKinds {
+		resources, err := resourceKind.GetResources(c, namespace)
 		if err != nil {
 			if se, ok := err.(*apierrors.StatusError); ok && se.ErrStatus.Reason == meta_v1.StatusReasonNotFound {
 				// Kind not supported by API server, skip
@@ -113,7 +113,7 @@ func (c *Cluster) Export(namespace string) ([]byte, error) {
 
 		for _, r := range resources {
 			if !isAgent(r, namespace) {
-				if err := appendYAML(&config, r.apiVersion, r.kind, r.k8sObject); err != nil {
+				if err := appendYAML(&config, r.ApiVersion, r.Kind, r.K8sObject); err != nil {
 					return nil, err
 				}
 			}
@@ -123,11 +123,11 @@ func (c *Cluster) Export(namespace string) ([]byte, error) {
 }
 
 func (c *Cluster) DescribeResource(namespace, sourceKind, sourceName string) string {
-	return c.describer.Describe(namespace, sourceKind, sourceName)
+	return c.Describer.Describe(namespace, sourceKind, sourceName)
 }
 
 func (c *Cluster) ScaleResource(namespace, sourceKind, sourceName, replicas string) error {
-	return c.scaler.Scaler(namespace, sourceKind, sourceName, replicas)
+	return c.Scaler.Scaler(namespace, sourceKind, sourceName, replicas)
 }
 
 // Sync performs the given actions on resources. Operations are
@@ -158,9 +158,9 @@ func (c *Cluster) Sync(namespace string, spec SyncDef) error {
 		}
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if applyErrs := c.applier.Apply(namespace, cs); len(applyErrs) > 0 {
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
+	if applyErrs := c.Applier.Apply(namespace, cs); len(applyErrs) > 0 {
 		errs = append(errs, applyErrs...)
 	}
 
@@ -206,14 +206,14 @@ func (o *ApiObject) hasNamespace() bool {
 // k8sObject represents an value from which you can obtain typical
 // Kubernetes metadata. These methods are implemented by the
 // Kubernetes API resource types.
-type k8sObject interface {
+type K8sObject interface {
 	GetName() string
 	GetNamespace() string
 	GetLabels() map[string]string
 	GetAnnotations() map[string]string
 }
 
-func isAgent(obj k8sObject, name string) bool {
+func isAgent(obj K8sObject, name string) bool {
 	return obj.GetName() == name
 }
 

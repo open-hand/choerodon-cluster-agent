@@ -39,20 +39,20 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
         args:
-        - /choerodon-cluster-agent
-        - --v={{ .Values.config.logLevel }}
-        - --connect={{ .Values.config.connect }}?group=cluster:{{ .Values.config.clusterId }}&processor=agent&secret_key=devops_ws&key=cluster:{{ .Values.config.clusterId }}&clusterId={{ .Values.config.clusterId }}&token={{ .Values.config.token }}&version={{ .Chart.Version }}
-        - --token={{ .Values.config.token }}
-        - --agent-version={{ .Chart.Version }}
-        - --choerodon-id={{ .Values.config.choerodonId }}
-        - --clusterId={{ .Values.config.clusterId }}
-      {{- range $key, $value := .Values.config.extraArgs }}
-        - --{{ $key }}={{ $value }}
-      {{- end }}
+          - /choerodon-cluster-agent
+          - --v={{ .Values.config.logLevel }}
+          - --connect={{ .Values.config.connect }}?group=cluster:{{ .Values.config.clusterId }}&processor=agent&secret_key=devops_ws&key=cluster:{{ .Values.config.clusterId }}&clusterId={{ .Values.config.clusterId }}&token={{ .Values.config.token }}&version={{ .Chart.Version }}
+          - --token={{ .Values.config.token }}
+          - --agent-version={{ .Chart.Version }}
+          - --choerodon-id={{ .Values.config.choerodonId }}
+          - --clusterId={{ .Values.config.clusterId }}
+          {{- range $key, $value := .Values.config.extraArgs }}
+          - --{{ $key }}={{ $value }}
+        {{- end }}
         ports:
-        - name: http
-          containerPort: {{ .Values.config.port }}
-          protocol: TCP
+          - name: http
+            containerPort: {{ .Values.config.port }}
+            protocol: TCP
         resources:
 {{ toYaml .Values.resources | indent 12 }}
         volumeMounts:

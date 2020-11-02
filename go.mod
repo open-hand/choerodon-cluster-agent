@@ -3,7 +3,7 @@ module github.com/choerodon/choerodon-cluster-agent
 go 1.13
 
 require (
-	github.com/choerodon/helm v0.0.0-20200730120521-cacef3f54dde
+	github.com/choerodon/helm v0.0.0-20200923023956-4ba6797d37a4
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/gin-gonic/gin v1.5.0
 	github.com/go-openapi/spec v0.19.7

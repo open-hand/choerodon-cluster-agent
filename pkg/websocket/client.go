@@ -24,7 +24,6 @@ const (
 	// Time allowed to write a message to the peer.
 	WriteWait      = 10 * time.Second
 	initialBackOff = 1 * time.Second
-	maxBackOff     = 60 * time.Second
 	// Time allowed to read the next pong message from the peer.
 	pongWait = 60 * time.Second
 	// Send pings to peer with this period. Must be less than pongWait.
@@ -33,7 +32,7 @@ const (
 	maxLength = 4194304
 )
 
-var reconnectFlag = false
+var ReconnectFlag = false
 
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
@@ -103,7 +102,7 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 		case err := <-errCh:
 			if err != nil {
 				glog.Error(err)
-				reconnectFlag = true
+				ReconnectFlag = true
 			}
 			time.Sleep(backOff)
 		case <-stop:
@@ -125,7 +124,7 @@ func (c *appClient) connect() error {
 	glog.V(1).Info("Connect to DevOps service success")
 
 	// 建立连接，同步资源对象
-	if reconnectFlag {
+	if ReconnectFlag {
 		c.crChannel.CommandChan <- newReConnectCommand()
 	}
 
@@ -172,7 +171,7 @@ func (c *appClient) connect() error {
 				break
 			}
 			packet := &model.Packet{}
-			glog.V(1).Infof("receive command: ", wp)
+			glog.V(1).Infof("receive message:\n>>>\nKey: %s\nType: %s\nMessage: %s\nGroup %s\n<<<", wp.Key, wp.Type, wp.Message, wp.Group)
 			err = json.Unmarshal([]byte(wp.Message), packet)
 			if err != nil {
 				glog.Error(err)
@@ -290,8 +289,14 @@ func (c *appClient) doWithBackOff(msg string, f func() (bool, error)) {
 	}
 	defer c.releaseGoroutine()
 
+	retryCount := 0
+
 	backOff := initialBackOff
 	for {
+		if retryCount > 5 {
+			glog.Errorf("maximum number 10 of retries exceeded")
+			return
+		}
 		done, err := f()
 		if done {
 			return
@@ -306,10 +311,8 @@ func (c *appClient) doWithBackOff(msg string, f func() (bool, error)) {
 		case <-c.quit:
 			return
 		}
+		retryCount++
 		backOff *= 2
-		if backOff > maxBackOff {
-			backOff = maxBackOff
-		}
 	}
 }
 

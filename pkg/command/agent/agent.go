@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	helmcommon "github.com/choerodon/choerodon-cluster-agent/pkg/command/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3"
@@ -63,7 +64,6 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, cmd.Type, err)
 	}
 
-	//启动控制器， todo: 重启metrics
 	//里面含有好多 启动时的方法， 比如启动时发送cert-mgr的情况
 	opts.ControllerContext.ReSync()
 
@@ -154,7 +154,12 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 
 	ch := opts.CrChan
 
-	resp, err := opts.HelmClient.UpgradeRelease(&req)
+	username, password, err := helmcommon.GetCharUsernameAndPassword(opts, cmd)
+	if err != nil {
+		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+	}
+
+	resp, err := opts.HelmClient.UpgradeRelease(&req, username, password)
 	if err != nil {
 		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == kube.AgentNamespace {
 			go func() {

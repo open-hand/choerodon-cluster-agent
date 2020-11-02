@@ -3,8 +3,8 @@ package gitops
 import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
-	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -42,7 +42,7 @@ func writeSSHkey(fileName, key string) error {
 	filename := sshKeyPath + "/rsa-" + fileName
 
 	var f *os.File
-	if checkFileIsExist(filename) { //如果文件存在
+	if util.CheckFileIsExist(filename) { //如果文件存在
 		os.Remove(filename)
 	}
 	f, err := os.OpenFile(filename, os.O_CREATE, 0600)
@@ -77,23 +77,12 @@ func config(host, namespace string) string {
 	return result
 }
 
-func checkFileIsExist(filename string) bool {
-	var exist = true
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		exist = false
-	}
-	return exist
-}
-
 func writeSshConfig(content string) error {
 
 	filename := "/etc/ssh/ssh_config"
 	var f *os.File
-	if checkFileIsExist(filename) { //如果文件存在
-		err := os.Remove(filename)
-		if err != nil {
-			glog.Info(err.Error())
-		}
+	if util.CheckFileIsExist(filename) { //如果文件存在
+		_ = os.Remove(filename)
 	}
 	f, err := os.OpenFile(filename, os.O_CREATE, 0666)
 	if err != nil {

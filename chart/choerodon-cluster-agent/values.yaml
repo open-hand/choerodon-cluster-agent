@@ -18,7 +18,7 @@ config:
   envId: ""
   extraArgs:
   email: change_it@choerodon.io
-  clusterId: "0"
+  clusterId: 0
   choerodonId: "default"
 
 logs:

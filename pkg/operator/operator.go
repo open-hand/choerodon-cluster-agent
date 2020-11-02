@@ -1,7 +1,7 @@
 package operator
 
 import (
-	apis "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/schemafunc"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/controller"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/operator-framework/operator-sdk/pkg/restmapper"
@@ -38,8 +38,10 @@ func New(cfg *rest.Config, namespace string, args *controllerutil.Args) (crmanag
 	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		return nil, err
+	for _, addSchemaFunc := range schemafunc.AddSchemaFuncs {
+		if err := addSchemaFunc(mgr.GetScheme()); err != nil {
+			return nil, err
+		}
 	}
 
 	// Setup all Controllers

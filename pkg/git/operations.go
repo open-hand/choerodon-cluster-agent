@@ -12,14 +12,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/golang/glog"
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
+	"log"
 	"os/exec"
 	"runtime"
 	"strings"
-
-	"github.com/pkg/errors"
-	"log"
 )
 
 // If true, every git invocation will be echoed to stdout
@@ -602,6 +601,7 @@ func execGitCmd(ctx context.Context, dir string, out io.Writer, args ...string) 
 		}
 		println()
 	}
+	glog.V(2).Info(args)
 	c := exec.CommandContext(ctx, "git", args...)
 	if dir != "" {
 		c.Dir = dir

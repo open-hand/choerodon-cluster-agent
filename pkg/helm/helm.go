@@ -36,16 +36,16 @@ const (
 )
 
 var (
-	expectedResourceKind = []string{"Deployment", "ReplicaSet", "StatefulSet"}
+	ExpectedResourceKind = []string{"Deployment", "ReplicaSet", "StatefulSet"}
 )
 
 type Client interface {
 	ListRelease(namespace string) ([]*Release, error)
-	ExecuteTest(request *TestReleaseRequest) (*TestReleaseResponse, error)
-	InstallRelease(request *InstallReleaseRequest) (*Release, error)
-	PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHook, error)
-	PreUpgradeRelease(request *UpgradeReleaseRequest) ([]*ReleaseHook, error)
-	UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error)
+	ExecuteTest(request *TestReleaseRequest, username, password string) (*TestReleaseResponse, error)
+	InstallRelease(request *InstallReleaseRequest, username, password string) (*Release, error)
+	PreInstallRelease(request *InstallReleaseRequest, username, password string) ([]*ReleaseHook, error)
+	PreUpgradeRelease(request *UpgradeReleaseRequest, username, password string) ([]*ReleaseHook, error)
+	UpgradeRelease(request *UpgradeReleaseRequest, username, password string) (*Release, error)
 	DeleteRelease(request *DeleteReleaseRequest) (*release.UninstallReleaseResponse, error)
 	StartRelease(request *StartReleaseRequest, cluster *kubernetes.Cluster) (*StartReleaseResponse, error)
 	StopRelease(request *StopReleaseRequest, cluster *kubernetes.Cluster) (*StopReleaseResponse, error)
@@ -105,12 +105,14 @@ func (c *client) ListRelease(namespace string) ([]*Release, error) {
 }
 
 // 这一步操作存粹是为了获得hooks
-func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHook, error) {
+func (c *client) PreInstallRelease(request *InstallReleaseRequest, username, password string) ([]*ReleaseHook, error) {
 	var releaseHooks []*ReleaseHook
 
 	chartPathOptions := action.ChartPathOptions{
-		RepoURL: request.RepoURL,
-		Version: request.ChartVersion,
+		RepoURL:  request.RepoURL,
+		Version:  request.ChartVersion,
+		Username: username,
+		Password: password,
 	}
 
 	cfg, envSettings := getCfg(request.Namespace)
@@ -167,10 +169,12 @@ func (c *client) PreInstallRelease(request *InstallReleaseRequest) ([]*ReleaseHo
 }
 
 // 安装实例
-func (c *client) InstallRelease(request *InstallReleaseRequest) (*Release, error) {
+func (c *client) InstallRelease(request *InstallReleaseRequest, username, password string) (*Release, error) {
 	chartPathOptions := action.ChartPathOptions{
-		RepoURL: request.RepoURL,
-		Version: request.ChartVersion,
+		RepoURL:  request.RepoURL,
+		Version:  request.ChartVersion,
+		Username: username,
+		Password: password,
 	}
 
 	cfg, envSettings := getCfg(request.Namespace)
@@ -307,11 +311,13 @@ func getCertManagerIssuerData() string {
 }
 
 // 执行测试
-func (c *client) ExecuteTest(request *TestReleaseRequest) (*TestReleaseResponse, error) {
+func (c *client) ExecuteTest(request *TestReleaseRequest, username, password string) (*TestReleaseResponse, error) {
 
 	chartPathOptions := action.ChartPathOptions{
-		RepoURL: request.RepoURL,
-		Version: request.ChartVersion,
+		RepoURL:  request.RepoURL,
+		Version:  request.ChartVersion,
+		Username: username,
+		Password: password,
 	}
 
 	cfg, envSettings := getCfg(TestNamespace)
@@ -525,12 +531,14 @@ func (c *client) getHelmReleaseNoResource(release *release.Release) (*Release, e
 }
 
 // 升级实例前的预操作
-func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest) ([]*ReleaseHook, error) {
+func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest, username, password string) ([]*ReleaseHook, error) {
 	var releaseHooks []*ReleaseHook
 
 	chartPathOptions := action.ChartPathOptions{
-		RepoURL: request.RepoURL,
-		Version: request.ChartVersion,
+		RepoURL:  request.RepoURL,
+		Version:  request.ChartVersion,
+		Username: username,
+		Password: password,
 	}
 
 	cfg, envSettings := getCfg(request.Namespace)
@@ -554,7 +562,7 @@ func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest) ([]*ReleaseHo
 			AppServiceId:     request.AppServiceId,
 			ImagePullSecrets: request.ImagePullSecrets,
 		}
-		return c.PreInstallRelease(installReleaseReq)
+		return c.PreInstallRelease(installReleaseReq, username, password)
 	}
 
 	//如果不存在那么
@@ -596,7 +604,7 @@ func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest) ([]*ReleaseHo
 }
 
 // 升级实例
-func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error) {
+func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, password string) (*Release, error) {
 	cfg, envSettings := getCfg(request.Namespace)
 
 	getClient := action.NewGet(cfg)
@@ -616,7 +624,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 			AppServiceId:     request.AppServiceId,
 			ImagePullSecrets: request.ImagePullSecrets,
 		}
-		installResp, err := c.InstallRelease(installReq)
+		installResp, err := c.InstallRelease(installReq, username, password)
 		if err != nil {
 			return nil, err
 		}
@@ -624,8 +632,10 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest) (*Release, error
 	}
 
 	chartPathOptions := action.ChartPathOptions{
-		RepoURL: request.RepoURL,
-		Version: request.ChartVersion,
+		RepoURL:  request.RepoURL,
+		Version:  request.ChartVersion,
+		Username: username,
+		Password: password,
 	}
 	upgradeClient := action.NewUpgrade(
 		cfg,
@@ -729,7 +739,7 @@ func (c *client) StopRelease(request *StopReleaseRequest, cluster *kubernetes.Cl
 	}
 
 	for _, info := range result {
-		if envkube.InArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+		if envkube.InArray(ExpectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
 			err := cluster.ScaleResource(request.Namespace, info.Object.GetObjectKind().GroupVersionKind().Kind, info.Name, "0")
 			if err != nil {
 				return nil, fmt.Errorf("scale: %v", err)
@@ -761,7 +771,7 @@ func (c *client) StartRelease(request *StartReleaseRequest, cluster *kubernetes.
 	}
 
 	for _, info := range result {
-		if envkube.InArray(expectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
+		if envkube.InArray(ExpectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
 			t := info.Object.(*unstructured.Unstructured)
 			replicas, _, err := unstructured.NestedInt64(t.Object, "spec", "replicas")
 			if err != nil {

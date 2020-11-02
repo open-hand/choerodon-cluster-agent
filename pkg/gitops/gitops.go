@@ -8,7 +8,9 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
+	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -42,7 +44,6 @@ func New(wg *sync.WaitGroup, gitConfig git.Config, gitRepos map[string]*git.Repo
 }
 
 func (g *GitOps) Process() {
-	// todo read from config
 	g.syncInterval = time.Minute * 5
 	g.gitTimeout = time.Minute * 1
 	g.listenEnvs()
@@ -54,12 +55,20 @@ func (g *GitOps) WithStop(stopCh <-chan struct{}) {
 }
 
 func (g *GitOps) listenEnvs() {
+	// 该协程监听环境的定时同步
+	go g.SyncInterval(g.stopCh)
 	for _, envPara := range g.Envs {
 		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, g.GitHost, envPara.Namespace, 1)}
 		repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(g.gitConfig.GitPollInterval))
 		g.Wg.Add(1)
 		// to wait create env git repo
-		time.Sleep(10 * time.Second)
+		if websocket.ReconnectFlag {
+			rand.Seed(time.Now().Unix())
+			sleepTime := 10 + rand.Intn(90)
+			time.Sleep(time.Duration(sleepTime) * time.Second)
+		} else {
+			time.Sleep(10 * time.Second)
+		}
 		go func() {
 			// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
 			err := repo.Start(g.stopCh, repo.RefreshChan, g.Wg)

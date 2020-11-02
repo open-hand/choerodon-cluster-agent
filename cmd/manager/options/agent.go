@@ -255,8 +255,10 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		kubectlDescriber := kubectl.NewKubectl(kubectlPath, cfg)
 		kubectlScaler := kubectl.NewKubectl(kubectlPath, cfg)
 
-		if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAML); err != nil {
-			glog.V(1).Info(err)
+		for _, crdYaml := range model.CRD_YAMLS {
+			if err := kubectlApplier.ApplySingleObj("kube-system", crdYaml); err != nil {
+				glog.V(1).Info(err)
+			}
 		}
 
 		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetCrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
