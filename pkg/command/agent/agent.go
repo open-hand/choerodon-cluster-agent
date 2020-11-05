@@ -45,7 +45,8 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
-	nsList := make([]string, 10)
+	// 此处naList不能使用make进行初始化，比如make([]string,10),make初始化的结果会包含空串，空串会导致创建监听整个集群的controller
+	nsList := []string{}
 	// 检查devops管理的命名空间
 	for _, envPara := range agentInitOpts.Envs {
 		nsList = append(nsList, envPara.Namespace)
