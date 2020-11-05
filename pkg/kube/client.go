@@ -514,7 +514,7 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 	for _, info := range result {
 
 		// add object and pod template label
-		obj, err := labelRepoObj(info, namespace, version, c)
+		obj, err := labelAndAnnotationsRepoObj(info, namespace, version, c, commit)
 
 		if err != nil {
 			return nil, fmt.Errorf("label object: %v", err)
@@ -528,58 +528,33 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 			return nil, fmt.Errorf("yaml marshal: %v", err)
 		}
 
-		m := make(map[string]interface{})
-		err = yaml.Unmarshal(objB, &m)
-
-		if err != nil {
-			return nil, fmt.Errorf("yaml unmarshal: %v", err)
-		}
-		metaData := m["metadata"]
-		metaDataMap := metaData.(map[string]interface{})
-
-		annotationsMap := metaDataMap["annotations"]
-
-		annotations := make(map[string]interface{})
-
-		if annotationsMap == nil {
-			annotationsMap = annotations
-		} else {
-			annotations = annotationsMap.(map[string]interface{})
-		}
-		annotations[model.CommitLabel] = commit
-		metaDataMap["annotations"] = annotationsMap
-		m["metadata"] = metaDataMap
-		newObj, err := yaml.Marshal(m)
-
-		if err != nil {
-			return nil, fmt.Errorf("yaml marshal: %v", err)
-		}
-
 		newManifestBuf.WriteString("\n---\n")
-		newManifestBuf.Write(newObj)
+		newManifestBuf.Write(objB)
 	}
 
 	return newManifestBuf, nil
 }
 
-// 给资源加标签
-func labelRepoObj(info *resource.Info, namespace, version string, c *client) (runtime.Object, error) {
+// 给资源加标签和注解
+func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, c *client, commit string) (runtime.Object, error) {
 
 	obj := info.Object.(*unstructured.Unstructured)
 
 	l := obj.GetLabels()
-	annotation := obj.GetAnnotations()
+	annotations := obj.GetAnnotations()
 
 	if l == nil {
 		l = make(map[string]string)
 	}
 
-	if annotation == nil {
-		annotation = make(map[string]string)
+	if annotations == nil {
+		annotations = make(map[string]string)
 	}
 
 	defer obj.SetLabels(l)
-	defer obj.SetAnnotations(annotation)
+	defer obj.SetAnnotations(annotations)
+
+	annotations[model.CommitLabel] = commit
 
 	switch info.Mapping.GroupVersionKind.Kind {
 	case "Service":
@@ -598,7 +573,7 @@ func labelRepoObj(info *resource.Info, namespace, version string, c *client) (ru
 		newSpecMap := getSpecField(obj.Object)
 
 		if c7nHelmRelease == nil {
-			annotation[model.C7NHelmReleaseOperateAnnotation] = model.INSTALL
+			annotations[model.C7NHelmReleaseOperateAnnotation] = model.INSTALL
 		} else {
 			oldSpec := v1alpha1.C7NHelmReleaseSpec{}
 			newSpec := v1alpha1.C7NHelmReleaseSpec{}
@@ -618,7 +593,7 @@ func labelRepoObj(info *resource.Info, namespace, version string, c *client) (ru
 			}
 
 			if !reflect.DeepEqual(newSpec, oldSpec) {
-				annotation[model.C7NHelmReleaseOperateAnnotation] = model.UPGRADE
+				annotations[model.C7NHelmReleaseOperateAnnotation] = model.UPGRADE
 			}
 		}
 	case "PersistentVolumeClaim":

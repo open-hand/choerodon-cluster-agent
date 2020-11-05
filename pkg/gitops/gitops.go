@@ -44,7 +44,6 @@ func New(wg *sync.WaitGroup, gitConfig git.Config, gitRepos map[string]*git.Repo
 }
 
 func (g *GitOps) Process() {
-	// todo read from config
 	g.syncInterval = time.Minute * 5
 	g.gitTimeout = time.Minute * 1
 	g.listenEnvs()
@@ -56,6 +55,8 @@ func (g *GitOps) WithStop(stopCh <-chan struct{}) {
 }
 
 func (g *GitOps) listenEnvs() {
+	// 该协程监听环境的定时同步
+	go g.SyncInterval(g.stopCh)
 	for _, envPara := range g.Envs {
 		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, g.GitHost, envPara.Namespace, 1)}
 		repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(g.gitConfig.GitPollInterval))

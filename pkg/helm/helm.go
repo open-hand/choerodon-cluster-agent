@@ -41,11 +41,11 @@ var (
 
 type Client interface {
 	ListRelease(namespace string) ([]*Release, error)
-	ExecuteTest(request *TestReleaseRequest,username,password string) (*TestReleaseResponse, error)
-	InstallRelease(request *InstallReleaseRequest,username,password string) (*Release, error)
-	PreInstallRelease(request *InstallReleaseRequest,username,password string) ([]*ReleaseHook, error)
-	PreUpgradeRelease(request *UpgradeReleaseRequest,username,password string) ([]*ReleaseHook, error)
-	UpgradeRelease(request *UpgradeReleaseRequest,username,password string) (*Release, error)
+	ExecuteTest(request *TestReleaseRequest, username, password string) (*TestReleaseResponse, error)
+	InstallRelease(request *InstallReleaseRequest, username, password string) (*Release, error)
+	PreInstallRelease(request *InstallReleaseRequest, username, password string) ([]*ReleaseHook, error)
+	PreUpgradeRelease(request *UpgradeReleaseRequest, username, password string) ([]*ReleaseHook, error)
+	UpgradeRelease(request *UpgradeReleaseRequest, username, password string) (*Release, error)
 	DeleteRelease(request *DeleteReleaseRequest) (*release.UninstallReleaseResponse, error)
 	StartRelease(request *StartReleaseRequest, cluster *kubernetes.Cluster) (*StartReleaseResponse, error)
 	StopRelease(request *StopReleaseRequest, cluster *kubernetes.Cluster) (*StopReleaseResponse, error)
@@ -105,7 +105,7 @@ func (c *client) ListRelease(namespace string) ([]*Release, error) {
 }
 
 // 这一步操作存粹是为了获得hooks
-func (c *client) PreInstallRelease(request *InstallReleaseRequest,username,password string) ([]*ReleaseHook, error) {
+func (c *client) PreInstallRelease(request *InstallReleaseRequest, username, password string) ([]*ReleaseHook, error) {
 	var releaseHooks []*ReleaseHook
 
 	chartPathOptions := action.ChartPathOptions{
@@ -311,7 +311,7 @@ func getCertManagerIssuerData() string {
 }
 
 // 执行测试
-func (c *client) ExecuteTest(request *TestReleaseRequest,username,password string) (*TestReleaseResponse, error) {
+func (c *client) ExecuteTest(request *TestReleaseRequest, username, password string) (*TestReleaseResponse, error) {
 
 	chartPathOptions := action.ChartPathOptions{
 		RepoURL:  request.RepoURL,
@@ -531,7 +531,7 @@ func (c *client) getHelmReleaseNoResource(release *release.Release) (*Release, e
 }
 
 // 升级实例前的预操作
-func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest,username,password string) ([]*ReleaseHook, error) {
+func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest, username, password string) ([]*ReleaseHook, error) {
 	var releaseHooks []*ReleaseHook
 
 	chartPathOptions := action.ChartPathOptions{
@@ -562,7 +562,7 @@ func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest,username,passw
 			AppServiceId:     request.AppServiceId,
 			ImagePullSecrets: request.ImagePullSecrets,
 		}
-		return c.PreInstallRelease(installReleaseReq,username,password)
+		return c.PreInstallRelease(installReleaseReq, username, password)
 	}
 
 	//如果不存在那么
@@ -604,7 +604,7 @@ func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest,username,passw
 }
 
 // 升级实例
-func (c *client) UpgradeRelease(request *UpgradeReleaseRequest,username,password string) (*Release, error) {
+func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, password string) (*Release, error) {
 	cfg, envSettings := getCfg(request.Namespace)
 
 	getClient := action.NewGet(cfg)
@@ -624,7 +624,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest,username,password
 			AppServiceId:     request.AppServiceId,
 			ImagePullSecrets: request.ImagePullSecrets,
 		}
-		installResp, err := c.InstallRelease(installReq,username,password)
+		installResp, err := c.InstallRelease(installReq, username, password)
 		if err != nil {
 			return nil, err
 		}
