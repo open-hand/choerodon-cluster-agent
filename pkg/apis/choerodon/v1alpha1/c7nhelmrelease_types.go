@@ -24,7 +24,6 @@ type C7NHelmReleaseSpec struct {
 	AppServiceId int64 `json:"appServiceId,omitempty"`
 }
 
-
 // C7NHelmReleaseStatus defines the observed state of C7NHelmRelease
 // +k8s:openapi-gen=true
 type C7NHelmReleaseStatus struct {

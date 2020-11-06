@@ -45,6 +45,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
+	// 此处naList不能使用make进行初始化，比如make([]string,10),make初始化的结果会包含空串，空串会导致创建监听整个集群的controller
 	nsList := []string{}
 	// 检查devops管理的命名空间
 	for _, envPara := range agentInitOpts.Envs {
@@ -64,7 +65,6 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, cmd.Type, err)
 	}
 
-	//启动控制器， todo: 重启metrics
 	//里面含有好多 启动时的方法， 比如启动时发送cert-mgr的情况
 	opts.ControllerContext.ReSync()
 
@@ -211,14 +211,15 @@ func createNamespace(opts *commandutil.Opts, namespaceName string, releases []st
 	}
 
 	labels := ns.Labels
+	annotations := ns.Annotations
 	// 如果命名空间存在，则检查labels标签
 	if _, ok := labels[model.HelmVersion]; !ok {
-		return update(opts, releases, namespaceName, labels)
+		return update(opts, releases, namespaceName, labels, annotations)
 	}
 	return nil
 }
 
-func update(opts *commandutil.Opts, releases []string, namespaceName string, labels map[string]string) error {
+func update(opts *commandutil.Opts, releases []string, namespaceName string, labels, annotations map[string]string) error {
 	releaseCount := len(releases)
 	upgradeCount := 0
 	if releaseCount != 0 {
@@ -260,8 +261,9 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 	labels[model.HelmVersion] = "helm3"
 	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Update(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   namespaceName,
-			Labels: labels,
+			Name:        namespaceName,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 	})
 	return err
@@ -274,6 +276,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 		return err
 	}
 	labels := deployment.ObjectMeta.GetLabels()
+	annotations := deployment.ObjectMeta.GetAnnotations()
 
 	// agent实例是否由helm3进行管理的
 	if labels[model.HelmVersion] != "helm3" {
@@ -288,7 +291,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 			if rls.Status != release.StatusDeployed.String() {
 				return fmt.Errorf("agent: %s,status %s", agentName, rls.Status)
 			}
-			updateAgentDeploymentLabels(opts, deployment, labels)
+			updateAgentDeploymentLabels(opts, deployment, labels, annotations)
 		} else {
 			// 实例由helm2管理，先升级成helm3管理，然后更新标签
 			err = helm2to3.RunConvert(agentName)
@@ -297,7 +300,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 				if opts.ClearHelmHistory {
 					helm2to3.RunCleanup(agentName)
 				}
-				updateAgentDeploymentLabels(opts, deployment, labels)
+				updateAgentDeploymentLabels(opts, deployment, labels, annotations)
 			} else {
 				return err
 			}
@@ -306,9 +309,12 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 	return nil
 }
 
-func updateAgentDeploymentLabels(opts *commandutil.Opts, deployment *appsv1.Deployment, labels map[string]string) {
+func updateAgentDeploymentLabels(opts *commandutil.Opts, deployment *appsv1.Deployment, labels, annotations map[string]string) {
 	if labels == nil {
 		labels = make(map[string]string)
+	}
+	if annotations == nil {
+		annotations = make(map[string]string)
 	}
 	labels[model.HelmVersion] = "helm3"
 	deployment.SetLabels(labels)

@@ -44,7 +44,6 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
-	//启动控制器， todo: 后期移除
 	opts.ControllerContext.ReSync()
 
 	cfg, err := opts.KubeClient.GetRESTConfig()

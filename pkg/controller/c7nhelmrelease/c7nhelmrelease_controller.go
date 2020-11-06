@@ -8,6 +8,7 @@ import (
 	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -105,11 +106,11 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			if !r.checkCrdDeleted(instance) {
 				runtimeutil.HandleError(fmt.Errorf("C7NHelmReleases '%s' in work queue no longer exists", name))
 				if cmd := deleteHelmReleaseCmd(namespace, name); cmd != nil {
-					glog.Infof("release %s delete", name)
+					glog.Infof("[Goroutine %d] release %s delete",util.GetGID(), name)
 					commandChan <- cmd
 				}
 			} else {
-				glog.Warningf("C7NHelmReleases crd not exist")
+				glog.Warningf("[Goroutine %d] C7NHelmReleases crd not exist",util.GetGID())
 			}
 			return result, nil
 		}
@@ -127,7 +128,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	}
 
 	if instance.Annotations == nil || instance.Annotations[model.CommitLabel] == "" {
-		return result, fmt.Errorf("c7nhelmrelease has no commit annotations")
+		return result, fmt.Errorf("[Goroutine %d] c7nhelmrelease has no commit annotations",util.GetGID())
 	}
 
 	operate, ok := instance.Annotations[model.C7NHelmReleaseOperateAnnotation]
@@ -135,16 +136,16 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		switch operate {
 		case model.INSTALL:
 			// 安装操作
-			glog.Infof("release %s not found", instance.Name)
+			glog.Infof("[Goroutine %d] release %s not found",util.GetGID(), instance.Name)
 			if cmd := installHelmReleaseCmd(instance); cmd != nil {
-				glog.Infof("release %s start to install", instance.Name)
+				glog.Infof("[Goroutine %d] release %s start to install",util.GetGID(), instance.Name)
 				commandChan <- cmd
 			}
 			break
 		case model.UPGRADE:
 			// 升级操作
 			if cmd := updateHelmReleaseCmd(instance); cmd != nil {
-				glog.Infof("release %s upgrade", instance.Name)
+				glog.Infof("[Goroutine %d] release %s upgrade",util.GetGID(), instance.Name)
 				commandChan <- cmd
 			}
 		}

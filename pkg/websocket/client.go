@@ -171,7 +171,7 @@ func (c *appClient) connect() error {
 				break
 			}
 			packet := &model.Packet{}
-			glog.V(1).Infof("receive command: ", wp)
+			glog.V(1).Infof("receive message:\n>>>\nKey: %s\nType: %s\nMessage: %s\nGroup %s\n<<<", wp.Key, wp.Type, wp.Message, wp.Group)
 			err = json.Unmarshal([]byte(wp.Message), packet)
 			if err != nil {
 				glog.Error(err)
