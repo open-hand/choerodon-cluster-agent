@@ -357,6 +357,8 @@ func checkKube(client *k8sclient.Clientset) {
 func startCronJob(o *AgentOptions, errChan chan<- error) {
 	c := cron.New()
 
+	glog.Infof("cron: %s", o.clearHelmCacheCron)
+
 	_, err := c.AddFunc(o.clearHelmCacheCron, func() {
 		glog.Info("start to delete helm cache")
 
