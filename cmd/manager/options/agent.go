@@ -21,6 +21,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
+	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +42,7 @@ const (
 	defaultGitSyncTag       = "agent-sync"
 	defaultGitDevOpsSyncTag = "devops-sync"
 	defaultGitNotesRef      = "choerodon"
+	helmCacheDir            = "/root/.cache/helm/repository"
 )
 
 var (
@@ -82,6 +84,7 @@ type AgentOptions struct {
 	syncAll            bool
 	polarisFile        string
 	clearHelmHistory   bool
+	clearHelmCacheCron string
 }
 
 func printVersion() {
@@ -146,7 +149,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	// graceful shutdown
 	defer func() {
-		glog.Errorf("exiting %s", <-errChan)
+		glog.Errorf("%s", <-errChan)
 		close(shutdown)
 		shutdownWg.Wait()
 		glog.Info("exit in 5 seconds")
@@ -214,6 +217,9 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	}
 
 	shutdownWg.Add(1)
+
+	startCronJob(o, errChan)
+
 	go appClient.Loop(shutdown, shutdownWg)
 
 	//gitRemote := git.Remote{URL: o.gitURL}
@@ -298,6 +304,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 }
 
 func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
+	fs.StringVar(&o.clearHelmCacheCron, "clear-helm-cache-cron", "0 0 * * *", "cron jon for clear cache of helm")
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
 	fs.StringVar(&o.Listen, "listen", o.Listen, "address:port to listen on")
 	fs.StringVar(&kube.AgentVersion, "agent-version", "", "agent version")
@@ -345,4 +352,27 @@ func checkKube(client *k8sclient.Clientset) {
 		os.Exit(0)
 	}
 	glog.Infof("k8s role binding succeed.")
+}
+
+func startCronJob(o *AgentOptions, errChan chan<- error) {
+	c := cron.New()
+
+	glog.Infof("cron: %s", o.clearHelmCacheCron)
+
+	_, err := c.AddFunc(o.clearHelmCacheCron, func() {
+		glog.Info("start to delete helm cache")
+
+		err := os.RemoveAll(helmCacheDir)
+		if err != nil {
+			glog.Errorf("Failed to delete helm cache: %s", err.Error())
+			return
+		}
+
+		glog.Info("success to delete helm cache")
+	})
+
+	if err != nil {
+		errChan <- fmt.Errorf("failed to add cron job: %s", err.Error())
+	}
+	c.Start()
 }
