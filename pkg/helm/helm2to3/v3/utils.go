@@ -19,7 +19,7 @@ package v3
 import (
 	"os"
 
-	"github.com/choerodon/helm/pkg/helmpath"
+	"github.com/open-hand/helm/pkg/helmpath"
 )
 
 // ConfigDir returns the v2 config directory

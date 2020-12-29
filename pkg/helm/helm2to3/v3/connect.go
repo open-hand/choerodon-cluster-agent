@@ -22,8 +22,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/choerodon/helm/pkg/action"
-	"github.com/choerodon/helm/pkg/cli"
+	"github.com/open-hand/helm/pkg/action"
+	"github.com/open-hand/helm/pkg/cli"
 )
 
 var (

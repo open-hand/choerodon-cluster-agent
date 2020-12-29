@@ -13,7 +13,7 @@ import (
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
-	"github.com/choerodon/helm/pkg/release"
+	"github.com/open-hand/helm/pkg/release"
 	"github.com/golang/glog"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
