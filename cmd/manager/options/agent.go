@@ -15,19 +15,21 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/cron"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
-	"github.com/robfig/cron/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"net/http"
+	"net/http/pprof"
+	_ "net/http/pprof"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -85,6 +87,7 @@ type AgentOptions struct {
 	polarisFile        string
 	clearHelmHistory   bool
 	clearHelmCacheCron string
+	pprof              bool
 }
 
 func printVersion() {
@@ -218,8 +221,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	shutdownWg.Add(1)
 
-	startCronJob(o, errChan)
-
 	go appClient.Loop(shutdown, shutdownWg)
 
 	//gitRemote := git.Remote{URL: o.gitURL}
@@ -299,11 +300,35 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	go workerManager.Start()
 
 	go func() {
-		errChan <- http.ListenAndServe(o.Listen, nil)
+		var mux *http.ServeMux
+		if o.pprof {
+			mux = http.NewServeMux()
+			mux.HandleFunc("/debug/pprof/", pprof.Index)
+			mux.HandleFunc("/debug/pprof/heap", pprof.Index)
+			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		}
+		errChan <- http.ListenAndServe(o.Listen, mux)
 	}()
+
+	cron.AddCronJob("0 0 * * *", func() {
+		glog.Info("start to delete helm cache")
+		err := os.RemoveAll(helmCacheDir)
+		if err != nil {
+			glog.Errorf("Failed to delete helm cache: %s", err.Error())
+			return
+		}
+		glog.Info("success to delete helm cache")
+	})
+
+	cron.StartCron(errChan)
+
 }
 
 func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&o.pprof, "enable-pprof", false, "enable pprof")
 	fs.StringVar(&o.clearHelmCacheCron, "clear-helm-cache-cron", "0 0 * * *", "cron jon for clear cache of helm")
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
 	fs.StringVar(&o.Listen, "listen", o.Listen, "address:port to listen on")
@@ -352,27 +377,4 @@ func checkKube(client *k8sclient.Clientset) {
 		os.Exit(0)
 	}
 	glog.Infof("k8s role binding succeed.")
-}
-
-func startCronJob(o *AgentOptions, errChan chan<- error) {
-	c := cron.New()
-
-	glog.Infof("cron: %s", o.clearHelmCacheCron)
-
-	_, err := c.AddFunc(o.clearHelmCacheCron, func() {
-		glog.Info("start to delete helm cache")
-
-		err := os.RemoveAll(helmCacheDir)
-		if err != nil {
-			glog.Errorf("Failed to delete helm cache: %s", err.Error())
-			return
-		}
-
-		glog.Info("success to delete helm cache")
-	})
-
-	if err != nil {
-		errChan <- fmt.Errorf("failed to add cron job: %s", err.Error())
-	}
-	c.Start()
 }

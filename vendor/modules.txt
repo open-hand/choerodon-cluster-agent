@@ -63,44 +63,6 @@ github.com/chai2010/gettext-go/gettext
 github.com/chai2010/gettext-go/gettext/mo
 github.com/chai2010/gettext-go/gettext/plural
 github.com/chai2010/gettext-go/gettext/po
-# github.com/choerodon/helm v0.0.0-20200923023956-4ba6797d37a4
-github.com/choerodon/helm/internal/experimental/registry
-github.com/choerodon/helm/internal/ignore
-github.com/choerodon/helm/internal/resolver
-github.com/choerodon/helm/internal/sympath
-github.com/choerodon/helm/internal/third_party/dep/fs
-github.com/choerodon/helm/internal/third_party/k8s.io/kubernetes/deployment/util
-github.com/choerodon/helm/internal/tlsutil
-github.com/choerodon/helm/internal/urlutil
-github.com/choerodon/helm/internal/version
-github.com/choerodon/helm/pkg/action
-github.com/choerodon/helm/pkg/agent/action
-github.com/choerodon/helm/pkg/agent/model
-github.com/choerodon/helm/pkg/chart
-github.com/choerodon/helm/pkg/chart/loader
-github.com/choerodon/helm/pkg/chartutil
-github.com/choerodon/helm/pkg/cli
-github.com/choerodon/helm/pkg/cli/values
-github.com/choerodon/helm/pkg/downloader
-github.com/choerodon/helm/pkg/engine
-github.com/choerodon/helm/pkg/getter
-github.com/choerodon/helm/pkg/helmpath
-github.com/choerodon/helm/pkg/helmpath/xdg
-github.com/choerodon/helm/pkg/kube
-github.com/choerodon/helm/pkg/kube/fake
-github.com/choerodon/helm/pkg/lint
-github.com/choerodon/helm/pkg/lint/rules
-github.com/choerodon/helm/pkg/lint/support
-github.com/choerodon/helm/pkg/plugin
-github.com/choerodon/helm/pkg/postrender
-github.com/choerodon/helm/pkg/provenance
-github.com/choerodon/helm/pkg/release
-github.com/choerodon/helm/pkg/releaseutil
-github.com/choerodon/helm/pkg/repo
-github.com/choerodon/helm/pkg/storage
-github.com/choerodon/helm/pkg/storage/driver
-github.com/choerodon/helm/pkg/strvals
-github.com/choerodon/helm/pkg/time
 # github.com/containerd/cgroups v0.0.0-20190919134610-bf292b21730f
 github.com/containerd/cgroups/stats/v1
 # github.com/containerd/containerd v1.3.2
@@ -348,6 +310,44 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/morikuni/aec v1.0.0
 github.com/morikuni/aec
+# github.com/open-hand/helm v0.0.0-20201229035113-76dd13b48dd7 => ../open-hand-helm
+github.com/open-hand/helm/internal/experimental/registry
+github.com/open-hand/helm/internal/ignore
+github.com/open-hand/helm/internal/resolver
+github.com/open-hand/helm/internal/sympath
+github.com/open-hand/helm/internal/third_party/dep/fs
+github.com/open-hand/helm/internal/third_party/k8s.io/kubernetes/deployment/util
+github.com/open-hand/helm/internal/tlsutil
+github.com/open-hand/helm/internal/urlutil
+github.com/open-hand/helm/internal/version
+github.com/open-hand/helm/pkg/action
+github.com/open-hand/helm/pkg/agent/action
+github.com/open-hand/helm/pkg/agent/model
+github.com/open-hand/helm/pkg/chart
+github.com/open-hand/helm/pkg/chart/loader
+github.com/open-hand/helm/pkg/chartutil
+github.com/open-hand/helm/pkg/cli
+github.com/open-hand/helm/pkg/cli/values
+github.com/open-hand/helm/pkg/downloader
+github.com/open-hand/helm/pkg/engine
+github.com/open-hand/helm/pkg/getter
+github.com/open-hand/helm/pkg/helmpath
+github.com/open-hand/helm/pkg/helmpath/xdg
+github.com/open-hand/helm/pkg/kube
+github.com/open-hand/helm/pkg/kube/fake
+github.com/open-hand/helm/pkg/lint
+github.com/open-hand/helm/pkg/lint/rules
+github.com/open-hand/helm/pkg/lint/support
+github.com/open-hand/helm/pkg/plugin
+github.com/open-hand/helm/pkg/postrender
+github.com/open-hand/helm/pkg/provenance
+github.com/open-hand/helm/pkg/release
+github.com/open-hand/helm/pkg/releaseutil
+github.com/open-hand/helm/pkg/repo
+github.com/open-hand/helm/pkg/storage
+github.com/open-hand/helm/pkg/storage/driver
+github.com/open-hand/helm/pkg/strvals
+github.com/open-hand/helm/pkg/time
 # github.com/opencontainers/go-digest v1.0.0-rc1
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.1
@@ -385,8 +385,6 @@ github.com/prometheus/procfs/internal/util
 github.com/qri-io/jsonpointer
 # github.com/qri-io/jsonschema v0.1.1
 github.com/qri-io/jsonschema
-# github.com/robfig/cron v1.1.0
-github.com/robfig/cron
 # github.com/robfig/cron/v3 v3.0.1
 github.com/robfig/cron/v3
 # github.com/russross/blackfriday v1.5.2

@@ -26,9 +26,9 @@ import (
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/golang/protobuf/ptypes/timestamp"
 
-	"github.com/choerodon/helm/pkg/chart"
-	"github.com/choerodon/helm/pkg/release"
-	"github.com/choerodon/helm/pkg/time"
+	"github.com/open-hand/helm/pkg/chart"
+	"github.com/open-hand/helm/pkg/release"
+	"github.com/open-hand/helm/pkg/time"
 
 	v2chrtutil "k8s.io/helm/pkg/chartutil"
 	v2chart "k8s.io/helm/pkg/proto/hapi/chart"

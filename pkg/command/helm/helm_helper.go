@@ -8,7 +8,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
-	helm_release "github.com/choerodon/helm/pkg/release"
+	helm_release "github.com/open-hand/helm/pkg/release"
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
