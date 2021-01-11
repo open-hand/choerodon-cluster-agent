@@ -22,7 +22,7 @@ RUN cp /etc/apt/sources.list /etc/apt/sources.list.bak && \
        "http://mirror.azure.cn/kubernetes/kubectl/$(curl -sSL http://mirror.azure.cn/kubernetes/kubectl/stable.txt)/bin/linux/amd64/kubectl" && \
     chmod a+x /usr/bin/kubectl && \
     curl -sSL -o /usr/bin/tini \
-        "http://files.saas.hand-china.com/tini/${TINI_VERSION}/tini" && \
+        "https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini" && \
     chmod a+x /usr/bin/tini && \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     echo "Asia/Shanghai" > /etc/timezone
@@ -37,7 +37,8 @@ RUN echo "${USER_NAME}:x:${USER_UID}:0:${USER_NAME} user:${HOME}:/sbin/nologin" 
     && chown ${USER_UID}:0 /ssh-keys \
     && chown ${USER_UID}:0 /polaris \
     && chown ${USER_UID}:0 /tmp \
-    && chown ${USER_UID}:0 /etc/ssh/ssh_config
+    && chown ${USER_UID}:0 /etc/ssh/ssh_config \
+    && chown ${USER_UID}:0 /root/.kube
 
 COPY --from=builder /go/src/github.com/choerodon/choerodon-cluster-agent/choerodon-cluster-agent /
 
