@@ -14,6 +14,7 @@ const (
 	AppServiceIdLabel               = "choerodon.io/app-service-id"
 	C7NHelmReleaseClusterLabel      = "choerodon.io/C7NHelmRelease-cluster"
 	C7NHelmReleaseOperateAnnotation = "choerodon.io/C7NHelmRelease-operate"
+	C7NHelmReleaseOldNameAnnotation = "choerodon.io/C7NHelmRelease-old-name"
 	TestLabel                       = "choerodon.io/test"
 	EnvLabel                        = "choerodon.io/env"
 	PvLabel                         = "choerodon.io/pv"

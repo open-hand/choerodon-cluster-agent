@@ -156,25 +156,3 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 		Payload: fmt.Sprintf(model.PodStatus, "deleted"),
 	}
 }
-
-// TODO devops 没有使用此功能，注释掉，等待以后有相关业务再处理
-//func RollbackHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-//	var req helm.RollbackReleaseRequest
-//	err := json.Unmarshal([]byte(cmd.Payload), &req)
-//	if err != nil {
-//		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err)
-//	}
-//	resp, err := opts.HelmClient.RollbackRelease(&req)
-//	if err != nil {
-//		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err)
-//	}
-//	respB, err := json.Marshal(resp)
-//	if err != nil {
-//		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseRollbackFailed, err)
-//	}
-//	return nil, &model.Packet{
-//		Key:     cmd.Key,
-//		Type:    model.HelmReleaseRollback,
-//		Payload: string(respB),
-//	}
-//}

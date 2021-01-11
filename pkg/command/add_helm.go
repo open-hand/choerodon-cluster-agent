@@ -19,6 +19,7 @@ func init() {
 
 	Funcs.Add(model.HelmInstallJobInfo, helm.InstallJobInfo)
 	Funcs.Add(model.HelmUpgradeJobInfo, helm.UpgradeJobInfo)
+	Funcs.Add(model.HelmCrossUpgradeJobInfo, helm.CrossUpgradeJobInfo)
 
 	Funcs.Add(model.HelmReleaseStart, helm.StartHelmRelease)
 	Funcs.Add(model.HelmReleaseStop, helm.StopHelmRelease)
