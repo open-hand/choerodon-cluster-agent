@@ -7,6 +7,7 @@ package git
 import (
 	"context"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ import (
 )
 
 const (
+	minWaitTime     = 60
 	defaultInterval = 5 * time.Minute
 	opTimeout       = 1 * time.Minute
 
@@ -275,7 +277,12 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 		case RepoReady:
 		}
 
-		tryAgain := time.NewTimer(10 * time.Second)
+		rand.Seed(time.Now().Unix())
+
+		waitTime := minWaitTime + rand.Intn(120)
+
+		tryAgain := time.NewTimer(time.Duration(waitTime) * time.Second)
+
 		select {
 		case <-shutdown:
 			glog.Infof("env:%s stop refreshLoop", r.Env)
