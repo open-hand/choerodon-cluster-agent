@@ -26,8 +26,10 @@ const (
 	HelmReleaseUpgrade              = "helm_release_upgrade"
 	HelmReleaseSyncedFailed         = "helm_release_sync_failed"
 	HelmReleaseInstallFailed        = "helm_release_install_failed"
+	HelmReleaseCrossUpgradeFailed   = "helm_release_cross_upgrade_failed"
 	HelmInstallJobInfo              = "helm_install_job_info"
 	HelmUpgradeJobInfo              = "helm_upgrade_job_info"
+	HelmCrossUpgradeJobInfo         = "helm_cross_upgrade_job_info"
 	HelmJobLog                      = "helm_job_log"
 	HelmJobEvent                    = "helm_job_event"
 	HelmReleaseRollback             = "helm_release_rollback"
@@ -113,7 +115,8 @@ const (
 )
 
 const (
-	PodStatus = `{"status":"%s"}`
-	INSTALL   = "INSTALL"
-	UPGRADE   = "UPGRADE"
+	PodStatus     = `{"status":"%s"}`
+	INSTALL       = "INSTALL"
+	UPGRADE       = "UPGRADE"
+	CROSS_UPGRADE = "CROSS-UPGRADE"
 )

@@ -592,6 +592,11 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 				break
 			}
 
+			// 表示市场应用的跨服务升级
+			if oldSpec.ChartName != newSpec.ChartName {
+				annotations[model.C7NHelmReleaseOperateAnnotation] = model.CROSS_UPGRADE
+			}
+
 			if !reflect.DeepEqual(newSpec, oldSpec) {
 				annotations[model.C7NHelmReleaseOperateAnnotation] = model.UPGRADE
 			}

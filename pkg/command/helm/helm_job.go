@@ -133,3 +133,31 @@ func UpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 	newCmds = append(newCmds, newCmd)
 	return newCmds, resp
 }
+
+func CrossUpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var req helm.UpgradeReleaseRequest
+	var newCmds []*model.Packet
+	err := json.Unmarshal([]byte(cmd.Payload), &req)
+	deleteReq := helm.DeleteReleaseRequest{
+		ReleaseName: req.ReleaseName,
+		Namespace:   req.Namespace,
+	}
+	if err != nil {
+		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseCrossUpgradeFailed, err)
+	}
+	_, err = opts.HelmClient.DeleteRelease(&deleteReq)
+	if err != nil {
+		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseCrossUpgradeFailed, err)
+	}
+	glog.Info("Old instance %s was deleted successfully", req.ReleaseName)
+
+	installCmd := &model.Packet{
+		Key:     fmt.Sprintf("env:%s.release:%s", req.Namespace, req.ReleaseName),
+		Type:    model.HelmInstallJobInfo,
+		Payload: cmd.Payload,
+	}
+
+	newCmds = append(newCmds, installCmd)
+
+	return newCmds, nil
+}
