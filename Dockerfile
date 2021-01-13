@@ -15,6 +15,7 @@ RUN echo "${USER_NAME}:x:${USER_UID}:0:${USER_NAME} user:${HOME}:/sbin/nologin" 
     && mkdir -p /polaris \
     && mkdir -p /tmp \
     && mkdir -p /etc/ssh \
+    && mkdir -p /root/.kube \
     && chown ${USER_UID}:0 ${HOME} \
     && chown ${USER_UID}:0 /ssh-keys \
     && chown ${USER_UID}:0 /polaris \
