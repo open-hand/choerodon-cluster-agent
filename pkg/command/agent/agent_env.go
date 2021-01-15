@@ -76,7 +76,7 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 
 	//启动repo、
 	g.Envs = append(g.Envs, agentInitOpts.Envs[0])
-	go g.WithStop(opts.StopCh)
+	go g.WithStop()
 
 	return nil, nil
 }

@@ -275,8 +275,11 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 			cancel()
 			r.setStatus(RepoCloned, err)
 		case RepoReady:
+			// 仓库拉取完成，退出协程
+			return nil
 		}
 
+		// 随机随眠，防止多个环境同时开始拉取gitlab
 		rand.Seed(time.Now().Unix())
 
 		waitTime := minWaitTime + rand.Intn(120)
