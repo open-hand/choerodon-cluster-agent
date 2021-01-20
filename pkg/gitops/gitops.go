@@ -49,9 +49,11 @@ func (g *GitOps) Process() {
 	g.listenEnvs()
 }
 
-func (g *GitOps) WithStop(stopCh <-chan struct{}) {
-	g.stopCh = stopCh
+func (g *GitOps) WithStop() {
+	g.stopCh = websocket.GitStopChan
 	g.Process()
+	// GitStopped置为false
+	websocket.GitStopped = false
 }
 
 func (g *GitOps) listenEnvs() {
@@ -62,13 +64,9 @@ func (g *GitOps) listenEnvs() {
 		repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(g.gitConfig.GitPollInterval))
 		g.Wg.Add(1)
 		// to wait create env git repo
-		if websocket.ReconnectFlag {
-			rand.Seed(time.Now().Unix())
-			sleepTime := 10 + rand.Intn(90)
-			time.Sleep(time.Duration(sleepTime) * time.Second)
-		} else {
-			time.Sleep(10 * time.Second)
-		}
+		rand.Seed(time.Now().Unix())
+		sleepTime := 10 + rand.Intn(90)
+		time.Sleep(time.Duration(sleepTime) * time.Second)
 		go func() {
 			// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
 			err := repo.Start(g.stopCh, repo.RefreshChan, g.Wg)

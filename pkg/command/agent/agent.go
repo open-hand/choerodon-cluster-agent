@@ -13,8 +13,8 @@ import (
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
-	"github.com/open-hand/helm/pkg/release"
 	"github.com/golang/glog"
+	"github.com/open-hand/helm/pkg/release"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -102,7 +102,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 
 	g.Envs = agentInitOpts.Envs
 	opts.AgentInitOps.Envs = agentInitOpts.Envs
-	go g.WithStop(opts.StopCh)
+	go g.WithStop()
 
 	listOpts := metav1.ListOptions{}
 

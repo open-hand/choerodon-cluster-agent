@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/maorfr/helm-plugin-utils v0.0.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/open-hand/helm v0.0.0-20201229035113-76dd13b48dd7
+	github.com/open-hand/helm v0.0.0-20201229071442-80fda0baee90
 	github.com/operator-framework/operator-sdk v0.15.2
 	github.com/pkg/errors v0.9.1
 	github.com/qri-io/jsonschema v0.1.1
@@ -72,6 +72,5 @@ replace (
 	github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
 	github.com/docker/docker => github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
 	github.com/maorfr/helm-plugin-utils => github.com/maorfr/helm-plugin-utils v0.0.0-20200216074820-36d2fcf6ae86
-	github.com/open-hand/helm => ../open-hand-helm
 	k8s.io/apimachinery/pkg/apimachinery => ./certificate/apimachinery
 )
