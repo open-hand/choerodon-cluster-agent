@@ -149,7 +149,7 @@ func CrossUpgradeJobInfo(opts *command.Opts, cmd *model.Packet) ([]*model.Packet
 	if err != nil {
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseCrossUpgradeFailed, err)
 	}
-	glog.Info("Old instance %s was deleted successfully", req.ReleaseName)
+	glog.Infof("Old instance %s was deleted successfully", req.ReleaseName)
 
 	installCmd := &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s", req.Namespace, req.ReleaseName),
