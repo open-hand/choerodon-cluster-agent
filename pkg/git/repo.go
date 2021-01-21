@@ -7,6 +7,7 @@ package git
 import (
 	"context"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ import (
 )
 
 const (
+	minWaitTime     = 60
 	defaultInterval = 5 * time.Minute
 	opTimeout       = 1 * time.Minute
 
@@ -273,9 +275,17 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 			cancel()
 			r.setStatus(RepoCloned, err)
 		case RepoReady:
+			// 仓库拉取完成，退出协程
+			return nil
 		}
 
-		tryAgain := time.NewTimer(10 * time.Second)
+		// 随机随眠，防止多个环境同时开始拉取gitlab
+		rand.Seed(time.Now().Unix())
+
+		waitTime := minWaitTime + rand.Intn(120)
+
+		tryAgain := time.NewTimer(time.Duration(waitTime) * time.Second)
+
 		select {
 		case <-shutdown:
 			glog.Infof("env:%s stop refreshLoop", r.Env)

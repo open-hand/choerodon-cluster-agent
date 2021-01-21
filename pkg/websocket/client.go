@@ -33,6 +33,8 @@ const (
 )
 
 var ReconnectFlag = false
+var GitStopChan = make(chan struct{})
+var GitStopped = false
 
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
@@ -103,6 +105,10 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 			if err != nil {
 				glog.Error(err)
 				ReconnectFlag = true
+				if !GitStopped {
+					close(GitStopChan)
+					GitStopped = true
+				}
 			}
 			time.Sleep(backOff)
 		case <-stop:
@@ -126,6 +132,9 @@ func (c *appClient) connect() error {
 	// 建立连接，同步资源对象
 	if ReconnectFlag {
 		c.crChannel.CommandChan <- newReConnectCommand()
+		// 重置该标志
+		ReconnectFlag = false
+		GitStopChan = make(chan struct{})
 	}
 
 	defer func() {

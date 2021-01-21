@@ -102,7 +102,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 
 	g.Envs = agentInitOpts.Envs
 	opts.AgentInitOps.Envs = agentInitOpts.Envs
-	go g.WithStop(opts.StopCh)
+	go g.WithStop()
 
 	listOpts := metav1.ListOptions{}
 
