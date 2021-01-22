@@ -592,6 +592,8 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 				return nil, err
 			}
 
+			glog.Infof("oldSpecChartName:%s newSpecChartName:%s", oldSpec.ChartName, newSpec.ChartName)
+
 			// 表示市场应用的跨服务升级
 			if oldSpec.ChartName != newSpec.ChartName {
 				annotations[model.C7NHelmReleaseOperateAnnotation] = model.CROSS_UPGRADE
