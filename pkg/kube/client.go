@@ -585,11 +585,11 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 			newSpecJsonByte, err := json.Marshal(newSpecMap)
 			if err != nil {
 				glog.Info(err)
-				break
+				return nil, err
 			}
 			if err := json.Unmarshal(newSpecJsonByte, &newSpec); err != nil {
 				glog.Info(err)
-				break
+				return nil, err
 			}
 
 			// 表示市场应用的跨服务升级
