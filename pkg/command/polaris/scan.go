@@ -1,6 +1,7 @@
 package polaris
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
@@ -8,11 +9,11 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/validator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
-	ws "github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
-	"github.com/gorilla/websocket"
 	"net/http"
 )
+
+var responseUrl = "%s://%s/v1/polaris?cluster_id=%s&token=%s"
 
 type ScanRequestInfo struct {
 	RecordId  int    `json:"recordId"`
@@ -29,42 +30,49 @@ type ResponseInfo struct {
 }
 
 func ScanSystem(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	go func() {
-		var req ScanRequestInfo
-		err := json.Unmarshal([]byte(cmd.Payload), &req)
-		if err != nil {
-			glog.Info(err.Error())
-			return
-		}
-		provider, err := kube.CreateResourceProviderFromAPI(opts.KubeClient.GetKubeClient(), "", req.Namespace)
-		if err != nil {
-			glog.Info(err.Error())
-			return
-		}
-		auditData, err := validator.RunAudit(*opts.PolarisConfig, provider)
-		if err != nil {
-			glog.Info(err.Error())
-			return
-		}
-		responseInfo := ResponseInfo{RecordId: req.RecordId, PolarisResult: Result{AuditData: auditData, Summary: auditData.GetSummary()}}
-		rawURL := opts.WsClient.URL()
-		nowURL := fmt.Sprintf(ws.BaseUrl, rawURL.Scheme, rawURL.Host, cmd.Key, cmd.Key, kube2.ClusterId, "agent_polaris", opts.Token, kube2.AgentVersion)
-		conn, _, err := ws.DialWS(nowURL, http.Header{})
-		wp := ResponseInfo{
-			RecordId:      responseInfo.RecordId,
-			PolarisResult: responseInfo.PolarisResult,
-		}
-		bytes, err := json.Marshal(wp)
-		if err != nil {
-			if err := conn.WriteMessage(websocket.TextMessage, []byte(err.Error())); err != nil {
-				glog.Info(err.Error())
-				conn.Close()
-			}
-		}
-		if err := conn.WriteMessage(websocket.TextMessage, bytes); err != nil {
-			glog.Info(err.Error())
-			conn.Close()
-		}
-	}()
+	var req ScanRequestInfo
+	err := json.Unmarshal([]byte(cmd.Payload), &req)
+	if err != nil {
+		glog.Info(err.Error())
+		return nil, command.NewResponseError(cmd.Key, model.PolarisRequest, err)
+	}
+	provider, err := kube.CreateResourceProviderFromAPI(opts.KubeClient.GetKubeClient(), "", req.Namespace)
+	if err != nil {
+		glog.Info(err.Error())
+		return nil, command.NewResponseError(cmd.Key, model.PolarisRequest, err)
+	}
+	auditData, err := validator.RunAudit(*opts.PolarisConfig, provider)
+	if err != nil {
+		glog.Info(err.Error())
+		return nil, command.NewResponseError(cmd.Key, model.PolarisRequest, err)
+	}
+	responseInfo := ResponseInfo{RecordId: req.RecordId, PolarisResult: Result{AuditData: auditData, Summary: auditData.GetSummary()}}
+	rawURL := opts.WsClient.URL()
+	schema := ""
+	if rawURL.Scheme == "ws" {
+		schema = "http"
+	} else {
+		schema = "https"
+	}
+	nowURL := fmt.Sprintf(responseUrl, schema, rawURL.Host, kube2.ClusterId, opts.Token)
+
+	wp := ResponseInfo{
+		RecordId:      responseInfo.RecordId,
+		PolarisResult: responseInfo.PolarisResult,
+	}
+	jsonByte, err := json.Marshal(wp)
+
+	if err != nil {
+		glog.Info("failed to send polaris info.error is %s", err.Error())
+		return nil, command.NewResponseError(cmd.Key, model.PolarisRequest, err)
+	}
+
+	fmt.Println(string(jsonByte))
+
+	_, err = http.Post(nowURL, "application/json", bytes.NewReader(jsonByte))
+	if err != nil {
+		glog.Info("failed to send polaris info.error is %s", err.Error())
+		return nil, command.NewResponseError(cmd.Key, model.PolarisRequest, err)
+	}
 	return nil, nil
 }
