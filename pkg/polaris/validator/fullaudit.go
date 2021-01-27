@@ -3,13 +3,11 @@ package validator
 import (
 	"bytes"
 	"fmt"
+	conf "github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/kube"
 	"io"
 	"io/ioutil"
 	"os"
-	"time"
-
-	conf "github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/kube"
 
 	"github.com/sirupsen/logrus"
 	apiMachineryYAML "k8s.io/apimachinery/pkg/util/yaml"
@@ -29,7 +27,7 @@ func RunAudit(config conf.Configuration, kubeResources *kube.ResourceProvider) (
 
 	auditData := AuditData{
 		PolarisOutputVersion: PolarisOutputVersion,
-		AuditTime:            kubeResources.CreationTime.Format(time.RFC3339),
+		AuditTime:            kubeResources.CreationTime.Format("2006-01-02 15:04:05"),
 		SourceType:           kubeResources.SourceType,
 		SourceName:           kubeResources.SourceName,
 		DisplayName:          displayName,
