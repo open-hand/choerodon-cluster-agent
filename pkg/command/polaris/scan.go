@@ -67,8 +67,6 @@ func ScanSystem(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		return nil, command.NewResponseError(cmd.Key, model.PolarisRequest, err)
 	}
 
-	fmt.Println(string(jsonByte))
-
 	_, err = http.Post(nowURL, "application/json", bytes.NewReader(jsonByte))
 	if err != nil {
 		glog.Info("failed to send polaris info.error is %s", err.Error())
