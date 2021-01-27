@@ -1,9 +1,10 @@
 package action
 
 import (
-	"github.com/open-hand/helm/pkg/agent/model"
 	"github.com/golang/glog"
+	"github.com/open-hand/helm/pkg/agent/model"
 	"k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -101,26 +102,32 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		if isUpgrade {
 			if kind == "ReplicaSet" {
 				rs, err := clientSet.AppsV1().ReplicaSets(namespace).Get(t.GetName(), metav1.GetOptions{})
+				if errors.IsNotFound(err) {
+					break
+				}
 				if err != nil {
 					glog.Warningf("Failed to get ReplicaSet,error is %s.", err.Error())
+					return err
 				}
-				if rs != nil {
-					err = setReplicas(t.Object, int64(*rs.Spec.Replicas))
-					if err != nil {
-						glog.Warningf("Failed to set replicas,error is %s", err.Error())
-					}
+				err = setReplicas(t.Object, int64(*rs.Spec.Replicas))
+				if err != nil {
+					glog.Warningf("Failed to set replicas,error is %s", err.Error())
+					return err
 				}
 			}
 			if kind == "Deployment" {
 				dp, err := clientSet.AppsV1().Deployments(namespace).Get(t.GetName(), metav1.GetOptions{})
-				if err != nil {
-					glog.Warningf("Failed to get Deployment,error is %s.", err.Error())
+				if errors.IsNotFound(err) {
+					break
 				}
-				if dp != nil {
-					err = setReplicas(t.Object, int64(*dp.Spec.Replicas))
-					if err != nil {
-						glog.Warningf("Failed to set replicas,error is %s", err.Error())
-					}
+				if err != nil {
+					glog.Warningf("Failed to get ReplicaSet,error is %s.", err.Error())
+					return err
+				}
+				err = setReplicas(t.Object, int64(*dp.Spec.Replicas))
+				if err != nil {
+					glog.Warningf("Failed to set replicas,error is %s", err.Error())
+					return err
 				}
 			}
 		}
@@ -149,14 +156,17 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		if isUpgrade {
 			if kind == "StatefulSet" {
 				sts, err := clientSet.AppsV1().StatefulSets(namespace).Get(t.GetName(), metav1.GetOptions{})
-				if err != nil {
-					glog.Warningf("Failed to get Deployment,error is %s.", err.Error())
+				if errors.IsNotFound(err) {
+					break
 				}
-				if sts != nil {
-					err = setReplicas(t.Object, int64(*sts.Spec.Replicas))
-					if err != nil {
-						glog.Warningf("Failed to set replicas,error is %s", err.Error())
-					}
+				if err != nil {
+					glog.Warningf("Failed to get ReplicaSet,error is %s.", err.Error())
+					return err
+				}
+				err = setReplicas(t.Object, int64(*sts.Spec.Replicas))
+				if err != nil {
+					glog.Warningf("Failed to set replicas,error is %s", err.Error())
+					return err
 				}
 			}
 		}
