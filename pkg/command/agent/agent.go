@@ -8,7 +8,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
@@ -129,7 +128,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		Pods:       len(podList.Items),
 		Namespaces: len(namespaceList.Items),
 		Nodes:      len(nodeList.Items),
-		ClusterId:  kube.ClusterId,
+		ClusterId:  model.ClusterId,
 	}
 	response, err := json.Marshal(clusterInfo)
 	if err != nil {
@@ -151,7 +150,7 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
 
-	req.Namespace = kube.AgentNamespace
+	req.Namespace = model.AgentNamespace
 
 	ch := opts.CrChan
 
@@ -162,7 +161,7 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 
 	resp, err := opts.HelmClient.UpgradeRelease(&req, username, password)
 	if err != nil {
-		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == kube.AgentNamespace {
+		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == model.AgentNamespace {
 			go func() {
 				//maybe avoid lot request devOps-service in a same time
 				rand.Seed(time.Now().UnixNano())
@@ -276,7 +275,7 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 
 func agentConvert(opts *commandutil.Opts, agentName string) error {
 
-	deployment, err := opts.KubeClient.GetKubeClient().AppsV1().Deployments(kube.AgentNamespace).Get(agentName, metav1.GetOptions{})
+	deployment, err := opts.KubeClient.GetKubeClient().AppsV1().Deployments(model.AgentNamespace).Get(agentName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -287,7 +286,7 @@ func agentConvert(opts *commandutil.Opts, agentName string) error {
 	if labels[model.HelmVersion] != "helm3" {
 		releaseRequest := &helm.GetReleaseContentRequest{
 			ReleaseName: agentName,
-			Namespace:   kube.AgentNamespace,
+			Namespace:   model.AgentNamespace,
 		}
 		rls, _ := opts.HelmClient.GetRelease(releaseRequest)
 
@@ -323,5 +322,5 @@ func updateAgentDeploymentLabels(opts *commandutil.Opts, deployment *appsv1.Depl
 	}
 	labels[model.HelmVersion] = "helm3"
 	deployment.SetLabels(labels)
-	opts.KubeClient.GetKubeClient().AppsV1().Deployments(kube.AgentNamespace).Update(deployment)
+	opts.KubeClient.GetKubeClient().AppsV1().Deployments(model.AgentNamespace).Update(deployment)
 }

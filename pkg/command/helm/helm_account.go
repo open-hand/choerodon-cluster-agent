@@ -3,7 +3,6 @@ package helm
 import (
 	"encoding/json"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,7 +26,7 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 		return nil, command.NewResponseError(cmd.Key, model.ChartMuseumAuthenticationFailed, err)
 	}
 
-	secret, err := opts.KubeClient.GetKubeClient().CoreV1().Secrets(kube.AgentNamespace).Get(SecretName, meta_v1.GetOptions{})
+	secret, err := opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Get(SecretName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// secret 不存在，创建secret
@@ -40,7 +39,7 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 			data["info"] = chartAccountJsonContent
 			secret.Data = data
 
-			if secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(kube.AgentNamespace).Create(secret); err != nil {
+			if secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Create(secret); err != nil {
 				return nil, command.NewResponseError(cmd.Key, model.ChartMuseumAuthenticationFailed, err)
 			}
 			resp, err := getResponsePacket(secret, cmd)
@@ -56,7 +55,7 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 
 	secret.Data["info"] = chartAccountJsonContent
 
-	secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(kube.AgentNamespace).Update(secret)
+	secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Update(secret)
 
 	resp, err := getResponsePacket(secret, cmd)
 	if err != nil {

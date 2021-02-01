@@ -2,8 +2,8 @@ package gitops
 
 import (
 	"context"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	resource2 "github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes/resource"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
@@ -199,7 +199,7 @@ func (g *GitOps) doSync(namespace string) error {
 	for key, k8sResource := range changedResources {
 
 		// 给所有发生变化的资源添加label
-		k8sResourceBuff, err := g.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), kube.AgentVersion, fileCommitMap[k8sResource.Source()])
+		k8sResourceBuff, err := g.kubeClient.LabelRepoObj(namespace, string(k8sResource.Bytes()), model.AgentVersion, fileCommitMap[k8sResource.Source()])
 		if err != nil {
 			glog.Errorf("label of object error ", err)
 		} else if k8sResourceBuff != nil {

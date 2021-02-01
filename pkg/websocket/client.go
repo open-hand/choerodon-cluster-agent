@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
 	"net/http"
 	"net/url"
@@ -29,7 +28,6 @@ const (
 	// Send pings to peer with this period. Must be less than pongWait.
 	pingPeriod = (pongWait * 9) / 10
 	// Maximum length that message can be sent
-	maxLength = 4194304
 )
 
 var ReconnectFlag = false
@@ -228,8 +226,8 @@ type WsReceivePacket struct {
 func (c *appClient) sendResponse(resp *model.Packet) error {
 
 	content, _ := json.Marshal(resp)
-	if len(content) >= maxLength {
-		glog.Infof("the length of message key %s, type %s is more than %d , discard", resp.Key, resp.Type, maxLength)
+	if len(content) >= model.MaxWebsocketMessageLength {
+		glog.Infof("the length of message key %s, type %s is more than %d , discard", resp.Key, resp.Type, model.MaxWebsocketMessageLength)
 		return nil
 	}
 	glog.Infof("send response key %s, type %s", resp.Key, resp.Type)
@@ -350,7 +348,7 @@ func (c *appClient) pipeConnection(id string, key string, token string, pipe pip
 	if err != nil {
 		return false, err
 	}
-	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, pipe.PipeType(), token, kube.AgentVersion)
+	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, pipe.PipeType(), token, model.AgentVersion)
 	headers := http.Header{}
 	conn, resp, err := dialWS(newURLStr, headers)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {

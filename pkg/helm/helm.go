@@ -189,7 +189,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest, username, passwo
 		request.ChartName,
 		request.ChartVersion,
 		request.AppServiceId,
-		envkube.AgentVersion,
+		model.AgentVersion,
 		"",
 		false)
 
@@ -332,7 +332,7 @@ func (c *client) ExecuteTest(request *TestReleaseRequest, username, password str
 		request.ChartName,
 		request.ChartVersion,
 		0,
-		envkube.AgentVersion,
+		model.AgentVersion,
 		request.Label,
 		true)
 
@@ -646,7 +646,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, passwo
 		request.ChartName,
 		request.ChartVersion,
 		request.AppServiceId,
-		envkube.AgentVersion)
+		model.AgentVersion)
 
 	chartPath, err := upgradeClient.ChartPathOptions.LocateChart(request.ChartName, envSettings)
 	if err != nil {
