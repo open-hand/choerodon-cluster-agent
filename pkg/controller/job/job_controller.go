@@ -117,8 +117,8 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 				glog.Error("get job log error ", err)
 			} else if strings.TrimSpace(jobLogs) != "" {
 				lobLogLength := len(jobLogs)
-				if lobLogLength > 20480 {
-					jobLogs = jobLogs[lobLogLength-20480:lobLogLength]
+				if lobLogLength > 102400 {
+					jobLogs = jobLogs[lobLogLength-102400:lobLogLength]
 				}
 				responseChan <- newJobLogRep(instance.Name, instance.Labels[model.ReleaseLabel], jobLogs, request.Namespace)
 			}
