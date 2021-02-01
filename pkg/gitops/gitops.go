@@ -8,7 +8,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
 	"math/rand"
 	"strings"
@@ -50,10 +49,10 @@ func (g *GitOps) Process() {
 }
 
 func (g *GitOps) WithStop() {
-	g.stopCh = websocket.GitStopChan
+	g.stopCh = model.GitStopChan
 	g.Process()
 	// GitStopped置为false
-	websocket.GitStopped = false
+	model.GitRunning = true
 }
 
 func (g *GitOps) listenEnvs() {
@@ -65,8 +64,9 @@ func (g *GitOps) listenEnvs() {
 		g.Wg.Add(1)
 		// to wait create env git repo
 		rand.Seed(time.Now().Unix())
-		sleepTime := 10 + rand.Intn(90)
-		time.Sleep(time.Duration(sleepTime) * time.Second)
+		//sleepTime := 10 + rand.Intn(90)
+		//glog.Infof("env: %s will start to sync after %d seconds", envPara.Namespace, sleepTime)
+		//time.Sleep(time.Duration(sleepTime) * time.Second)
 		go func() {
 			// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
 			err := repo.Start(g.stopCh, repo.RefreshChan, g.Wg)
