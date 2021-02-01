@@ -7,7 +7,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
@@ -119,8 +118,8 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	// 如果该资源在choerodon命名空间下，那么判断该资源的所属集群id与当前agent的clusterId是否相同，
 	// 相同表示是该agent的资源
 	// 不同则表示不是该agent资源，不进行处理
-	if namespace == kube.AgentNamespace {
-		if instance.Labels[model.C7NHelmReleaseClusterLabel] != kube.ClusterId {
+	if namespace == model.AgentNamespace {
+		if instance.Labels[model.C7NHelmReleaseClusterLabel] != model.ClusterId {
 			return result, nil
 		}
 	}

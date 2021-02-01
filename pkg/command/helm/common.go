@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
 	"github.com/golang/glog"
@@ -26,7 +25,7 @@ func GetCharUsernameAndPassword(opts *command.Opts, cmd *model.Packet) (string, 
 
 	repoHost := strings.TrimSuffix(fmt.Sprintf("%s://%s", repo.Scheme, repo.Host), "/")
 
-	secret, err := opts.KubeClient.GetKubeClient().CoreV1().Secrets(kube.AgentNamespace).Get(SecretName, metav1.GetOptions{})
+	secret, err := opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Get(SecretName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", "", nil

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	kube2 "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/validator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -54,7 +53,7 @@ func ScanSystem(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 	} else {
 		schema = "https"
 	}
-	nowURL := fmt.Sprintf(responseUrl, schema, rawURL.Host, kube2.ClusterId, opts.Token)
+	nowURL := fmt.Sprintf(responseUrl, schema, rawURL.Host, model.ClusterId, opts.Token)
 
 	wp := ResponseInfo{
 		RecordId:      responseInfo.RecordId,

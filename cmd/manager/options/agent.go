@@ -135,9 +135,9 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	printVersion()
 
-	kube.AgentNamespace = os.Getenv("POD_NAMESPACE")
+	model.AgentNamespace = os.Getenv("POD_NAMESPACE")
 
-	kube.ClusterId = o.ClusterId
+	model.ClusterId = o.ClusterId
 	if o.PrintVersion {
 		fmt.Println(version.GetVersion())
 		os.Exit(0)
@@ -191,7 +191,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- err
 		return
 	}
-	kube.KubernetesVersion = version.GitVersion
+	model.KubernetesVersion = version.GitVersion
 
 	// new kubernetes clientf
 	kubeClient, err := kube.NewClient(f)
@@ -332,7 +332,9 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.clearHelmCacheCron, "clear-helm-cache-cron", "0 0 * * *", "cron jon for clear cache of helm")
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
 	fs.StringVar(&o.Listen, "listen", o.Listen, "address:port to listen on")
-	fs.StringVar(&kube.AgentVersion, "agent-version", "", "agent version")
+	fs.StringVar(&model.AgentVersion, "agent-version", "", "agent version")
+	fs.IntVar(&model.MaxWebsocketMessageLength, "max-websocket-message-length", 131072, "the max length of websocket message")
+	fs.IntVar(&model.MaxJobLogLength, "max-job-log-length", 102400, "the max length of job log")
 	// upstream
 	fs.StringVar(&o.UpstreamURL, "connect", "", "Connect to an upstream service")
 	fs.StringVar(&o.Token, "token", "", "Authentication token for upstream service")

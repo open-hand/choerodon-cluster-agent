@@ -177,7 +177,7 @@ func (w *workerManager) monitorCertMgr() {
 		if podStatus != podStatusTmp {
 			podStatusTmp = podStatus
 			w.chans.ResponseChan <- &model.Packet{
-				Key:     "cluster:" + kube.ClusterId,
+				Key:     "cluster:" + model.ClusterId,
 				Type:    model.CertManagerStatus,
 				Payload: fmt.Sprintf(model.PodStatus, podStatus),
 			}

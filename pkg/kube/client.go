@@ -64,11 +64,6 @@ type Client interface {
 
 const testContainer string = "automation-test"
 
-var ClusterId string
-var KubernetesVersion string
-var AgentVersion string
-var AgentNamespace string
-
 type client struct {
 	cmdutil.Factory
 	client    *kubernetes.Clientset
@@ -563,8 +558,8 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 		l[model.NetworkLabel] = "ingress"
 	case "ConfigMap", "Secret":
 	case "C7NHelmRelease":
-		if namespace == AgentNamespace {
-			l[model.C7NHelmReleaseClusterLabel] = ClusterId
+		if namespace == model.AgentNamespace {
+			l[model.C7NHelmReleaseClusterLabel] = model.ClusterId
 		}
 		// 从集群中查出C7NHelmRelease，如果资源不存在，添加Annotation["choerodon.io/C7NHelmRelease-status"]="INSTALL"，即安装操作
 		// 如果资源存在，判断已更新的spec和集群存在的spec是否相同,相同不做任何操作,即不会进行升级操作
@@ -605,17 +600,17 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 			}
 		}
 	case "PersistentVolumeClaim":
-		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat, ClusterId)
+		l[model.PvcLabel] = fmt.Sprintf(model.PvcLabelValueFormat, model.ClusterId)
 		l[model.NameLabel] = obj.GetName()
 	case "PersistentVolume":
 		l[model.EnvLabel] = namespace
-		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, ClusterId)
+		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, model.ClusterId)
 		l[model.NameLabel] = obj.GetName()
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
 	}
-	l[model.AgentVersionLabel] = AgentVersion
+	l[model.AgentVersionLabel] = model.AgentVersion
 
 	return obj, nil
 }

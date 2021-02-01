@@ -6,7 +6,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/apis/certmanager/v1alpha1"
 	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -150,8 +149,8 @@ func (crk *c7nHelmReleaseKind) GetResources(c *Cluster, namespace string) ([]K8s
 	var K8sResources []K8sResource
 	for i := range instances.Items {
 		release := instances.Items[i]
-		if namespace == kube.AgentNamespace {
-			if release.Labels[model.C7NHelmReleaseClusterLabel] == kube.ClusterId {
+		if namespace == model.AgentNamespace {
+			if release.Labels[model.C7NHelmReleaseClusterLabel] == model.ClusterId {
 				K8sResources = append(K8sResources, makeC7nHelmReleaseK8sResource(&instances.Items[i]))
 			}
 		} else {
@@ -250,7 +249,7 @@ func (s *persistentVolumeClaim) GetResources(c *Cluster, namespace string) ([]K8
 	var K8sResources []K8sResource
 	for i := range persistentVolumeClaims.Items {
 		pvc := persistentVolumeClaims.Items[i]
-		if pvc.Labels[model.ReleaseLabel] == "" && pvc.Labels[model.AgentVersionLabel] != "" && pvc.Labels[model.PvcLabel] == fmt.Sprintf(model.PvcLabelValueFormat, kube.ClusterId) {
+		if pvc.Labels[model.ReleaseLabel] == "" && pvc.Labels[model.AgentVersionLabel] != "" && pvc.Labels[model.PvcLabel] == fmt.Sprintf(model.PvcLabelValueFormat, model.ClusterId) {
 			K8sResources = append(K8sResources, makePersistentVolumeClaimK8sResource(&persistentVolumeClaims.Items[i]))
 		}
 	}
@@ -282,7 +281,7 @@ func (s *persistentVolume) GetResources(c *Cluster, namespace string) ([]K8sReso
 
 	for i := range persistentVolumes.Items {
 		pv := persistentVolumes.Items[i]
-		if pv.Labels[model.ReleaseLabel] == "" && pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] == fmt.Sprintf(model.PvLabelValueFormat, kube.ClusterId) && pv.Labels[model.EnvLabel] == namespace {
+		if pv.Labels[model.ReleaseLabel] == "" && pv.Labels[model.AgentVersionLabel] != "" && pv.Labels[model.PvLabel] == fmt.Sprintf(model.PvLabelValueFormat, model.ClusterId) && pv.Labels[model.EnvLabel] == namespace {
 			K8sResources = append(K8sResources, makePersistentVolumeK8sResource(&persistentVolumes.Items[i]))
 		}
 	}
