@@ -116,9 +116,10 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 			if err != nil {
 				glog.Error("get job log error ", err)
 			} else if strings.TrimSpace(jobLogs) != "" {
-				//if len(jobLogs) > 20480 {
-				//	jobLogs = jobLogs[:20489]
-				//}
+				lobLogLength := len(jobLogs)
+				if lobLogLength > 20480 {
+					jobLogs = jobLogs[lobLogLength-20480:lobLogLength]
+				}
 				responseChan <- newJobLogRep(instance.Name, instance.Labels[model.ReleaseLabel], jobLogs, request.Namespace)
 			}
 			err = kubeClient.DeleteJob(namespace, instance.Name)
