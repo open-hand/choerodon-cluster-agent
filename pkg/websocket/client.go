@@ -106,6 +106,7 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 				glog.Error(err)
 				ReconnectFlag = true
 				if !GitStopped {
+					glog.Info("websocket disconnected, all gitops goroutines exit")
 					close(GitStopChan)
 					GitStopped = true
 				}
@@ -125,6 +126,7 @@ func (c *appClient) connect() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.conn, err = dial(c.url.String(), c.token)
 	if err != nil {
+		cancel()
 		return err
 	}
 	glog.V(1).Info("Connect to DevOps service success")
@@ -144,6 +146,7 @@ func (c *appClient) connect() error {
 
 	//ping-pong check
 	if err := c.conn.SetReadDeadline(time.Now().Add(pongWait)); err != nil {
+		cancel()
 		return err
 	}
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
