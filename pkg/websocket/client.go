@@ -184,6 +184,7 @@ func (c *appClient) connect() error {
 					glog.Error(err)
 				}
 				wsErrorChan <- err
+				break
 			}
 			packet := &model.Packet{}
 			glog.V(1).Infof("receive message:\n>>>\nKey: %s\nType: %s\nMessage: %s\nGroup %s\n<<<", wp.Key, wp.Type, wp.Message, wp.Group)
