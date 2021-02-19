@@ -224,7 +224,7 @@ func update(opts *commandutil.Opts, releases []string, namespaceName string, lab
 
 	// 此处不对choerodon命名空间下的实例进行升级处理
 	// 安装agent的时候，会直接创建choerodon命名空间而不打上 model.HelmVersion 标签
-	// 然后用户直接创建pv,会导致choerodon没有标签也纳入环境管理
+	// 然后用户直接创建pv,会导致choerodon没有标签也纳入环境管理（如果通过agent安装了prometheus或者cert-manager就会出现问题）
 	// 所以直接默认choeordon不需要进行helm迁移
 	if namespaceName != "choerodon" && releaseCount != 0 {
 		for i := 0; i < releaseCount; i++ {
