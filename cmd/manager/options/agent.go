@@ -171,6 +171,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- err
 		return
 	}
+	glog.Info("become leader success")
 
 	cfg, _ := f.ToRESTConfig()
 
