@@ -5,8 +5,7 @@ RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -o ./choerodon
 
 FROM registry.hand-china.com/hzero-c7ncd/debian:1.0
 
-ENV USER_UID=1001 \
-    USER_NAME=choerodon-cluster-agent \
+ENV USER_UID=33 \
     TINI_VERSION=v0.19.0
 
 RUN echo "${USER_NAME}:x:${USER_UID}:0:${USER_NAME} user:${HOME}:/sbin/nologin" >> /etc/passwd \
