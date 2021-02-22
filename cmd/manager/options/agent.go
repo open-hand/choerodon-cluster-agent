@@ -173,23 +173,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	}
 	glog.Info("become leader success")
 
-	cfg, _ := f.ToRESTConfig()
-
 	// for controller-manager
 	mgrs := &operatorutil.MgrList{}
-
-	// 获得集群版本
-	discoveryClient, err := f.ToDiscoveryClient()
-	if err != nil {
-		errChan <- err
-		return
-	}
-	version, err := discoveryClient.ServerVersion()
-	if err != nil {
-		errChan <- err
-		return
-	}
-	kube.KubernetesVersion = version.GitVersion
 
 	// new kubernetes clientf
 	kubeClient, err := kube.NewClient(f)
@@ -197,10 +182,14 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- err
 		return
 	}
+	glog.Info("get kube client success")
+
+	cfg, _ := f.ToRESTConfig()
 
 	helmClient := helm.NewClient(kubeClient, cfg)
 
-	// todo: improve check k8s is working
+	glog.Info("init helm client success")
+
 	checkKube(kubeClient.GetKubeClient())
 
 	glog.Infof("KubeClient init success.")
