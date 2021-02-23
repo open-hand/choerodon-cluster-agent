@@ -23,6 +23,16 @@ import (
 )
 
 func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	model.InitLock.Lock()
+	defer func() {
+		model.InitLock.Unlock()
+		model.Initialized = true
+	}()
+
+	if model.Initialized == true {
+		glog.Info("agent already initialized")
+		return getClusterInfo(opts, cmd)
+	}
 
 	var agentInitOpts model.AgentInitOptions
 	err := json.Unmarshal([]byte(cmd.Payload), &agentInitOpts)
@@ -103,43 +113,8 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	opts.AgentInitOps.Envs = agentInitOpts.Envs
 	go g.WithStop()
 
-	listOpts := metav1.ListOptions{}
+	return getClusterInfo(opts, cmd)
 
-	serverVersion, err := opts.KubeClient.GetKubeClient().Discovery().ServerVersion()
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
-	}
-
-	namespaceList, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().List(listOpts)
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
-	}
-	nodeList, err := opts.KubeClient.GetKubeClient().CoreV1().Nodes().List(listOpts)
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
-	}
-	podList, err := opts.KubeClient.GetKubeClient().CoreV1().Pods("").List(listOpts)
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
-	}
-
-	clusterInfo := ClusterInfo{
-		Version:    serverVersion.Major + "." + serverVersion.Minor,
-		Pods:       len(podList.Items),
-		Namespaces: len(namespaceList.Items),
-		Nodes:      len(nodeList.Items),
-		ClusterId:  model.ClusterId,
-	}
-	response, err := json.Marshal(clusterInfo)
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
-	}
-
-	return nil, &model.Packet{
-		Key:     cmd.Key,
-		Type:    model.ClusterGetInfo,
-		Payload: string(response),
-	}
 }
 
 // 以前用于重新部署实例，现在仅用于升级Agent
@@ -323,4 +298,44 @@ func updateAgentDeploymentLabels(opts *commandutil.Opts, deployment *appsv1.Depl
 	labels[model.HelmVersion] = "helm3"
 	deployment.SetLabels(labels)
 	opts.KubeClient.GetKubeClient().AppsV1().Deployments(model.AgentNamespace).Update(deployment)
+}
+
+func getClusterInfo(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	listOpts := metav1.ListOptions{}
+
+	serverVersion, err := opts.KubeClient.GetKubeClient().Discovery().ServerVersion()
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+
+	namespaceList, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().List(listOpts)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+	nodeList, err := opts.KubeClient.GetKubeClient().CoreV1().Nodes().List(listOpts)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+	podList, err := opts.KubeClient.GetKubeClient().CoreV1().Pods("").List(listOpts)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+
+	clusterInfo := ClusterInfo{
+		Version:    serverVersion.Major + "." + serverVersion.Minor,
+		Pods:       len(podList.Items),
+		Namespaces: len(namespaceList.Items),
+		Nodes:      len(nodeList.Items),
+		ClusterId:  model.ClusterId,
+	}
+	response, err := json.Marshal(clusterInfo)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.ClusterGetInfo,
+		Payload: string(response),
+	}
 }

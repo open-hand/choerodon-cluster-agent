@@ -30,10 +30,6 @@ const (
 	// Maximum length that message can be sent
 )
 
-var ReconnectFlag = false
-var GitStopChan = make(chan struct{})
-var GitStopped = false
-
 type Client interface {
 	Loop(stopCh <-chan struct{}, done *sync.WaitGroup)
 	PipeConnection(pipeID string, key string, token string, pipe pipeutil.Pipe) error
@@ -102,10 +98,13 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 		case err := <-errCh:
 			if err != nil {
 				glog.Error(err)
-				ReconnectFlag = true
-				if !GitStopped {
-					close(GitStopChan)
-					GitStopped = true
+				model.ReconnectFlag = true
+				// 只有在gitops监听运行中并且agent初始化完成后才会停止gitops监听并重新初始化
+				if model.GitRunning && model.Initialized {
+					glog.Info("websocket disconnected, all gitops goroutines exit")
+					close(model.GitStopChan)
+					model.GitRunning = false
+					model.Initialized = false
 				}
 			}
 			time.Sleep(backOff)
@@ -120,19 +119,27 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 func (c *appClient) connect() error {
 	glog.V(1).Info("Start connect to DevOps service")
 	var err error
+
+	// 该通道用于接收websocket读时产生的错误
+	wsErrorChan := make(chan error)
+
+	// 改context会控制ping协程退出
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	c.conn, err = dial(c.url.String(), c.token)
 	if err != nil {
 		return err
 	}
+
 	glog.V(1).Info("Connect to DevOps service success")
 
 	// 建立连接，同步资源对象
-	if ReconnectFlag {
+	if model.ReconnectFlag {
 		c.crChannel.CommandChan <- newReConnectCommand()
 		// 重置该标志
-		ReconnectFlag = false
-		GitStopChan = make(chan struct{})
+		model.ReconnectFlag = false
+		model.GitStopChan = make(chan struct{})
 	}
 
 	defer func() {
@@ -146,6 +153,7 @@ func (c *appClient) connect() error {
 	}
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 	ticker := time.NewTicker(pingPeriod)
+
 	go func(ctx context.Context) {
 		for {
 			select {
@@ -164,9 +172,7 @@ func (c *appClient) connect() error {
 		}
 	}(ctx)
 
-	go func(cancel context.CancelFunc) {
-		defer cancel()
-
+	go func(wsErrorChan chan error) {
 		c.conn.SetPingHandler(nil)
 		for {
 			var wp WsReceivePacket
@@ -175,6 +181,7 @@ func (c *appClient) connect() error {
 				if !websocket.IsCloseError(err, websocket.CloseNoStatusReceived) {
 					glog.Error(err)
 				}
+				wsErrorChan <- err
 				break
 			}
 			packet := &model.Packet{}
@@ -185,7 +192,7 @@ func (c *appClient) connect() error {
 			}
 			c.crChannel.CommandChan <- packet
 		}
-	}(cancel)
+	}(wsErrorChan)
 
 	end := 0
 	for ; end < len(c.respQueue); end++ {
@@ -196,21 +203,21 @@ func (c *appClient) connect() error {
 			return err
 		}
 	}
+
 	c.respQueue = c.respQueue[end:]
 
 	for {
 		select {
-		case <-ctx.Done():
-			return nil
+		case err := <-wsErrorChan:
+			return err
 		case resp, ok := <-c.crChannel.ResponseChan:
 			c.conn.SetWriteDeadline(time.Now().Add(WriteWait))
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return nil
+				return c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 			}
 			if err := c.sendResponse(resp); err != nil {
-				glog.Error(err)
 				c.respQueue = append(c.respQueue, resp)
+				return err
 			}
 		}
 	}

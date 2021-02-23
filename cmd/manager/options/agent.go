@@ -26,6 +26,7 @@ import (
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/homedir"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"net/http"
 	"net/http/pprof"
@@ -33,6 +34,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sync"
@@ -44,11 +46,10 @@ const (
 	defaultGitSyncTag       = "agent-sync"
 	defaultGitDevOpsSyncTag = "devops-sync"
 	defaultGitNotesRef      = "choerodon"
-	helmCacheDir            = "/root/.cache/helm/repository"
 )
 
 var (
-	metricsPort int32 = 8383
+	helmCacheDir = path.Join(homedir.HomeDir(), ".cache/helm/repository")
 )
 
 type AgentOptions struct {
@@ -174,24 +175,10 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- err
 		return
 	}
-
-	cfg, _ := f.ToRESTConfig()
+	glog.Info("become leader success")
 
 	// for controller-manager
 	mgrs := &operatorutil.MgrList{}
-
-	// 获得集群版本
-	discoveryClient, err := f.ToDiscoveryClient()
-	if err != nil {
-		errChan <- err
-		return
-	}
-	version, err := discoveryClient.ServerVersion()
-	if err != nil {
-		errChan <- err
-		return
-	}
-	model.KubernetesVersion = version.GitVersion
 
 	// new kubernetes clientf
 	kubeClient, err := kube.NewClient(f)
@@ -199,10 +186,14 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- err
 		return
 	}
+	glog.Info("get kube client success")
+
+	cfg, _ := f.ToRESTConfig()
 
 	helmClient := helm.NewClient(kubeClient, cfg)
 
-	// todo: improve check k8s is working
+	glog.Info("init helm client success")
+
 	checkKube(kubeClient.GetKubeClient())
 
 	glog.Infof("KubeClient init success.")
@@ -313,7 +304,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- http.ListenAndServe(o.Listen, mux)
 	}()
 
-	cron.AddCronJob("0 0 * * *", func() {
+	glog.Infof("cron: %s", o.clearHelmCacheCron)
+	cron.AddCronJob(o.clearHelmCacheCron, func() {
 		glog.Info("start to delete helm cache")
 		err := os.RemoveAll(helmCacheDir)
 		if err != nil {
