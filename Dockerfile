@@ -12,6 +12,7 @@ RUN mkdir -p /ssh-keys \
     && mkdir -p /polaris \
     && mkdir -p /tmp \
     && mkdir -p /etc/ssh \
+    && mkdir -p /var/www \
     && chown ${USER_UID}:0 /ssh-keys \
     && chown ${USER_UID}:0 /polaris \
     && chown ${USER_UID}:0 /tmp \
