@@ -26,11 +26,13 @@ import (
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/util/homedir"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sync"
@@ -42,11 +44,10 @@ const (
 	defaultGitSyncTag       = "agent-sync"
 	defaultGitDevOpsSyncTag = "devops-sync"
 	defaultGitNotesRef      = "choerodon"
-	helmCacheDir            = "/root/.cache/helm/repository"
 )
 
 var (
-	metricsPort int32 = 8383
+	helmCacheDir = path.Join(homedir.HomeDir(), ".cache/helm/repository")
 )
 
 type AgentOptions struct {
@@ -350,7 +351,7 @@ func startCronJob(o *AgentOptions, errChan chan<- error) {
 	glog.Infof("cron: %s", o.clearHelmCacheCron)
 
 	_, err := c.AddFunc(o.clearHelmCacheCron, func() {
-		glog.Info("start to delete helm cache")
+		glog.Infof("start to delete helm cache:%s", helmCacheDir)
 
 		err := os.RemoveAll(helmCacheDir)
 		if err != nil {
