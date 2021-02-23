@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const sshKeyPath = "/Users/lihao/ssh-keys"
+const sshKeyPath = "/ssh-keys"
 
 func (g *GitOps) PrepareSSHKeys(envs []model.EnvParas, opts *commandutil.Opts) error {
 
