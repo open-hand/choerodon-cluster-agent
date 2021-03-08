@@ -1,6 +1,8 @@
 package model
 
-import "sync"
+import (
+	"sync"
+)
 
 var KubernetesVersion string
 
@@ -21,7 +23,7 @@ var Initialized = false
 var ReconnectFlag = false
 
 // gitops监听协程退出通道
-var GitStopChan = make(chan struct{})
+var GitStopChanMap = make(map[string]chan struct{})
 
 // gitops监听协程是否在运行中标志
 var GitRunning = false
