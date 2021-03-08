@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+const SyncIntervalStopChanName = "sync_stop_chan"
+
 type GitOps struct {
 	GitHost      string `json:"gitHost,omitempty"`
 	Envs         []model.EnvParas
@@ -49,35 +51,45 @@ func (g *GitOps) Process() {
 }
 
 func (g *GitOps) WithStop() {
-	g.stopCh = model.GitStopChan
 	g.Process()
 	// GitStopped置为false
 	model.GitRunning = true
 }
 
 func (g *GitOps) listenEnvs() {
-	// 该协程监听环境的定时同步
-	go g.SyncInterval(g.stopCh)
+	if _, ok := model.GitStopChanMap[SyncIntervalStopChanName]; !ok {
+		syncIntervalChan := make(chan struct{})
+		// 该协程监听环境的定时同步
+		go g.SyncInterval(syncIntervalChan)
+		model.GitStopChanMap[SyncIntervalStopChanName] = syncIntervalChan
+	}
+
 	for _, envPara := range g.Envs {
-		gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, g.GitHost, envPara.Namespace, 1)}
-		repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(g.gitConfig.GitPollInterval))
-		g.Wg.Add(1)
-		// to wait create env git repo
-		rand.Seed(time.Now().Unix())
-		sleepTime := 10 + rand.Intn(90)
-		glog.Infof("env: %s will start to sync after %d seconds", envPara.Namespace, sleepTime)
-		time.Sleep(time.Duration(sleepTime) * time.Second)
-		go func() {
-			// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
-			err := repo.Start(g.stopCh, repo.RefreshChan, g.Wg)
-			if err != nil {
-				glog.Errorf("git repo start failed", err)
-			}
-		}()
-		g.syncSoon[envPara.Namespace] = make(chan struct{}, 1)
-		g.gitRepos[envPara.Namespace] = repo
-		g.Wg.Add(1)
-		go g.syncLoop(g.stopCh, envPara.Namespace, repo.SyncChan, g.Wg)
+		if _, ok := model.GitStopChanMap[envPara.Namespace]; !ok {
+			gitStopChan := make(chan struct{})
+			model.GitStopChanMap[envPara.Namespace] = gitStopChan
+
+			gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, g.GitHost, envPara.Namespace, 1)}
+			repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(g.gitConfig.GitPollInterval))
+			g.Wg.Add(1)
+			// to wait create env git repo
+			rand.Seed(time.Now().Unix())
+			sleepTime := 10 + rand.Intn(90)
+			glog.Infof("env: %s will start to sync after %d seconds", envPara.Namespace, sleepTime)
+			time.Sleep(time.Duration(sleepTime) * time.Second)
+
+			go func() {
+				// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
+				err := repo.Start(gitStopChan, repo.RefreshChan, g.Wg)
+				if err != nil {
+					glog.Errorf("git repo start failed", err)
+				}
+			}()
+			g.syncSoon[envPara.Namespace] = make(chan struct{}, 1)
+			g.gitRepos[envPara.Namespace] = repo
+			g.Wg.Add(1)
+			go g.syncLoop(gitStopChan, envPara.Namespace, repo.SyncChan, g.Wg)
+		}
 	}
 }
 

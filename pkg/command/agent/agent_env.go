@@ -105,9 +105,10 @@ func DeleteEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	opts.GitRepos[env.Namespace].SyncChan <- struct{}{}
 	opts.GitRepos[env.Namespace].RefreshChan <- struct{}{}
 	delete(opts.GitRepos, env.Namespace)
+	delete(model.GitStopChanMap, env.Namespace)
 
 	if err := opts.HelmClient.DeleteNamespaceReleases(env.Namespace); err != nil {
-		glog.V(1).Info(err)
+		glog.Info(err)
 	}
 	if skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True"; skipCheckNamespace {
 

@@ -44,10 +44,10 @@ func (g *GitOps) syncLoop(stop <-chan struct{}, namespace string, stopRepo <-cha
 	for {
 		select {
 		case <-stopRepo:
-			glog.Infof("env %s sync loop stopping", namespace)
+			glog.Infof("env %s sync loop stopped", namespace)
 			return
 		case <-stop:
-			glog.Infof("env %s sync loop stopping", namespace)
+			glog.Infof("env %s sync loop stopped", namespace)
 			return
 		case <-syncTimer.C:
 			syncInfo := SyncInfo{namespace: namespace, syncTimer: syncTimer}
@@ -376,7 +376,7 @@ func (g *GitOps) SyncInterval(StopCh <-chan struct{}) {
 	for {
 		select {
 		case <-StopCh:
-			glog.V(1).Info("exit SyncLoop")
+			glog.Info("exit SyncInterval")
 			return
 		case syncInfo := <-SyncChan:
 			glog.Infof("env %s start to sync", syncInfo.namespace)
