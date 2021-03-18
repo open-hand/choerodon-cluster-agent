@@ -8,6 +8,8 @@ import (
 	envkube "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/ghodss/yaml"
+	"github.com/golang/glog"
 	"github.com/open-hand/helm/pkg/action"
 	"github.com/open-hand/helm/pkg/chart"
 	"github.com/open-hand/helm/pkg/chart/loader"
@@ -16,8 +18,6 @@ import (
 	"github.com/open-hand/helm/pkg/downloader"
 	"github.com/open-hand/helm/pkg/getter"
 	"github.com/open-hand/helm/pkg/release"
-	"github.com/ghodss/yaml"
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"html/template"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -773,9 +773,12 @@ func (c *client) StartRelease(request *StartReleaseRequest, cluster *kubernetes.
 	for _, info := range result {
 		if envkube.InArray(ExpectedResourceKind, info.Object.GetObjectKind().GroupVersionKind().Kind) {
 			t := info.Object.(*unstructured.Unstructured)
-			replicas, _, err := unstructured.NestedInt64(t.Object, "spec", "replicas")
+			replicas, found, err := unstructured.NestedInt64(t.Object, "spec", "replicas")
 			if err != nil {
-				glog.Warningf("Get Template replicas failed, %v", err)
+				return nil, fmt.Errorf("get Template replicas failed, %v", err)
+			}
+			if found == false {
+				replicas = 1
 			}
 			err = cluster.ScaleResource(request.Namespace, info.Object.GetObjectKind().GroupVersionKind().Kind, info.Name, strconv.FormatInt(replicas, 10))
 			if err != nil {
