@@ -4,8 +4,6 @@ import (
 	"sync"
 )
 
-var KubernetesVersion string
-
 var ClusterId string
 
 var AgentVersion string
