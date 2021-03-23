@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -53,7 +54,7 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 			glog.Info("stop node metrics collector")
 			return nil
 		case <-time.Tick(time.Second * 30):
-			glog.Infof("[Goroutine %d] node_sync")
+			glog.Infof("[Goroutine %d] node_sync", util.GetGID())
 			nodes := make([]NodeInfo, 0)
 			nodeList, err := no.Client.CoreV1().Nodes().List(v1.ListOptions{})
 			if err != nil {

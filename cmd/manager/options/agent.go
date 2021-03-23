@@ -180,6 +180,21 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	// for controller-manager
 	mgrs := &operatorutil.MgrList{}
 
+	cfg, _ := f.ToRESTConfig()
+
+	// 获得集群版本
+	discoveryClient, err := f.ToDiscoveryClient()
+	if err != nil {
+		errChan <- err
+		return
+	}
+	version, err := discoveryClient.ServerVersion()
+	if err != nil {
+		errChan <- err
+		return
+	}
+	model.KubernetesVersion = version.GitVersion
+
 	// new kubernetes clientf
 	kubeClient, err := kube.NewClient(f)
 	if err != nil {
@@ -187,8 +202,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		return
 	}
 	glog.Info("get kube client success")
-
-	cfg, _ := f.ToRESTConfig()
 
 	helmClient := helm.NewClient(kubeClient, cfg)
 

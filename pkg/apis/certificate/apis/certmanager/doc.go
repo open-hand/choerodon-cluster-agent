@@ -1,5 +1,5 @@
 /*
-Copyright 2017 The Kubernetes Authors.
+Copyright 2020 The cert-manager Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// +groupName=certmanager.k8s.io
+// +groupName=cert-manager.io
+// +groupGoName=Certmanager
 
 // Package certmanager is the internal version of the API.
 package certmanager
 
-const GroupName = "certmanager.k8s.io"
+const GroupName = "cert-manager.io"

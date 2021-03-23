@@ -7,7 +7,7 @@ package kubernetes
 import (
 	"bytes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned/typed/certmanager/v1alpha1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned/typed/certmanager/v1"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"sync"
 
@@ -25,7 +25,7 @@ import (
 type extendedClient struct {
 	v1core.CoreV1Interface
 	v1beta1extensions.ExtensionsV1beta1Interface
-	v1alpha1.CertmanagerV1alpha1Interface
+	v1.CertmanagerV1Interface
 }
 
 type ChangeSet struct {
@@ -85,7 +85,7 @@ func NewCluster(
 		Client: extendedClient{
 			clientset.CoreV1(),
 			clientset.ExtensionsV1beta1(),
-			crdClientSet.Certmanager(),
+			crdClientSet.CertmanagerV1(),
 		},
 		Mgrs:      mgrs,
 		Applier:   applier,
