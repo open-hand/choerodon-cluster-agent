@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/apis/certmanager/v1alpha1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/apis/certmanager/v1"
 	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -45,7 +45,7 @@ type certificateKind struct {
 
 func (dk *certificateKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 	var K8sResources []K8sResource
-	certificates, err := c.Client.Certificates(namespace).List(meta_v1.ListOptions{})
+	certificates, err := c.Client.Certificates(namespace).List(context.Background(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (dk *certificateKind) GetResources(c *Cluster, namespace string) ([]K8sReso
 
 	return K8sResources, nil
 }
-func makeCertificateK8sResource(certificate *v1alpha1.Certificate) K8sResource {
+func makeCertificateK8sResource(certificate *v1.Certificate) K8sResource {
 	return K8sResource{
 		ApiVersion: "v1alpha1",
 		Kind:       "Certificate",

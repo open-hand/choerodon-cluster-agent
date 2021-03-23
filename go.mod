@@ -8,7 +8,7 @@ require (
 	github.com/go-openapi/spec v0.19.7
 	github.com/gobuffalo/packr/v2 v2.8.0
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.2
 	github.com/gorilla/websocket v1.4.1
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/maorfr/helm-plugin-utils v0.0.0
@@ -73,4 +73,5 @@ replace (
 	github.com/docker/docker => github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
 	github.com/maorfr/helm-plugin-utils => github.com/maorfr/helm-plugin-utils v0.0.0-20200216074820-36d2fcf6ae86
 	k8s.io/apimachinery/pkg/apimachinery => ./certificate/apimachinery
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.1
 )

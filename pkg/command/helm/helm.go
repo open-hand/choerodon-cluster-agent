@@ -6,6 +6,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/golang/glog"
 	"strings"
@@ -121,6 +122,14 @@ func UpgradeHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 
 //专门用于安装cert-mgr
 func InstallCertManager(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	// 根据k8s版本，创建不同的crd
+	// 大于等于15版本
+	if util.CompareVersion(model.KubernetesVersion) {
+
+	} else {
+		// 小于15版本
+
+	}
 	// 安装 helm Release 不返回新 cmd
 	return InstallHelmRelease(opts, cmd)
 }
