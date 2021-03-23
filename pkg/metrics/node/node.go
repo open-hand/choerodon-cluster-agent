@@ -53,6 +53,7 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 			glog.Info("stop node metrics collector")
 			return nil
 		case <-time.Tick(time.Second * 30):
+			glog.Infof("[Goroutine %d] node_sync")
 			nodes := make([]NodeInfo, 0)
 			nodeList, err := no.Client.CoreV1().Nodes().List(v1.ListOptions{})
 			if err != nil {
