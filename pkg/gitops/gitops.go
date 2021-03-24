@@ -74,7 +74,7 @@ func (g *GitOps) listenEnvs() {
 			g.Wg.Add(1)
 			// to wait create env git repo
 			rand.Seed(time.Now().Unix())
-			sleepTime := 10 + rand.Intn(90)
+			sleepTime := 10 + rand.Intn(50)
 			glog.Infof("env: %s will start to sync after %d seconds", envPara.Namespace, sleepTime)
 			time.Sleep(time.Duration(sleepTime) * time.Second)
 
