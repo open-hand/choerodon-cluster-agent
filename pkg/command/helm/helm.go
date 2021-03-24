@@ -6,7 +6,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/golang/glog"
 	"strings"
@@ -124,11 +123,13 @@ func UpgradeHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 func InstallCertManager(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	// 根据k8s版本，创建不同的crd
 	// 大于等于15版本
-	if util.CompareVersion(model.KubernetesVersion) {
-
-	} else {
-		// 小于15版本
-
+	err := opts.HelmClient.ApplyCertManagerCrd()
+	if err != nil {
+		return nil, &model.Packet{
+			Key:     cmd.Key,
+			Type:    model.HelmReleaseInstallFailed,
+			Payload: err.Error(),
+		}
 	}
 	// 安装 helm Release 不返回新 cmd
 	return InstallHelmRelease(opts, cmd)
@@ -147,7 +148,7 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 	}
 	_, err = opts.HelmClient.GetRelease(rlsContentRequest)
 	if err != nil {
-		//不存在说明cert-manager可能是由helm2管理的，尝试升级到helm3
+		// 不存在说明cert-manager可能是由helm2管理的，尝试升级到helm3(这里有个问题，如果cert-manager不存在且tiller也不存在，会导致agent重启。是调用的helm迁移库造成的)
 		if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
 			helm2to3.RunConvert(delRequest.ReleaseName)
 			if opts.ClearHelmHistory {
