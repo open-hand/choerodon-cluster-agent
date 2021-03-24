@@ -606,6 +606,10 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 		l[model.EnvLabel] = namespace
 		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, model.ClusterId)
 		l[model.NameLabel] = obj.GetName()
+	case "Certificate":
+		if obj.GetAPIVersion() == "certmanager.k8s.io/v1alpha1" {
+			obj.SetAPIVersion("cert-manager.io/v1")
+		}
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil

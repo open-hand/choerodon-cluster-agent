@@ -27,7 +27,6 @@ require (
 	k8s.io/api v0.17.3
 	k8s.io/apiextensions-apiserver v0.17.3
 	k8s.io/apimachinery v0.17.4
-	k8s.io/apimachinery/pkg/apimachinery v0.0.0-00010101000000-000000000000
 	k8s.io/cli-runtime v0.17.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/code-generator v0.17.2
@@ -72,6 +71,5 @@ replace (
 	github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
 	github.com/docker/docker => github.com/docker/docker v1.4.2-0.20200203170920-46ec8731fbce
 	github.com/maorfr/helm-plugin-utils => github.com/maorfr/helm-plugin-utils v0.0.0-20200216074820-36d2fcf6ae86
-	k8s.io/apimachinery/pkg/apimachinery => ./certificate/apimachinery
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.5.1
 )

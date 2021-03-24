@@ -8,6 +8,7 @@ import (
 	envkube "github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"github.com/open-hand/helm/pkg/action"
@@ -20,6 +21,7 @@ import (
 	"github.com/open-hand/helm/pkg/release"
 	"github.com/pkg/errors"
 	"html/template"
+	"io/ioutil"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
 	"log"
@@ -54,6 +56,7 @@ type Client interface {
 	//GetReleaseContent(request *GetReleaseContentRequest) (*Release, error)
 	//RollbackRelease(request *RollbackReleaseRequest) (*Release, error)
 	GetKubeClient() (envkube.Client, error)
+	ApplyCertManagerCrd() error
 }
 
 type client struct {
@@ -308,6 +311,30 @@ func getCertManagerIssuerData() string {
 		glog.Error(err)
 	}
 	return data.String()
+}
+
+func (c *client) ApplyCertManagerCrd() error {
+	kubectlPath, err := exec.LookPath("kubectl")
+	if err != nil {
+		glog.Fatal(err)
+	}
+	glog.Infof("kubectl %s", kubectlPath)
+	kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
+
+	certManagerCrd := []byte{}
+	if util.CompareVersion(model.KubernetesVersion) {
+		certManagerCrd, err = ioutil.ReadFile("/choerodon/cert-manager.crds.yaml")
+		if err != nil {
+			return err
+		}
+	} else {
+		// 小于15版本
+		certManagerCrd, err = ioutil.ReadFile("/choerodon/cert-manager-legacy.crds.yaml")
+		if err != nil {
+			return err
+		}
+	}
+	return kubectlApplier.ApplySingleObj("cert-manager", string(certManagerCrd))
 }
 
 // 执行测试
