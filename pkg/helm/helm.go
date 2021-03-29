@@ -271,9 +271,9 @@ func (c *client) InstallRelease(request *InstallReleaseRequest, username, passwo
 	if err != nil {
 		return nil, err
 	}
-	if rls.Name == "choerodon-cert-manager" {
-		// 睡眠等待3秒，防止创建cert-manager对象的时候crd还没创建成功
-		time.Sleep(3 * time.Second)
+	if rls.Name == "cert-manager" {
+		// 睡眠等待30秒，防止创建cert-manager对象的时候钩子pod还没启动
+		time.Sleep(30 * time.Second)
 		kubectlPath, err := exec.LookPath("kubectl")
 		if err != nil {
 			glog.Fatal(err)

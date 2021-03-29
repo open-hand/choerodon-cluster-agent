@@ -4,8 +4,9 @@ import (
 	"context"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/git"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
-	resource2 "github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes/resource"
+	kubernetes_resource "github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes/resource"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 	"github.com/golang/glog"
@@ -203,18 +204,22 @@ func (g *GitOps) doSync(namespace string) error {
 		if err != nil {
 			glog.Errorf("label of object error ", err)
 		} else if k8sResourceBuff != nil {
-			obj := resource2.BaseObject{
+			obj := kubernetes_resource.BaseObject{
 				SourceName: k8sResource.Source(),
 				BytesArray: k8sResourceBuff.Bytes(),
 				Meta:       k8sResource.Metas(),
 				Kind:       k8sResource.SourceKind(),
 			}
-			changedResources[key] = obj
+			changedResources[key] = &obj
 		}
 	}
 
+	convertCertificateToSecret(allResources, changedResources, namespace, g.kubeClient, fileCommitMap)
+
 	// 开始同步
 	err = Sync(namespace, manifests, allResources, changedResources, g.cluster)
+
+	convertSecretToCertificate(changedResources)
 
 	if err != nil {
 		glog.Errorf("sync: %v", err)
@@ -346,6 +351,82 @@ func prepareSyncApply(res resource.Resource, sync *kubernetes.SyncDef) {
 	sync.Actions = append(sync.Actions, kubernetes.SyncAction{
 		Apply: res,
 	})
+}
+
+func convertCertificateToSecret(repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, namespace string, kubeClient kube.Client, fileCommitMap map[string]string) {
+	// cert-manager版本是1.1.1的时候才需要转化
+	if model.CertManagerVersion == "1.1.1" {
+
+		repoResourceKeysToDelete := []string{}
+		changedResourcesKeysToDelete := []string{}
+
+		for key, repoResource := range repoResources {
+			if repoResource.SourceKind() == "Certificate" {
+				manifest := string(repoResource.Bytes())
+				if changedResource, ok := changedResources[key]; ok {
+					manifest = string(changedResource.Bytes())
+				}
+
+				resultBuff, err, converted := kubeClient.ConvertCertificate(namespace, manifest, fileCommitMap[key])
+				if converted {
+					if err != nil {
+						glog.Errorf("label of object error ", err)
+					} else if resultBuff != nil {
+						obj := kubernetes_resource.BaseObject{
+							SourceName:  repoResource.Source(),
+							BytesArray:  resultBuff.Bytes(),
+							Meta:        repoResource.Metas(),
+							Kind:        "Secret",
+							OriginalKey: key,
+						}
+
+						repoResourceKeysToDelete = append(repoResourceKeysToDelete, key)
+						newKey := "secret/" + parseKey(key)
+						repoResources[newKey] = &obj
+						if _, ok := changedResources[key]; ok {
+							changedResourcesKeysToDelete = append(changedResourcesKeysToDelete, key)
+							changedResources[newKey] = &obj
+						}
+					}
+				} else {
+					continue
+				}
+			}
+		}
+
+		for _, key := range repoResourceKeysToDelete {
+			delete(repoResources, key)
+		}
+
+		for _, key := range changedResourcesKeysToDelete {
+			delete(changedResources, key)
+
+		}
+	}
+}
+
+func convertSecretToCertificate(changedResources map[string]resource.Resource) {
+	if model.CertManagerVersion == "1.1.1" {
+		changedResourcesKeysToDelete := []string{}
+		for key, changedResource := range changedResources {
+			if changedResource.SourceKind() == "Secret" {
+				originalKey := changedResource.GetOriginalKey()
+				if originalKey != "" {
+					changedResource.SetSourceKind("Certificate")
+					changedResourcesKeysToDelete = append(changedResourcesKeysToDelete, key)
+					changedResources[originalKey] = changedResource
+				}
+			}
+		}
+		for _, key := range changedResourcesKeysToDelete {
+			delete(changedResources, key)
+		}
+	}
+}
+
+func parseKey(key string) string {
+	split := strings.Split(key, "/")
+	return split[1]
 }
 
 func prepareSyncDelete(repoResources map[string]resource.Resource, id string, res resource.Resource, sync *kubernetes.SyncDef) {

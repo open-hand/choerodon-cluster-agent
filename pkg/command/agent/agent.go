@@ -40,6 +40,8 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
+	model.CertManagerVersion = agentInitOpts.CertManagerVersion
+
 	err = agentConvert(opts, agentInitOpts.AgentName)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)

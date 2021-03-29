@@ -82,15 +82,16 @@ func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result
 	instance := &corev1.Secret{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 
-	// 如果没有这个注解，说明该secret不是agent管理的,不需要处理
+	// 如果没有这个注解且不是"kubernetes.io/tls"类型，说明该secret不是agent管理的,不需要处理
 	if _, ok := instance.Annotations[model.CommitLabel]; !ok {
-		return reconcile.Result{}, nil
+		if string(instance.Type) != "kubernetes.io/tls" {
+			return reconcile.Result{}, nil
+		}
 	}
 
 	responseChan := r.args.CrChan.ResponseChan
 	if err != nil {
 		if errors.IsNotFound(err) {
-
 			responseChan <- newsecretDelRep(request.Name, request.Namespace)
 			glog.Warningf("secret '%s' in work queue no longer exists", request.Name)
 			return reconcile.Result{}, nil
@@ -106,7 +107,7 @@ func (r *ReconcileSecret) Reconcile(request reconcile.Request) (reconcile.Result
 	if instance.Labels[model.ReleaseLabel] != "" {
 		glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
 		responseChan <- newsecretRep(instance)
-	} else if string(instance.Type) == "kubernetes.io/tls" && instance.Annotations != nil && instance.Annotations[model.CommitLabel] != "" {
+	} else if string(instance.Type) == "kubernetes.io/tls" {
 		if newCertIssuedRep(instance) != nil {
 			responseChan <- newCertIssuedRep(instance)
 		}

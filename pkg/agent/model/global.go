@@ -4,6 +4,8 @@ import (
 	"sync"
 )
 
+var CertManagerVersion string
+
 var KubernetesVersion string
 
 var ClusterId string

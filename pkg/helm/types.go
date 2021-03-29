@@ -138,9 +138,3 @@ type SyncRequest struct {
 	Namespace      string `json:"namespace,omitempty"`
 	ResourceStatus string `json:"resourceStatus,omitempty"`
 }
-
-type CertManagerInfo struct {
-	ReleaseName string `json:"releaseName,omitempty"`
-	Namespace   string `json:"namespace,omitempty"`
-	Version     string `json:"version,omitempty"`
-}
