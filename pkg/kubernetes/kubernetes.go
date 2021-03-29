@@ -6,8 +6,10 @@ package kubernetes
 
 import (
 	"bytes"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned/typed/certmanager/v1"
+	v1_versioned "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/client/clientset/versioned"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/client/clientset/versioned/typed/certmanager/v1"
+	v1alpha1_versioned "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/client/clientset/versioned"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/client/clientset/versioned/typed/certmanager/v1alpha1"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"sync"
 
@@ -26,6 +28,7 @@ type extendedClient struct {
 	v1core.CoreV1Interface
 	v1beta1extensions.ExtensionsV1beta1Interface
 	v1.CertmanagerV1Interface
+	v1alpha1.CertmanagerV1alpha1Interface
 }
 
 type ChangeSet struct {
@@ -75,7 +78,8 @@ type Cluster struct {
 // NewCluster returns a usable cluster.
 func NewCluster(
 	clientset k8sclient.Interface,
-	crdClientSet versioned.Interface,
+	v1CrdClientSet v1_versioned.Interface,
+	v1alpha1ClientSet v1alpha1_versioned.Interface,
 	mgrs *operatorutil.MgrList,
 	applier Applier,
 	describer Describer,
@@ -85,7 +89,8 @@ func NewCluster(
 		Client: extendedClient{
 			clientset.CoreV1(),
 			clientset.ExtensionsV1beta1(),
-			crdClientSet.CertmanagerV1(),
+			v1CrdClientSet.CertmanagerV1(),
+			v1alpha1ClientSet.Certmanager(),
 		},
 		Mgrs:      mgrs,
 		Applier:   applier,

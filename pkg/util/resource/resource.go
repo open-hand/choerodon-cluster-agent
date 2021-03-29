@@ -34,6 +34,8 @@ type Resource interface {
 	Bytes() []byte          // the definition, for sending to cluster.Sync
 	Metas() Meta
 	SourceKind() string
+	SetSourceKind(kind string)
+	GetOriginalKey() string
 }
 
 // ResourceID is an opaque type which uniquely identifies a resource in an

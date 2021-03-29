@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/apis/certmanager/v1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/apis/certmanager/v1"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/apis/certmanager/v1alpha1"
 	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
@@ -45,18 +46,41 @@ type certificateKind struct {
 
 func (dk *certificateKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 	var K8sResources []K8sResource
-	certificates, err := c.Client.Certificates(namespace).List(context.Background(), meta_v1.ListOptions{})
-	if err != nil {
-		return nil, err
+	if model.CertManagerVersion == "0.1.0" {
+		// 获取v1alpha1的certificate资源
+		v1Alpha1Certificates, err := c.Client.V1alpha1Certificates(namespace).List(meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for i := range v1Alpha1Certificates.Items {
+			K8sResources = append(K8sResources, makeV1alpha1CertificateK8sResource(&v1Alpha1Certificates.Items[i]))
+		}
 	}
 
-	for i := range certificates.Items {
-		K8sResources = append(K8sResources, makeCertificateK8sResource(&certificates.Items[i]))
+	if model.CertManagerVersion == "1.1.1" {
+		// 获取v1版本的certificate资源
+		v1Certificates, err := c.Client.V1Certificates(namespace).List(context.Background(), meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+		for i := range v1Certificates.Items {
+			K8sResources = append(K8sResources, makeV1CertificateK8sResource(&v1Certificates.Items[i]))
+		}
 	}
 
 	return K8sResources, nil
 }
-func makeCertificateK8sResource(certificate *v1.Certificate) K8sResource {
+
+func makeV1CertificateK8sResource(certificate *v1.Certificate) K8sResource {
+	return K8sResource{
+		ApiVersion: "v1",
+		Kind:       "Certificate",
+		Name:       certificate.Name,
+		K8sObject:  certificate,
+	}
+}
+
+func makeV1alpha1CertificateK8sResource(certificate *v1alpha1.Certificate) K8sResource {
 	return K8sResource{
 		ApiVersion: "v1alpha1",
 		Kind:       "Certificate",
@@ -209,16 +233,16 @@ type secret struct {
 }
 
 func (s *secret) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
-	configMaps, err := c.Client.Secrets(namespace).List(meta_v1.ListOptions{})
+	secrets, err := c.Client.Secrets(namespace).List(meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
 	var K8sResources []K8sResource
-	for i := range configMaps.Items {
-		cm := configMaps.Items[i]
-		if cm.Labels[model.ReleaseLabel] == "" && cm.Labels[model.AgentVersionLabel] != "" {
-			K8sResources = append(K8sResources, makeSecretK8sResource(&configMaps.Items[i]))
+	for i := range secrets.Items {
+		sc := secrets.Items[i]
+		if sc.Labels[model.TlsSecretLabel] == "" && sc.Labels[model.ReleaseLabel] == "" && sc.Labels[model.AgentVersionLabel] != "" {
+			K8sResources = append(K8sResources, makeSecretK8sResource(&secrets.Items[i]))
 		}
 	}
 

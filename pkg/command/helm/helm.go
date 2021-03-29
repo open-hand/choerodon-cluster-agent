@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/golang/glog"
 	"strings"
@@ -123,6 +122,7 @@ func UpgradeHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 func InstallCertManager(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	// 根据k8s版本，创建不同的crd
 	// 大于等于15版本
+	model.CertManagerVersion = "1.1.1"
 	err := opts.HelmClient.ApplyCertManagerCrd()
 	if err != nil {
 		return nil, &model.Packet{
@@ -142,17 +142,21 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.HelmReleaseDeleteFailed, err)
 	}
-	rlsContentRequest := &helm.GetReleaseContentRequest{
-		ReleaseName: delRequest.ReleaseName,
+
+	info := model.CertManagerStatusInfo{
+		Status:      "deleted",
 		Namespace:   delRequest.Namespace,
+		ReleaseName: delRequest.ReleaseName,
 	}
-	_, err = opts.HelmClient.GetRelease(rlsContentRequest)
+
+	respB, err := json.Marshal(info)
 	if err != nil {
-		// 不存在说明cert-manager可能是由helm2管理的，尝试升级到helm3(这里有个问题，如果cert-manager不存在且tiller也不存在，会导致agent重启。是调用的helm迁移库造成的)
+		// 不存在直接返回已删除，其他错误返回错误信息
 		if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
-			helm2to3.RunConvert(delRequest.ReleaseName)
-			if opts.ClearHelmHistory {
-				helm2to3.RunCleanup(delRequest.ReleaseName)
+			return nil, &model.Packet{
+				Key:     cmd.Key,
+				Type:    model.CertManagerStatus,
+				Payload: string(respB),
 			}
 		} else {
 			return nil, command.NewResponseError(cmd.Key, cmd.Type, err)
@@ -163,6 +167,6 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 	return nil, &model.Packet{
 		Key:     cmd.Key,
 		Type:    model.CertManagerStatus,
-		Payload: fmt.Sprintf(model.PodStatus, "deleted"),
+		Payload: string(respB),
 	}
 }

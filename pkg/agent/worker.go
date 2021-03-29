@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
 	agentsync "github.com/choerodon/choerodon-cluster-agent/pkg/agent/sync"
@@ -10,6 +11,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
+	v1 "k8s.io/api/core/v1"
 	"sync"
 
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
@@ -170,61 +172,63 @@ func (w *workerManager) monitorCertMgr() {
 	podStatusTmp := " "
 	for {
 		time.Sleep(10 * time.Second)
-		podStatus, err := w.getPodStatus()
+		podStatusInfo, err := w.getPodStatus()
 		if err != nil {
 			return
 		}
-		if podStatus != podStatusTmp {
-			podStatusTmp = podStatus
+		if podStatusInfo.Status != podStatusTmp {
+			podStatusTmp = podStatusInfo.Status
+			respB, _ := json.Marshal(podStatusInfo)
 			w.chans.ResponseChan <- &model.Packet{
 				Key:     "cluster:" + model.ClusterId,
 				Type:    model.CertManagerStatus,
-				Payload: fmt.Sprintf(model.PodStatus, podStatus),
+				Payload: string(respB),
 			}
 		}
 	}
 }
 
 //得到pod的状态
-func (w *workerManager) getPodStatus() (string, error) {
-	//为了兼容老版本
-	podListOld, err := w.kubeClient.GetKubeClient().CoreV1().Pods("kube-system").List(metav1.ListOptions{
-		LabelSelector: "choerodon.io/release=choerodon-cert-manager",
-	})
-	if err != nil {
-		glog.V(1).Info("Namespace kube-system dont have the cert-mgr")
-		return "exception", err
+func (w *workerManager) getPodStatus() (model.CertManagerStatusInfo, error) {
+	info := model.CertManagerStatusInfo{}
+	podList := &v1.PodList{}
+	var err error
+	// 最新版本的certManager
+	if model.CertManagerVersion == "1.1.1" {
+		info.Namespace = "cert-manager"
+		info.ChartVersion = "1.1.1"
+		info.ReleaseName = "cert-manager"
+
+		podList, err = w.kubeClient.GetKubeClient().CoreV1().Pods("cert-manager").List(metav1.ListOptions{
+			LabelSelector: "app=cert-manager",
+		})
+	} else {
+		info.Namespace = "choerodon"
+		info.ChartVersion = "0.1.0"
+		info.ReleaseName = "choerodon-cert-manager"
+
+		podList, err = w.kubeClient.GetKubeClient().CoreV1().Pods("choerodon").List(metav1.ListOptions{
+			LabelSelector: "choerodon.io/release=choerodon-cert-manager",
+		})
 	}
 
-	if len(podListOld.Items) > 0 {
-		glog.V(1).Info("The old cert-mgr pod  is running in the kube-system")
-		return "running", nil
-	}
-	//新版本从这开始--
-	//这个方法从找podList开始，原因是： 如果pod直接被删除，那么名字会更换
-	const namespace = "choerodon"
-	podList, err := w.kubeClient.GetKubeClient().CoreV1().Pods(namespace).List(metav1.ListOptions{
-		LabelSelector: "choerodon.io/release=choerodon-cert-manager",
-	})
 	if err != nil {
 		glog.V(1).Info("Get cert-mgr pod by selector err: ", err)
-		return "exception", err
+		info.Status = "exception"
+		return info, err
 	}
 	if len(podList.Items) == 0 {
 		glog.V(1).Info("The cert-mgr pod status is deleted")
-		return "deleted", err
+		info.Status = "deleted"
+		return info, err
 	}
 	if len(podList.Items) > 1 {
 		glog.V(1).Info("The cert-mgr pod got by selector Is not the only")
-		return "", err
+		return info, err
 	}
 
-	podName := podList.Items[0].Name
-	pod, err := w.kubeClient.GetKubeClient().CoreV1().Pods(namespace).Get(podName, metav1.GetOptions{})
-	if err != nil {
-		glog.V(1).Info("Get pod status by podName err: ", err)
-		return "", err
-	}
-	podStatus := fmt.Sprintf("%s", pod.Status.Phase)
-	return podStatus, nil
+	pod := podList.Items[0]
+	info.Status = fmt.Sprintf("%s", pod.Status.Phase)
+	return info, nil
+
 }

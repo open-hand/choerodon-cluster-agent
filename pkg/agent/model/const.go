@@ -115,7 +115,6 @@ const (
 )
 
 const (
-	PodStatus     = `{"status":"%s"}`
 	INSTALL       = "INSTALL"
 	UPGRADE       = "UPGRADE"
 	CROSS_UPGRADE = "CROSS-UPGRADE"

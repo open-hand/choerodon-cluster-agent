@@ -248,6 +248,10 @@ func (ctx *Context) ReSync() {
 	if ctx.stopCh != nil {
 		close(ctx.stopCh)
 	}
+
+	// 有这种情况。节点同步逻辑正在进行中，这时close(ctx.stopCh)，不会终止节点同步协程。
+	// 接着下面重新make，会导致节点同步逻辑执行完成后误认为没有接收到通道关闭信号，从而这个协程保留了下来。
+	// 随着agent重连次数增多，节点同步的协程会越来越多
 	ctx.stopCh = make(chan struct{}, 1)
 	Run(ctx)
 }

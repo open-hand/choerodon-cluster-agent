@@ -15,10 +15,11 @@ import (
 
 // struct to embed in objects, to provide default implementation
 type BaseObject struct {
-	SourceName string
-	BytesArray []byte
-	Kind       string        `yaml:"kind"`
-	Meta       resource.Meta `yaml:"metadata"`
+	SourceName  string
+	BytesArray  []byte
+	Kind        string        `yaml:"kind"`
+	Meta        resource.Meta `yaml:"metadata"`
+	OriginalKey string
 }
 
 func (o BaseObject) ResourceID() resource.ResourceID {
@@ -35,24 +36,32 @@ func (o *BaseObject) debyte() {
 	o.BytesArray = nil
 }
 
-func (o BaseObject) Source() string {
+func (o *BaseObject) Source() string {
 	return o.SourceName
 }
 
-func (o BaseObject) SourceKind() string {
+func (o *BaseObject) SourceKind() string {
 	return o.Kind
 }
 
-func (o BaseObject) Bytes() []byte {
+func (o *BaseObject) Bytes() []byte {
 	return o.BytesArray
 }
 
-func (o BaseObject) Metas() resource.Meta {
+func (o *BaseObject) Metas() resource.Meta {
 	return o.Meta
 }
 
+func (o *BaseObject) GetOriginalKey() string {
+	return o.OriginalKey
+}
+
+func (o *BaseObject) SetSourceKind(kind string) {
+	o.Kind = kind
+}
+
 func unmarshalObject(namespace string, source string, bytes []byte) (resource.Resource, error) {
-	var base = BaseObject{SourceName: source, BytesArray: bytes}
+	var base = &BaseObject{SourceName: source, BytesArray: bytes}
 	if err := yaml.Unmarshal(bytes, &base); err != nil {
 		return nil, err
 	}

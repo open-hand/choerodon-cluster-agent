@@ -5,7 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/client/clientset/versioned"
+	v1_versioned "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/client/clientset/versioned"
+	v1alpha1_versioned "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/client/clientset/versioned"
 	choerodon_version "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/clientset/versioned"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/ghodss/yaml"
@@ -34,6 +35,7 @@ import (
 type Client interface {
 	DeleteJob(namespace string, name string) error
 	LogsForJob(namespace string, name string, jobLabel string) (string, string, error)
+	ConvertCertificate(namespace, manifest, commit string) (*bytes.Buffer, error, bool)
 	CreateOrUpdateService(namespace string, serviceStr string) (*core_v1.Service, error)
 	CreateOrUpdateIngress(namespace string, ingressStr string) (*ext_v1beta1.Ingress, error)
 	GetDiscoveryClient() (discovery.DiscoveryInterface, error)
@@ -50,8 +52,10 @@ type Client interface {
 	GetNamespace(namespace string) error
 	DeleteNamespace(namespace string) error
 	GetSecret(namespace string, secretName string) (string, error)
+	IsSecretExist(namespace string, secretName string) (bool, error)
 	GetKubeClient() *kubernetes.Clientset
-	GetCrdClient() *versioned.Clientset
+	GetV1CrdClient() *v1_versioned.Clientset
+	GetV1alpha1CrdClient() *v1alpha1_versioned.Clientset
 	GetC7nClient() *choerodon_version.Clientset
 	GetRESTConfig() (*rest.Config, error)
 	IsReleaseJobRun(namespace, releaseName string) bool
@@ -66,9 +70,10 @@ const testContainer string = "automation-test"
 
 type client struct {
 	cmdutil.Factory
-	client    *kubernetes.Clientset
-	crdClient *versioned.Clientset
-	c7nClient *choerodon_version.Clientset
+	client            *kubernetes.Clientset
+	v1CrdClient       *v1_versioned.Clientset
+	v1alpha1CrdClient *v1alpha1_versioned.Clientset
+	c7nClient         *choerodon_version.Clientset
 }
 
 func NewClient(f cmdutil.Factory) (Client, error) {
@@ -80,19 +85,25 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get restConfig: %v", err)
 	}
-	crdClient, err := versioned.NewForConfig(restConfig)
+	v1CrdClient, err := v1_versioned.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("get crd client: %v", err)
+		return nil, fmt.Errorf("get v1 crd client: %v", err)
 	}
+	v1alpha1CrdClient, err := v1alpha1_versioned.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("get v1alpha1 crd client: %v", err)
+	}
+
 	c7nClient, err := choerodon_version.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error building c7n clientset: %v", err)
 	}
 	return &client{
-		Factory:   f,
-		client:    kubeClient,
-		crdClient: crdClient,
-		c7nClient: c7nClient,
+		Factory:           f,
+		client:            kubeClient,
+		v1CrdClient:       v1CrdClient,
+		v1alpha1CrdClient: v1alpha1CrdClient,
+		c7nClient:         c7nClient,
 	}, nil
 }
 
@@ -126,8 +137,12 @@ func (c *client) GetKubeClient() *kubernetes.Clientset {
 	return c.client
 }
 
-func (c *client) GetCrdClient() *versioned.Clientset {
-	return c.crdClient
+func (c *client) GetV1CrdClient() *v1_versioned.Clientset {
+	return c.v1CrdClient
+}
+
+func (c *client) GetV1alpha1CrdClient() *v1alpha1_versioned.Clientset {
+	return c.v1alpha1CrdClient
 }
 
 func (c *client) GetC7nClient() *choerodon_version.Clientset {
@@ -269,6 +284,21 @@ func (c *client) GetSecret(namespace string, secretName string) (string, error) 
 		return secret.Annotations[model.CommitLabel], nil
 	}
 	return "", nil
+}
+
+func (c *client) IsSecretExist(namespace string, secretName string) (bool, error) {
+	secret, err := c.client.CoreV1().Secrets(namespace).Get(secretName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return false, err
+		}
+		return false, nil
+	}
+	if secret.Type == "kubernetes.io/tls" {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 func (c *client) GetConfigMap(namespace string, configMapName string) (string, error) {
@@ -530,6 +560,82 @@ func (c *client) LabelRepoObj(namespace, manifest, version string, commit string
 	return newManifestBuf, nil
 }
 
+func (c *client) ConvertCertificate(namespace, manifest, commit string) (*bytes.Buffer, error, bool) {
+	converted := false
+	result, err := c.BuildUnstructured(namespace, manifest)
+	if err != nil {
+		return nil, fmt.Errorf("build unstructured: %v", err), converted
+	}
+
+	newManifestBuf := bytes.NewBuffer(nil)
+	for _, info := range result {
+
+		obj := info.Object.(*unstructured.Unstructured)
+
+		certExist := existCert(obj.Object)
+		if !certExist {
+			objB, err := yaml.Marshal(obj)
+			if err != nil {
+				return nil, fmt.Errorf("yaml marshal: %v", err), converted
+			}
+			newManifestBuf.WriteString("\n---\n")
+			newManifestBuf.Write(objB)
+			continue
+		}
+
+		certInfo := getCertInfo(obj.Object)
+		key := certInfo["key"].(string)
+		cert := certInfo["cert"].(string)
+
+		secretLabels := obj.GetLabels()
+		if secretLabels == nil {
+			secretLabels = make(map[string]string)
+		}
+
+		secretLabels[model.TlsSecretLabel] = model.AgentVersion
+
+		secretAnnotations := obj.GetAnnotations()
+		if secretAnnotations == nil {
+			secretAnnotations = make(map[string]string)
+		}
+
+		objectMeta := meta_v1.ObjectMeta{
+			Name:        obj.GetName(),
+			Namespace:   namespace,
+			Labels:      secretLabels,
+			Annotations: secretAnnotations,
+		}
+
+		typeMeta := meta_v1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		}
+
+		data := make(map[string][]byte)
+
+		data["tls.key"] = []byte(key)
+		data["tls.crt"] = []byte(cert)
+
+		tlsSecret := core_v1.Secret{
+			TypeMeta:   typeMeta,
+			ObjectMeta: objectMeta,
+			Data:       data,
+			Type:       "kubernetes.io/tls",
+		}
+
+		objB, err := yaml.Marshal(tlsSecret)
+		if err != nil {
+			return nil, fmt.Errorf("yaml marshal: %v", err), converted
+		}
+
+		newManifestBuf.WriteString("\n---\n")
+		newManifestBuf.Write(objB)
+		converted = true
+	}
+
+	return newManifestBuf, nil, converted
+}
+
 // 给资源加标签和注解
 func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, c *client, commit string) (runtime.Object, error) {
 
@@ -556,7 +662,7 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 		l[model.NetworkLabel] = "service"
 	case "Ingress":
 		l[model.NetworkLabel] = "ingress"
-	case "ConfigMap", "Secret":
+	case "ConfigMap", "Secret", "Certificate":
 	case "C7NHelmRelease":
 		if namespace == model.AgentNamespace {
 			l[model.C7NHelmReleaseClusterLabel] = model.ClusterId
@@ -606,10 +712,6 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 		l[model.EnvLabel] = namespace
 		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, model.ClusterId)
 		l[model.NameLabel] = obj.GetName()
-	case "Certificate":
-		if obj.GetAPIVersion() == "certmanager.k8s.io/v1alpha1" {
-			obj.SetAPIVersion("cert-manager.io/v1")
-		}
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
@@ -628,6 +730,22 @@ func getSpecField(obj map[string]interface{}) map[string]interface{} {
 		specFields = make(map[string]interface{})
 	}
 	return specFields
+}
+
+func existCert(obj map[string]interface{}) bool {
+	_, exist, err := unstructured.NestedMap(obj, "spec", "existCert")
+	if err != nil {
+		glog.Warningf("Get existCert field failed, %v", err)
+	}
+	return exist
+}
+
+func getCertInfo(obj map[string]interface{}) map[string]interface{} {
+	cert, _, err := unstructured.NestedMap(obj, "spec", "existCert")
+	if err != nil {
+		glog.Warningf("Get existCert field failed, %v", err)
+	}
+	return cert
 }
 
 func isFoundPod(podItem []core_v1.Pod, pod core_v1.Pod) bool {

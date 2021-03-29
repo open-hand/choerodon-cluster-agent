@@ -21,29 +21,20 @@ func init() {
 	CRD_YAMLS = append(CRD_YAMLS, CrdC7NHemReleaseYaml)
 }
 
-const CertManagerClusterIssuer = `apiVersion: certmanager.k8s.io/v1alpha1
-kind: ClusterIssuer
-metadata:
-  name: localhost
-spec:
-  acme:
-    server: https://acme-staging.api.letsencrypt.org/directory
-    email: {{ .ACME_EMAIL }} 
-    privateKeySecretRef:
-      name: localhost
-    http01: {}
----
-apiVersion: certmanager.k8s.io/v1alpha1
+const CertManagerClusterIssuer = `apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:
   name: letsencrypt-prod
 spec:
   acme:
-    server: https://acme-v02.api.letsencrypt.org/directory
-    email: {{ .ACME_EMAIL }} 
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: change_it@choerodon.io
     privateKeySecretRef:
       name: letsencrypt-prod
-    http01: {}`
+    solvers:
+      - http01:
+          ingress:
+            class: nginx`
 
 type GitInitConfig struct {
 	SshKey string `json:"sshKey,omitempty"`
@@ -51,9 +42,17 @@ type GitInitConfig struct {
 }
 
 type AgentInitOptions struct {
-	Envs      []EnvParas `json:"envs,omitempty"`
-	GitHost   string     `json:"gitHost,omitempty"`
-	AgentName string     `json:"agentName,omitempty"`
+	Envs               []EnvParas `json:"envs,omitempty"`
+	GitHost            string     `json:"gitHost,omitempty"`
+	AgentName          string     `json:"agentName,omitempty"`
+	CertManagerVersion string     `json:"certManagerVersion,omitempty"`
+}
+
+type CertManagerStatusInfo struct {
+	Status       string `json:"status,omitempty"`
+	ChartVersion string `json:"chartVersion,omitempty"`
+	Namespace    string `json:"namespace,omitempty"`
+	ReleaseName  string `json:"releaseName,omitempty"`
 }
 
 type AgentStatus struct {

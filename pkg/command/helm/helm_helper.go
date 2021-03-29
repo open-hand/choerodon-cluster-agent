@@ -8,8 +8,8 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
-	helm_release "github.com/open-hand/helm/pkg/release"
 	"github.com/golang/glog"
+	helm_release "github.com/open-hand/helm/pkg/release"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"strings"
@@ -118,11 +118,11 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 			}
 			break
 		case "certificate":
-			commit, err := kubeClient.GetSecret(namespace, syncRequest.ResourceName)
+			exist, err := kubeClient.IsSecretExist(namespace, syncRequest.ResourceName)
 			if err != nil {
 				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
-			} else if commit != "" {
-				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
+			} else if exist {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, syncRequest.Commit, "", syncRequest.Id))
 			}
 			break
 		case "instance":

@@ -272,7 +272,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			}
 		}
 
-		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetCrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), kubeClient.GetV1alpha1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
 	}
 	polarisConfig, err := config.ParseFile(o.polarisFile)
 	if err != nil {

@@ -9,6 +9,7 @@ const (
 	NetworkNoDelLabel  = "choerodon.io/no_delete"
 	AgentVersionLabel  = "choerodon.io"
 	CommitLabel        = "choerodon.io/commit"
+	TlsSecretLabel     = "choerodon.io/tls-secret"
 	// 拼写错误，暂时不要更改
 	CommandLabel                    = "choeroodn.io/command"
 	AppServiceIdLabel               = "choerodon.io/app-service-id"
