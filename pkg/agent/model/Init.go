@@ -27,8 +27,8 @@ metadata:
   name: letsencrypt-prod
 spec:
   acme:
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: change_it@choerodon.io
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ .ACME_EMAIL }} 
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:
