@@ -6,6 +6,7 @@ package git
 
 import (
 	"context"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -212,7 +213,6 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 	defer done.Done()
 
 	for {
-
 		r.mu.RLock()
 		url := r.origin.URL
 		dir := r.dir
@@ -276,6 +276,8 @@ func (r *Repo) Start(shutdown <-chan struct{}, repoRefreshShutdown chan struct{}
 			r.setStatus(RepoCloned, err)
 		case RepoReady:
 			// 仓库拉取完成，退出协程
+			glog.Infof("env %s sync completed", r.Env)
+			<-model.GitRepoConcurrencySyncChan
 			return nil
 		}
 

@@ -40,6 +40,10 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
+	glog.Infof("repoConcurrencySize:%d", agentInitOpts.RepoConcurrencySyncSize)
+
+	model.GitRepoConcurrencySyncChan = make(chan struct{}, agentInitOpts.RepoConcurrencySyncSize)
+
 	model.CertManagerVersion = agentInitOpts.CertManagerVersion
 
 	err = agentConvert(opts, agentInitOpts.AgentName)

@@ -32,3 +32,6 @@ var GitRunning = false
 
 // agent初始化锁，防止接收多个agent_init命令，导致重复初始化
 var InitLock = sync.Mutex{}
+
+// git repo初始化的时候控制并发的chan
+var GitRepoConcurrencySyncChan chan struct{}
