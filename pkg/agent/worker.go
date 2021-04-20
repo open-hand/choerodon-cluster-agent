@@ -71,6 +71,9 @@ func NewWorkerManager(
 	syncAll bool,
 	polarisConfig *config.Configuration,
 	clearHelmHistory bool) *workerManager {
+	if platformCode == "" {
+		platformCode = token
+	}
 	return &workerManager{
 		chans:              chans,
 		helmClient:         helmClient,
