@@ -40,6 +40,11 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
+	// 如果devops没有设置该参数，那么默认设为1
+	if agentInitOpts.RepoConcurrencySyncSize == 0 {
+		agentInitOpts.RepoConcurrencySyncSize = 1
+	}
+
 	glog.Infof("repoConcurrencySize:%d", agentInitOpts.RepoConcurrencySyncSize)
 
 	model.GitRepoConcurrencySyncChan = make(chan struct{}, agentInitOpts.RepoConcurrencySyncSize)
