@@ -42,10 +42,11 @@ type GitInitConfig struct {
 }
 
 type AgentInitOptions struct {
-	Envs               []EnvParas `json:"envs,omitempty"`
-	GitHost            string     `json:"gitHost,omitempty"`
-	AgentName          string     `json:"agentName,omitempty"`
-	CertManagerVersion string     `json:"certManagerVersion,omitempty"`
+	Envs                    []EnvParas `json:"envs,omitempty"`
+	GitHost                 string     `json:"gitHost,omitempty"`
+	AgentName               string     `json:"agentName,omitempty"`
+	CertManagerVersion      string     `json:"certManagerVersion,omitempty"`
+	RepoConcurrencySyncSize int        `json:"repoConcurrencySyncSize,omitempty"`
 }
 
 type CertManagerStatusInfo struct {

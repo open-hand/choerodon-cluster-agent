@@ -57,6 +57,7 @@ func (g *GitOps) WithStop() {
 }
 
 func (g *GitOps) listenEnvs() {
+	rand.Seed(time.Now().Unix())
 	if _, ok := model.GitStopChanMap[SyncIntervalStopChanName]; !ok {
 		syncIntervalChan := make(chan struct{})
 		// 该协程监听环境的定时同步
@@ -73,13 +74,12 @@ func (g *GitOps) listenEnvs() {
 			repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(g.gitConfig.GitPollInterval))
 			g.Wg.Add(1)
 			// to wait create env git repo
-			rand.Seed(time.Now().Unix())
-			sleepTime := 10 + rand.Intn(50)
-			glog.Infof("env: %s will start to sync after %d seconds", envPara.Namespace, sleepTime)
-			time.Sleep(time.Duration(sleepTime) * time.Second)
-
+			model.GitRepoConcurrencySyncChan <- struct{}{}
 			go func() {
 				// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
+				sleepTime := rand.Intn(60)
+				glog.Infof("env: %s will start to sync after %d seconds", envPara.Namespace, sleepTime)
+				time.Sleep(time.Duration(sleepTime) * time.Second)
 				err := repo.Start(gitStopChan, repo.RefreshChan, g.Wg)
 				if err != nil {
 					glog.Errorf("git repo start failed", err)
