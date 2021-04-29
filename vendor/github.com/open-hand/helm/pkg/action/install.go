@@ -285,7 +285,7 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}, valsRaw st
 
 	// 在这里对要创建的对象添加标签
 	for _, r := range resources {
-		err = action.AddLabel(i.ImagePullSecret, i.Command, i.AppServiceId, r, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, "", i.TestLabel, i.IsTest, false, nil)
+		err = action.AddLabel(i.ImagePullSecret, i.Command, i.AppServiceId, r, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.Namespace, i.IsTest, false, nil)
 		if err != nil {
 			return nil, err
 		}

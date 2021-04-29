@@ -27,6 +27,8 @@ type Context struct {
 
 var syncFuncs []func(ctx *Context) error
 
+var initialized = false
+
 func syncStatefulSet(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
@@ -202,14 +204,10 @@ func syncMetrics(ctx *Context) error {
 		Client: ctx.KubeClient.GetKubeClient(),
 		CrChan: ctx.CrChan,
 	}
-	// todo: need improve method
-	//p := &pod.Pod{
-	//	CrChan:     ctx.CrChan,
-	//	Namespaces: ctx.Namespaces,
-	//	Client:     ctx.KubeClient,
-	//}
-	metrics.Register(m)
-	//metrics.Register(p)
+	if !initialized {
+		metrics.Register(m)
+		initialized = true
+	}
 	metrics.Run(ctx.stopCh)
 	return nil
 }
@@ -245,13 +243,14 @@ func Run(ctx *Context) {
 }
 
 func (ctx *Context) ReSync() {
-	if ctx.stopCh != nil {
-		close(ctx.stopCh)
-	}
-
 	// 有这种情况。节点同步逻辑正在进行中，这时close(ctx.stopCh)，不会终止节点同步协程。
 	// 接着下面重新make，会导致节点同步逻辑执行完成后误认为没有接收到通道关闭信号，从而这个协程保留了下来。
 	// 随着agent重连次数增多，节点同步的协程会越来越多
+	// 所以睡眠等待10秒后再开始往下执行
+	time.Sleep(10 * time.Second)
+	if ctx.stopCh != nil {
+		close(ctx.stopCh)
+	}
 	ctx.stopCh = make(chan struct{}, 1)
 	Run(ctx)
 }
