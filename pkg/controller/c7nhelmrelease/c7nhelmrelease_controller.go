@@ -8,6 +8,7 @@ import (
 	choerodonv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	modelhelm "github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
 	apiextensions_v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -22,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"strings"
 )
 
 var log = logf.Log.WithName("controller_c7nhelmrelease")
@@ -89,6 +91,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	reqLogger.Info("Reconciling C7NHelmRelease")
 
 	commandChan := r.args.CrChan.CommandChan
+	responseChan := r.args.CrChan.ResponseChan
 
 	result := reconcile.Result{}
 
@@ -100,7 +103,7 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// 判断C7NHelmRelease资源是否存在，不存在表示实例删除操作
-			if !r.checkCrdDeleted(instance) {
+			if !r.checkCrdDeleted() {
 				runtimeutil.HandleError(fmt.Errorf("C7NHelmReleases '%s' in work queue no longer exists", name))
 				if cmd := deleteHelmReleaseCmd(namespace, name); cmd != nil {
 					glog.Infof("[Goroutine %d] release %s delete", util.GetGID(), name)
@@ -133,10 +136,17 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 		switch operate {
 		case model.INSTALL:
 			// 安装操作
-			glog.Infof("[Goroutine %d] release %s not found", util.GetGID(), instance.Name)
-			if cmd := installHelmReleaseCmd(instance); cmd != nil {
-				glog.Infof("[Goroutine %d] release %s start to install", util.GetGID(), instance.Name)
-				commandChan <- cmd
+			// 如果实例存在表示安装操作完成，先返回实例信息，然后去掉C7NHelmReleaseOperateAnnotation注解
+			// 不存在则执行安装命令
+			if release, exist := r.getHelmRelease(instance); exist == true {
+				// 返回实例信息
+				sendReleaseInfo(release, instance, responseChan)
+				return r.deleteC7NHelmReleaseOperateAnnotation(instance)
+			} else {
+				if cmd := installHelmReleaseCmd(instance); cmd != nil {
+					glog.Infof("[Goroutine %d] release %s start to install", util.GetGID(), instance.Name)
+					commandChan <- cmd
+				}
 			}
 			break
 		case model.UPGRADE:
@@ -148,19 +158,10 @@ func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcil
 			break
 		case model.CROSS_UPGRADE:
 			// 市场应用的跨服务升级
-			if cmd :=crossUpgradeHelmReleaseCmd(instance);cmd!=nil{
+			if cmd := crossUpgradeHelmReleaseCmd(instance); cmd != nil {
 				glog.Infof("[Goroutine %d] release %s crossUpgrade", util.GetGID(), instance.Name)
 				commandChan <- cmd
 			}
-
-		}
-		annotations := instance.Annotations
-		delete(annotations, model.C7NHelmReleaseOperateAnnotation)
-		instance.SetAnnotations(annotations)
-		err = r.client.Update(context.TODO(), instance)
-		if err != nil {
-			glog.Info(err)
-			return reconcile.Result{}, err
 		}
 		return reconcile.Result{}, nil
 	}
@@ -190,6 +191,22 @@ func installHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pa
 		Key:     fmt.Sprintf("env:%s.release:%s", instance.Namespace, instance.Name),
 		Type:    model.HelmInstallJobInfo,
 		Payload: string(reqBytes),
+	}
+}
+
+func sendReleaseInfo(release *modelhelm.Release, instance *choerodonv1alpha1.C7NHelmRelease, responseChan chan *model.Packet) {
+	key := fmt.Sprintf("env:%s.release:%s", release.Namespace, release.Name)
+	commitSha := instance.Annotations[model.CommitLabel]
+	release.Command = instance.Spec.CommandId
+	release.Commit = commitSha
+	respB, err := json.Marshal(release)
+	if err != nil {
+		responseChan <- command.NewResponseErrorWithCommit(key, commitSha, model.HelmReleaseInstallFailed, err)
+	}
+	responseChan <- &model.Packet{
+		Key:     key,
+		Type:    model.HelmReleaseInstallResourceInfo,
+		Payload: string(respB),
 	}
 }
 
@@ -260,7 +277,7 @@ func deleteHelmReleaseCmd(namespace, name string) *model.Packet {
 	}
 }
 
-func (r *ReconcileC7NHelmRelease) checkCrdDeleted(instance *choerodonv1alpha1.C7NHelmRelease) bool {
+func (r *ReconcileC7NHelmRelease) checkCrdDeleted() bool {
 	found := &apiextensions_v1.CustomResourceDefinition{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: "c7nhelmreleases.choerodon.io", Namespace: ""}, found)
 
@@ -270,4 +287,28 @@ func (r *ReconcileC7NHelmRelease) checkCrdDeleted(instance *choerodonv1alpha1.C7
 		glog.Error(err)
 	}
 	return false
+}
+
+func (r *ReconcileC7NHelmRelease) getHelmRelease(instance *choerodonv1alpha1.C7NHelmRelease) (*modelhelm.Release, bool) {
+	release, err := r.args.HelmClient.GetRelease(&modelhelm.GetReleaseContentRequest{ReleaseName: instance.GetName(), Namespace: instance.Namespace})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			glog.Infof("release %s not found")
+			return nil, false
+		}
+		return nil, false
+	}
+	return release, true
+}
+
+func (r *ReconcileC7NHelmRelease) deleteC7NHelmReleaseOperateAnnotation(instance *choerodonv1alpha1.C7NHelmRelease) (reconcile.Result, error) {
+	annotations := instance.Annotations
+	delete(annotations, model.C7NHelmReleaseOperateAnnotation)
+	instance.SetAnnotations(annotations)
+	err := r.client.Update(context.TODO(), instance)
+	if err != nil {
+		glog.Info(err)
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
 }

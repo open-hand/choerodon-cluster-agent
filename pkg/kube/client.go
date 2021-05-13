@@ -64,6 +64,7 @@ type Client interface {
 	//todo: delete follow func
 	GetSelectRelationPod(info *resource.Info) (map[string][]core_v1.Pod, error)
 	GetC7NHelmRelease(name, namespace string) *v1alpha1.C7NHelmRelease
+	UpdateC7nHelmRelease(release *v1alpha1.C7NHelmRelease, namespace string)
 }
 
 const testContainer string = "automation-test"
@@ -170,6 +171,13 @@ func (c *client) GetC7NHelmRelease(name, namespace string) *v1alpha1.C7NHelmRele
 		return nil
 	}
 	return c7nHelmRelease
+}
+
+func (c *client) UpdateC7nHelmRelease(release *v1alpha1.C7NHelmRelease, namespace string) {
+	_, err := c.c7nClient.C7NHelmReleaseV1alpha1().C7nHelmReleases(namespace).Update(release)
+	if err != nil {
+		glog.Infof("update C7NHelmRelease %s failed,err is:%s", release.GetName(), err.Error())
+	}
 }
 
 func (c *client) LogsForJob(namespace string, name string, jobLabel string) (string, string, error) {
