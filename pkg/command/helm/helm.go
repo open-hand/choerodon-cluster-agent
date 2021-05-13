@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/golang/glog"
 	"strings"
@@ -20,6 +21,11 @@ func InstallHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 	if req.Namespace == "" {
 		req.Namespace = cmd.Namespace()
 	}
+
+	// 该操作完成后，需要删除对应C7NHelmRelease的C7NHelmReleaseOperateAnnotation标签
+	defer func() {
+		defer deleteC7NHelmReleaseOperateAnnotation(opts.KubeClient, req.ReleaseName, req.Namespace)
+	}()
 
 	username, password, err := GetCharUsernameAndPassword(opts, cmd)
 	if err != nil {
@@ -94,6 +100,10 @@ func UpgradeHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 	if err != nil {
 		return nil, command.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
+	// 该操作完成后，需要删除对应C7NHelmRelease的C7NHelmReleaseOperateAnnotation标签
+	defer func() {
+		defer deleteC7NHelmReleaseOperateAnnotation(opts.KubeClient, req.ReleaseName, req.Namespace)
+	}()
 	if req.Namespace == "" {
 		req.Namespace = cmd.Namespace()
 	}
@@ -168,5 +178,15 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 		Key:     cmd.Key,
 		Type:    model.CertManagerStatus,
 		Payload: string(respB),
+	}
+}
+
+func deleteC7NHelmReleaseOperateAnnotation(client kube.Client, releaseName, namespace string) {
+	release := client.GetC7NHelmRelease(releaseName, namespace)
+	if release != nil {
+		annotations := release.Annotations
+		delete(annotations, model.C7NHelmReleaseOperateAnnotation)
+		release.SetAnnotations(annotations)
+		client.UpdateC7nHelmRelease(release, namespace)
 	}
 }
