@@ -24,6 +24,11 @@ import (
 
 var log = logf.Log.WithName("controller_event")
 
+type eventWithCommandId struct {
+	*corev1.Event
+	commandId string
+}
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -141,12 +146,20 @@ func (r *ReconcileEvent) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 		if pod.Labels[model.ReleaseLabel] != "" && pod.Labels[model.TestLabel] == "" {
 			//实例pod产生的事件
-			responseChan <- newInstanceEventRep(instance, pod.Labels[model.ReleaseLabel])
+			event := &eventWithCommandId{
+				instance,
+				pod.Labels[model.CommandLabel],
+			}
+			responseChan <- newInstanceEventRep(event, pod.Labels[model.ReleaseLabel])
 			return reconcile.Result{}, nil
 
 		} else if pod.Labels[model.TestLabel] != "" && pod.Labels[model.TestLabel] == r.args.PlatformCode {
 			//测试pod事件
-			responseChan <- newTestPodEventRep(instance, pod.Labels[model.ReleaseLabel], pod.Labels[model.TestLabel])
+			event := &eventWithCommandId{
+				instance,
+				pod.Labels[model.CommandLabel],
+			}
+			responseChan <- newTestPodEventRep(event, pod.Labels[model.ReleaseLabel], pod.Labels[model.TestLabel])
 		} else {
 			responseChan <- newEventRep(instance)
 		}
@@ -174,7 +187,7 @@ func newEventRep(event *corev1.Event) *model.Packet {
 	}
 }
 
-func newInstanceEventRep(event *corev1.Event, release string) *model.Packet {
+func newInstanceEventRep(event *eventWithCommandId, release string) *model.Packet {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		glog.Error(err)
@@ -186,7 +199,7 @@ func newInstanceEventRep(event *corev1.Event, release string) *model.Packet {
 	}
 }
 
-func newTestPodEventRep(event *corev1.Event, release string, label string) *model.Packet {
+func newTestPodEventRep(event *eventWithCommandId, release string, label string) *model.Packet {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		glog.Error(err)
