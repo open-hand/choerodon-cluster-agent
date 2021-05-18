@@ -26,8 +26,8 @@ var log = logf.Log.WithName("controller_event")
 
 type eventWithCommandInfo struct {
 	*corev1.Event
-	CommandId string
-	CommitSha string
+	CommandId string `json:"commandId"`
+	CommitSha string `json:"commitSha"`
 }
 
 /**
