@@ -185,6 +185,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest, username, passwo
 	installClient := action.NewInstall(
 		cfg,
 		chartPathOptions,
+		request.Commit,
 		request.Command,
 		request.ImagePullSecrets,
 		request.Namespace,
@@ -352,6 +353,7 @@ func (c *client) ExecuteTest(request *TestReleaseRequest, username, password str
 	installClient := action.NewInstall(
 		cfg,
 		chartPathOptions,
+		"",
 		0,
 		request.ImagePullSecrets,
 		TestNamespace,
@@ -667,6 +669,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, passwo
 	upgradeClient := action.NewUpgrade(
 		cfg,
 		chartPathOptions,
+		request.Commit,
 		request.Command,
 		request.ImagePullSecrets,
 		request.ReleaseName,

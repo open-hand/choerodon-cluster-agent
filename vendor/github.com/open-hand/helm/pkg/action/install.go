@@ -104,6 +104,7 @@ type Install struct {
 	PostRenderer   postrender.PostRenderer
 
 	Command         int64
+	Commit          string
 	ImagePullSecret []v1.LocalObjectReference
 	ChartName       string
 	ChartVersion    string
@@ -129,6 +130,7 @@ type ChartPathOptions struct {
 // NewInstall creates a new Install object with the given configuration.
 func NewInstall(cfg *Configuration,
 	chartPathOptions ChartPathOptions,
+	commit string,
 	command int64,
 	imagePullSecret []v1.LocalObjectReference,
 	namespace string,
@@ -142,6 +144,7 @@ func NewInstall(cfg *Configuration,
 	return &Install{
 		ChartPathOptions: chartPathOptions,
 		cfg:              cfg,
+		Commit:           commit,
 		Command:          command,
 		ImagePullSecret:  imagePullSecret,
 		Namespace:        namespace,
@@ -285,7 +288,7 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}, valsRaw st
 
 	// 在这里对要创建的对象添加标签
 	for _, r := range resources {
-		err = action.AddLabel(i.ImagePullSecret, i.Command, i.AppServiceId, r, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.Namespace, i.IsTest, false, nil)
+		err = action.AddLabel(i.ImagePullSecret, i.Command, i.AppServiceId, r, i.Commit, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.Namespace, i.IsTest, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -365,7 +368,7 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}, valsRaw st
 
 	// pre-install hooks
 	if !i.DisableHooks {
-		if err := i.cfg.execHook(rel, release.HookPreInstall, i.Timeout, i.ImagePullSecret, i.Command, i.AppServiceId, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.IsTest); err != nil {
+		if err := i.cfg.execHook(rel, release.HookPreInstall, i.Timeout, i.ImagePullSecret, i.Command, i.AppServiceId, i.Commit, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.IsTest); err != nil {
 			return i.failRelease(rel, fmt.Errorf("failed pre-install: %s", err))
 		}
 	}
@@ -391,7 +394,7 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}, valsRaw st
 	}
 
 	if !i.DisableHooks {
-		if err := i.cfg.execHook(rel, release.HookPostInstall, i.Timeout, i.ImagePullSecret, i.Command, i.AppServiceId, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.IsTest); err != nil {
+		if err := i.cfg.execHook(rel, release.HookPostInstall, i.Timeout, i.ImagePullSecret, i.Command, i.AppServiceId, i.Commit, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.IsTest); err != nil {
 			return i.failRelease(rel, fmt.Errorf("failed post-install: %s", err))
 		}
 	}

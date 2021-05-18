@@ -24,9 +24,10 @@ import (
 
 var log = logf.Log.WithName("controller_event")
 
-type eventWithCommandId struct {
+type eventWithCommandInfo struct {
 	*corev1.Event
-	commandId string
+	CommandId string
+	CommitSha string
 }
 
 /**
@@ -146,18 +147,20 @@ func (r *ReconcileEvent) Reconcile(request reconcile.Request) (reconcile.Result,
 		}
 		if pod.Labels[model.ReleaseLabel] != "" && pod.Labels[model.TestLabel] == "" {
 			//实例pod产生的事件
-			event := &eventWithCommandId{
+			event := &eventWithCommandInfo{
 				instance,
 				pod.Labels[model.CommandLabel],
+				pod.Labels[model.CommitLabel],
 			}
 			responseChan <- newInstanceEventRep(event, pod.Labels[model.ReleaseLabel])
 			return reconcile.Result{}, nil
 
 		} else if pod.Labels[model.TestLabel] != "" && pod.Labels[model.TestLabel] == r.args.PlatformCode {
 			//测试pod事件
-			event := &eventWithCommandId{
+			event := &eventWithCommandInfo{
 				instance,
 				pod.Labels[model.CommandLabel],
+				pod.Labels[model.CommitLabel],
 			}
 			responseChan <- newTestPodEventRep(event, pod.Labels[model.ReleaseLabel], pod.Labels[model.TestLabel])
 		} else {
@@ -187,7 +190,7 @@ func newEventRep(event *corev1.Event) *model.Packet {
 	}
 }
 
-func newInstanceEventRep(event *eventWithCommandId, release string) *model.Packet {
+func newInstanceEventRep(event *eventWithCommandInfo, release string) *model.Packet {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		glog.Error(err)
@@ -199,7 +202,7 @@ func newInstanceEventRep(event *eventWithCommandId, release string) *model.Packe
 	}
 }
 
-func newTestPodEventRep(event *eventWithCommandId, release string, label string) *model.Packet {
+func newTestPodEventRep(event *eventWithCommandInfo, release string, label string) *model.Packet {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		glog.Error(err)
