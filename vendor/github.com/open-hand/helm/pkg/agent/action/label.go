@@ -16,7 +16,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	command int64,
 	appServiceId int64,
 	info *resource.Info,
-	version, releaseName, chartName, agentVersion, testLabel, namespace string,
+	commit, version, releaseName, chartName, agentVersion, testLabel, namespace string,
 	isTest bool,
 	isUpgrade bool,
 	clientSet *kubernetes.Clientset) error {
@@ -31,6 +31,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	var addBaseLabels = func() {
 		l[model.ReleaseLabel] = releaseName
 		l[model.AgentVersionLabel] = agentVersion
+		l[model.CommitLabel] = commit
 	}
 	var addAppLabels = func() {
 		l[model.AppLabel] = chartName
@@ -41,6 +42,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		tplLabels := getTemplateLabels(t.Object)
 		tplLabels[model.ReleaseLabel] = releaseName
 		tplLabels[model.AgentVersionLabel] = agentVersion
+		tplLabels[model.CommitLabel] = commit
 		//12.05 新增打标签。
 		//0 表示的是安装未填入值 -1代表更新
 		if appServiceId != 0 && appServiceId != -1 {
