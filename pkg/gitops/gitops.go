@@ -75,16 +75,16 @@ func (g *GitOps) listenEnvs() {
 			g.Wg.Add(1)
 			// to wait create env git repo
 			model.GitRepoConcurrencySyncChan <- struct{}{}
-			go func() {
+			go func(namespace string) {
 				// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
 				sleepTime := rand.Intn(60)
-				glog.Infof("env: %s will start to sync after %d seconds", envPara.Namespace, sleepTime)
+				glog.Infof("env: %s will start to sync after %d seconds", namespace, sleepTime)
 				time.Sleep(time.Duration(sleepTime) * time.Second)
 				err := repo.Start(gitStopChan, repo.RefreshChan, g.Wg)
 				if err != nil {
 					glog.Errorf("git repo start failed", err)
 				}
-			}()
+			}(envPara.Namespace)
 			g.syncSoon[envPara.Namespace] = make(chan struct{}, 1)
 			g.gitRepos[envPara.Namespace] = repo
 			g.Wg.Add(1)
