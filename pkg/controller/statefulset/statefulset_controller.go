@@ -125,6 +125,8 @@ func (r *ReconcileStatefulSet) Reconcile(request reconcile.Request) (reconcile.R
 	if instance.Labels[model.ReleaseLabel] != "" {
 		glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
 		responseChan <- newPodRep(instance)
+	} else if instance.Labels[model.WorkloadLabel] != "" {
+		responseChan <- newRepoStatefulSetRep(instance)
 	}
 
 	return reconcile.Result{}, nil
@@ -161,5 +163,17 @@ func deletePvcCmd(pvcInfo kubernetes.DeletePvcInfo) *model.Packet {
 		Key:     fmt.Sprintf("env:%s.PersistentVolumeClaimLabels:%s", pvcInfo.Namespace, pvcInfo.Labels),
 		Type:    model.DeletePersistentVolumeClaimByLabels,
 		Payload: string(reqBytes),
+	}
+}
+
+func newRepoStatefulSetRep(statefulSet *v1.StatefulSet) *model.Packet {
+	payload, err := json.Marshal(statefulSet)
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.StatefulSet:%s", statefulSet.Namespace, statefulSet.Name),
+		Type:    model.ResourceUpdate,
+		Payload: string(payload),
 	}
 }

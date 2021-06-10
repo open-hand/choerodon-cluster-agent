@@ -663,6 +663,24 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 	defer obj.SetLabels(l)
 	defer obj.SetAnnotations(annotations)
 
+	var addTemplateAppLabels = func(workloadKind, workloadName string) {
+		tplLabels := getTemplateLabels(obj.Object)
+		tplLabels[model.ParentWorkloadLabel] = workloadKind
+		tplLabels[model.ParentWorkloadNameLabel] = workloadName
+		if err := setTemplateLabels(obj.Object, tplLabels); err != nil {
+			glog.Warningf("Set Template Labels failed, %v", err)
+		}
+	}
+
+	var addCronJobTemplateAppLabels = func(workloadKind, workloadName string) {
+		tplLabels := getCronJobPodTemplateLabels(obj.Object)
+		tplLabels[model.ParentWorkloadLabel] = workloadKind
+		tplLabels[model.ParentWorkloadNameLabel] = workloadName
+		if err := setCronJobPodTemplateLabels(obj.Object, tplLabels); err != nil {
+			glog.Warningf("Set Template Labels failed, %v", err)
+		}
+	}
+
 	annotations[model.CommitLabel] = commit
 
 	kind := info.Mapping.GroupVersionKind.Kind
@@ -722,8 +740,12 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 		l[model.EnvLabel] = namespace
 		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, model.ClusterId)
 		l[model.NameLabel] = obj.GetName()
-	case "Deployment", "StatefulSet", "DaemonSet", "CronJob", "Job":
+	case "Deployment", "StatefulSet", "DaemonSet", "Job":
 		l[model.WorkloadLabel] = kind
+		addTemplateAppLabels(kind, obj.GetName())
+	case "CronJob":
+		l[model.WorkloadLabel] = kind
+		addCronJobTemplateAppLabels(kind, obj.GetName())
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil
@@ -731,6 +753,36 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 	l[model.AgentVersionLabel] = model.AgentVersion
 
 	return obj, nil
+}
+
+func getTemplateLabels(obj map[string]interface{}) map[string]string {
+	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "template", "metadata", "labels")
+	if err != nil {
+		glog.Warningf("Get Template Labels failed, %v", err)
+	}
+	if tplLabels == nil {
+		tplLabels = make(map[string]string)
+	}
+	return tplLabels
+}
+
+func getCronJobPodTemplateLabels(obj map[string]interface{}) map[string]string {
+	tplLabels, _, err := unstructured.NestedStringMap(obj, "spec", "jobTemplate", "spec", "template", "metadata", "labels")
+	if err != nil {
+		glog.Warningf("Get Template Labels failed, %v", err)
+	}
+	if tplLabels == nil {
+		tplLabels = make(map[string]string)
+	}
+	return tplLabels
+}
+
+func setTemplateLabels(obj map[string]interface{}, templateLabels map[string]string) error {
+	return unstructured.SetNestedStringMap(obj, templateLabels, "spec", "template", "metadata", "labels")
+}
+
+func setCronJobPodTemplateLabels(obj map[string]interface{}, templateLabels map[string]string) error {
+	return unstructured.SetNestedStringMap(obj, templateLabels, "spec", "jobTemplate", "spec", "template", "metadata", "labels")
 }
 
 func getSpecField(obj map[string]interface{}) map[string]interface{} {

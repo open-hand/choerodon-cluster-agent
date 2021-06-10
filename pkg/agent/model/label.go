@@ -1,15 +1,17 @@
 package model
 
 const (
-	WorkloadLabel      = "choerodon.io/workload"
-	HelmVersion        = "choerodon.io/helm-version"
-	MicroServiceConfig = "choerodon.io/feature"
-	ReleaseLabel       = "choerodon.io/release"
-	NetworkLabel       = "choerodon.io/network"
-	NetworkNoDelLabel  = "choerodon.io/no_delete"
-	AgentVersionLabel  = "choerodon.io"
-	CommitLabel        = "choerodon.io/commit"
-	TlsSecretLabel     = "choerodon.io/tls-secret"
+	ParentWorkloadNameLabel = "choerodon.io/parent-workload-name"
+	ParentWorkloadLabel     = "choerodon.io/parent-workload"
+	WorkloadLabel           = "choerodon.io/workload"
+	HelmVersion             = "choerodon.io/helm-version"
+	MicroServiceConfig      = "choerodon.io/feature"
+	ReleaseLabel            = "choerodon.io/release"
+	NetworkLabel            = "choerodon.io/network"
+	NetworkNoDelLabel       = "choerodon.io/no_delete"
+	AgentVersionLabel       = "choerodon.io"
+	CommitLabel             = "choerodon.io/commit"
+	TlsSecretLabel          = "choerodon.io/tls-secret"
 	// 拼写错误，暂时不要更改
 	CommandLabel                    = "choeroodn.io/command"
 	AppServiceIdLabel               = "choerodon.io/app-service-id"
