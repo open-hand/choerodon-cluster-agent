@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
-	"github.com/golang/glog"
-
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
+	"github.com/golang/glog"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -108,6 +107,9 @@ func (r *ReconcilePod) Reconcile(request reconcile.Request) (reconcile.Result, e
 	} else if instance.Labels[model.TestLabel] == r.args.PlatformCode && instance.Labels[model.TestLabel] != "" {
 		// 测试执行Job pod状态变更
 		responseChan <- newTestPodRep(instance)
+	} else if instance.Labels[model.ParentWorkloadLabel] != "" {
+		// 工作负载pod
+		responseChan <- newWorkloadRepoPodRep(instance)
 	}
 
 	return reconcile.Result{}, nil
@@ -144,5 +146,17 @@ func newPodDelRep(name string, namespace string) *model.Packet {
 	return &model.Packet{
 		Key:  fmt.Sprintf("env:%s.Pod:%s", namespace, name),
 		Type: model.ResourceDelete,
+	}
+}
+
+func newWorkloadRepoPodRep(pod *corev1.Pod) *model.Packet {
+	payload, err := json.Marshal(pod)
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.Pod:%s", pod.Namespace, pod.Name),
+		Type:    model.ResourceUpdate,
+		Payload: string(payload),
 	}
 }

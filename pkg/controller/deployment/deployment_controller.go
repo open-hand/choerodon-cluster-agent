@@ -111,6 +111,8 @@ func (r *ReconcileDeployment) Reconcile(request reconcile.Request) (reconcile.Re
 	if instance.Labels[model.ReleaseLabel] != "" {
 		glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
 		responseChan <- newDeploymentRep(instance)
+	} else if instance.Labels[model.WorkloadLabel] != "" {
+		responseChan <- newRepoDeploymentRep(instance)
 	}
 
 	return reconcile.Result{}, nil
@@ -132,6 +134,18 @@ func newDeploymentRep(deployment *v1.Deployment) *model.Packet {
 	}
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.Deployment:%s", deployment.Namespace, release, deployment.Name),
+		Type:    model.ResourceUpdate,
+		Payload: string(payload),
+	}
+}
+
+func newRepoDeploymentRep(deployment *v1.Deployment) *model.Packet {
+	payload, err := json.Marshal(deployment)
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.Deployment:%s", deployment.Namespace, deployment.Name),
 		Type:    model.ResourceUpdate,
 		Payload: string(payload),
 	}

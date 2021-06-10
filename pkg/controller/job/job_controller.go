@@ -147,6 +147,8 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 				glog.Errorf("error delete release %s: ", instance.Labels[model.ReleaseLabel], err)
 			}
 		}
+	} else if instance.Labels[model.WorkloadLabel] != "" {
+		responseChan <- newRepoJobRep(instance)
 	}
 
 	return reconcile.Result{}, nil
@@ -209,4 +211,16 @@ func IsJobFinished(j *v1.Job) (bool, bool) {
 		}
 	}
 	return false, false
+}
+
+func newRepoJobRep(job *v1.Job) *model.Packet {
+	payload, err := json.Marshal(job)
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.Job:%s", job.Namespace, job.Name),
+		Type:    model.ResourceUpdate,
+		Payload: string(payload),
+	}
 }
