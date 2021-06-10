@@ -1,7 +1,7 @@
 package model
 
 const (
-	ProjectId          = "choerodon.io/project_id"
+	WorkloadLabel      = "choerodon.io/workload"
 	HelmVersion        = "choerodon.io/helm-version"
 	MicroServiceConfig = "choerodon.io/feature"
 	ReleaseLabel       = "choerodon.io/release"
