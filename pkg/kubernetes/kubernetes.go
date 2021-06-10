@@ -13,20 +13,25 @@ import (
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"sync"
 
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
 	k8syaml "github.com/ghodss/yaml"
 	"gopkg.in/yaml.v2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclient "k8s.io/client-go/kubernetes"
-	v1core "k8s.io/client-go/kubernetes/typed/core/v1"
-	v1beta1extensions "k8s.io/client-go/kubernetes/typed/extensions/v1beta1"
-
-	"github.com/choerodon/choerodon-cluster-agent/pkg/util/resource"
+	apps_v1 "k8s.io/client-go/kubernetes/typed/apps/v1"
+	batch_v1 "k8s.io/client-go/kubernetes/typed/batch/v1"
+	batch_v1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
+	core_v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	networking_v1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 )
 
 type extendedClient struct {
-	v1core.CoreV1Interface
-	v1beta1extensions.ExtensionsV1beta1Interface
+	core_v1.CoreV1Interface
+	apps_v1.AppsV1Interface
+	batch_v1.BatchV1Interface
+	batch_v1beta1.BatchV1beta1Interface
+	networking_v1beta1.NetworkingV1beta1Interface
 	v1.CertmanagerV1Interface
 	v1alpha1.CertmanagerV1alpha1Interface
 }
@@ -88,7 +93,10 @@ func NewCluster(
 	c := &Cluster{
 		Client: extendedClient{
 			clientset.CoreV1(),
-			clientset.ExtensionsV1beta1(),
+			clientset.AppsV1(),
+			clientset.BatchV1(),
+			clientset.BatchV1beta1(),
+			clientset.NetworkingV1beta1(),
 			v1CrdClientSet.CertmanagerV1(),
 			v1alpha1ClientSet.Certmanager(),
 		},

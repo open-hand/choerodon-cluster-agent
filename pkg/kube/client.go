@@ -665,7 +665,9 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 
 	annotations[model.CommitLabel] = commit
 
-	switch info.Mapping.GroupVersionKind.Kind {
+	kind := info.Mapping.GroupVersionKind.Kind
+
+	switch kind {
 	case "Service":
 		l[model.NetworkLabel] = "service"
 	case "Ingress":
@@ -720,6 +722,8 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 		l[model.EnvLabel] = namespace
 		l[model.PvLabel] = fmt.Sprintf(model.PvLabelValueFormat, model.ClusterId)
 		l[model.NameLabel] = obj.GetName()
+	case "Deployment", "StatefulSet", "DaemonSet", "CronJob", "Job":
+		l[model.WorkloadLabel] = kind
 	default:
 		glog.Warningf("not support add label for object : %v", obj)
 		return obj, nil

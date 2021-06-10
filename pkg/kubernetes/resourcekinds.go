@@ -7,8 +7,11 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/apis/certmanager/v1"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/apis/certmanager/v1alpha1"
 	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	batch_v1 "k8s.io/api/batch/v1"
+	batch_v1beata1 "k8s.io/api/batch/v1beta1"
 	core_v1 "k8s.io/api/core/v1"
-	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
+	ext_v1beta1 "k8s.io/api/networking/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -30,6 +33,11 @@ func init() {
 	ResourceKinds["persistentvolumeclaim"] = &persistentVolumeClaim{}
 	ResourceKinds["persistentvolume"] = &persistentVolume{}
 	ResourceKinds["certificate"] = &certificateKind{}
+	ResourceKinds["Deployment"] = &deploymentKind{}
+	ResourceKinds["DaemonSet"] = &daemonSetKind{}
+	ResourceKinds["Job"] = &jobKind{}
+	ResourceKinds["CronJob"] = &cronJobKind{}
+	ResourceKinds["StatefulSet"] = &statefulSetKind{}
 }
 
 type K8sResource struct {
@@ -319,5 +327,157 @@ func makePersistentVolumeK8sResource(pv *core_v1.PersistentVolume) K8sResource {
 		Kind:       "PersistentVolume",
 		Name:       pv.Name,
 		K8sObject:  pv,
+	}
+}
+
+// ==============================================
+// deployment
+type deploymentKind struct {
+}
+
+func (s *deploymentKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	var K8sResources []K8sResource
+	deploymentList, err := c.Client.Deployments(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range deploymentList.Items {
+		deploy := deploymentList.Items[i]
+		if deploy.Labels[model.WorkloadLabel] == "Deployment" {
+			K8sResources = append(K8sResources, makeDeploymentK8sResource(&deploymentList.Items[i]))
+		}
+	}
+
+	return K8sResources, nil
+}
+func makeDeploymentK8sResource(deploy *appsv1.Deployment) K8sResource {
+	return K8sResource{
+		ApiVersion: "apps/v1",
+		Kind:       "Deployment",
+		Name:       deploy.Name,
+		K8sObject:  deploy,
+	}
+}
+
+// ==============================================
+// StatefulSet
+type statefulSetKind struct {
+}
+
+func (s *statefulSetKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	var K8sResources []K8sResource
+	statefulSetList, err := c.Client.StatefulSets(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range statefulSetList.Items {
+		deploy := statefulSetList.Items[i]
+		if deploy.Labels[model.WorkloadLabel] == "DaemonSet" {
+			K8sResources = append(K8sResources, makeStatefulSetK8sResource(&statefulSetList.Items[i]))
+		}
+	}
+
+	return K8sResources, nil
+}
+
+func makeStatefulSetK8sResource(statefulSet *appsv1.StatefulSet) K8sResource {
+	return K8sResource{
+		ApiVersion: "apps/v1",
+		Kind:       "StatefulSet",
+		Name:       statefulSet.Name,
+		K8sObject:  statefulSet,
+	}
+}
+
+// ==============================================
+// Job
+type jobKind struct {
+}
+
+func (s *jobKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	var K8sResources []K8sResource
+	jobList, err := c.Client.Jobs(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range jobList.Items {
+		deploy := jobList.Items[i]
+		if deploy.Labels[model.WorkloadLabel] == "Job" {
+			K8sResources = append(K8sResources, makeJobK8sResource(&jobList.Items[i]))
+		}
+	}
+
+	return K8sResources, nil
+}
+func makeJobK8sResource(job *batch_v1.Job) K8sResource {
+	return K8sResource{
+		ApiVersion: "batch/v1",
+		Kind:       "Job",
+		Name:       job.Name,
+		K8sObject:  job,
+	}
+}
+
+// ==============================================
+// CronJob
+type cronJobKind struct {
+}
+
+func (s *cronJobKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	var K8sResources []K8sResource
+	cronJobList, err := c.Client.CronJobs(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range cronJobList.Items {
+		deploy := cronJobList.Items[i]
+		if deploy.Labels[model.WorkloadLabel] == "DaemonSet" {
+			K8sResources = append(K8sResources, makeCronJobK8sResource(&cronJobList.Items[i]))
+		}
+	}
+
+	return K8sResources, nil
+}
+func makeCronJobK8sResource(cronJob *batch_v1beata1.CronJob) K8sResource {
+	return K8sResource{
+		ApiVersion: "batch/v1beta1",
+		Kind:       "CronJob",
+		Name:       cronJob.Name,
+		K8sObject:  cronJob,
+	}
+}
+
+// ==============================================
+// DaemonSet
+type daemonSetKind struct {
+}
+
+func (s *daemonSetKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	var K8sResources []K8sResource
+	daemonSetList, err := c.Client.DaemonSets(namespace).List(meta_v1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range daemonSetList.Items {
+		deploy := daemonSetList.Items[i]
+		if deploy.Labels[model.WorkloadLabel] == "DaemonSet" {
+			K8sResources = append(K8sResources, makeDaemonSetK8sResource(&daemonSetList.Items[i]))
+		}
+	}
+
+	return K8sResources, nil
+}
+
+func makeDaemonSetK8sResource(daemonset *appsv1.DaemonSet) K8sResource {
+	return K8sResource{
+		ApiVersion: "apps/v1",
+		Kind:       "DaemonSet",
+		Name:       daemonset.Name,
+		K8sObject:  daemonset,
 	}
 }
