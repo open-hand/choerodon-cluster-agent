@@ -374,7 +374,7 @@ func (s *statefulSetKind) GetResources(c *Cluster, namespace string) ([]K8sResou
 
 	for i := range statefulSetList.Items {
 		deploy := statefulSetList.Items[i]
-		if deploy.Labels[model.WorkloadLabel] == "DaemonSet" {
+		if deploy.Labels[model.WorkloadLabel] == "StatefulSet" {
 			K8sResources = append(K8sResources, makeStatefulSetK8sResource(&statefulSetList.Items[i]))
 		}
 	}
@@ -435,7 +435,7 @@ func (s *cronJobKind) GetResources(c *Cluster, namespace string) ([]K8sResource,
 
 	for i := range cronJobList.Items {
 		deploy := cronJobList.Items[i]
-		if deploy.Labels[model.WorkloadLabel] == "DaemonSet" {
+		if deploy.Labels[model.WorkloadLabel] == "CronJob" {
 			K8sResources = append(K8sResources, makeCronJobK8sResource(&cronJobList.Items[i]))
 		}
 	}
