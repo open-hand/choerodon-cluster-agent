@@ -293,7 +293,7 @@ func (r *ReconcileC7NHelmRelease) getHelmRelease(instance *choerodonv1alpha1.C7N
 	release, err := r.args.HelmClient.GetRelease(&modelhelm.GetReleaseContentRequest{ReleaseName: instance.GetName(), Namespace: instance.Namespace})
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			glog.Infof("release %s not found")
+			glog.Infof("release %s not found", instance.Name)
 			return nil, false
 		}
 		return nil, false

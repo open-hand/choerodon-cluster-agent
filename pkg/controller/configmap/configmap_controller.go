@@ -126,7 +126,7 @@ func (r *ReconcileConfigMap) Reconcile(request reconcile.Request) (reconcile.Res
 
 func newConfigMapDelRep(name string, namespace string) *model.Packet {
 	return &model.Packet{
-		Key:  fmt.Sprintf("env:%s.configMap:%s", namespace, name),
+		Key:  fmt.Sprintf("env:%s.ConfigMap:%s", namespace, name),
 		Type: model.ResourceDelete,
 	}
 }
@@ -138,7 +138,7 @@ func newconfigMapRep(configMap *corev1.ConfigMap) *model.Packet {
 		glog.Error(err)
 	}
 	return &model.Packet{
-		Key:     fmt.Sprintf("env:%s.release:%s.configMap:%s", configMap.Namespace, release, configMap.Name),
+		Key:     fmt.Sprintf("env:%s.release:%s.ConfigMap:%s", configMap.Namespace, release, configMap.Name),
 		Type:    model.ResourceUpdate,
 		Payload: string(payload),
 	}
@@ -150,7 +150,7 @@ func newRepoConfigMapRep(configMap *corev1.ConfigMap) *model.Packet {
 		glog.Error(err)
 	}
 	return &model.Packet{
-		Key:     fmt.Sprintf("env:%s.configMap:%s", configMap.Namespace, configMap.Name),
+		Key:     fmt.Sprintf("env:%s.ConfigMap:%s", configMap.Namespace, configMap.Name),
 		Type:    model.ResourceUpdate,
 		Payload: string(payload),
 	}
@@ -162,7 +162,7 @@ func newConfigConfigMapRep(configMap *corev1.ConfigMap) *model.Packet {
 		glog.Error(err)
 	}
 	return &model.Packet{
-		Key:     fmt.Sprintf("env:%s.configMap:%s", configMap.Namespace, configMap.Name),
+		Key:     fmt.Sprintf("env:%s.ConfigMap:%s", configMap.Namespace, configMap.Name),
 		Type:    model.ConfigUpdate,
 		Payload: string(payload),
 	}
