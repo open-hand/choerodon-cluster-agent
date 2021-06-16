@@ -112,7 +112,7 @@ func newRepoCronJobRep(cronJob *batch_v1beata1.CronJob) *model.Packet {
 		glog.Error(err)
 	}
 	return &model.Packet{
-		Key:     fmt.Sprintf("env:%s.cronJob:%s", cronJob.Namespace, cronJob.Name),
+		Key:     fmt.Sprintf("env:%s.CronJob:%s", cronJob.Namespace, cronJob.Name),
 		Type:    model.ResourceUpdate,
 		Payload: string(payload),
 	}
