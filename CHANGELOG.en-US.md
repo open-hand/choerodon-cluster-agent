@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to choerodon-cluster-agent will be documented in this file.
 
+## [0.23.0-0.25.0]
+### Fixed
+- Optimize the GitRepo concurrent synchronization strategy
+
 ## [0.22.0] - 2020-06-05
 ### Added
 - Upgrade helm2 to helm3
