@@ -189,6 +189,41 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, status, syncRequest.Id))
 			}
 			break
+		case "deployment":
+			commit, err := kubeClient.GetDeployment(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
+			}
+		case "statefulset":
+			commit, err := kubeClient.GetStatefulSet(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
+			}
+		case "job":
+			commit, err := kubeClient.GetJob(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
+			}
+		case "cronjob":
+			commit, err := kubeClient.GetCronJob(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
+			}
+		case "daemonset":
+			commit, err := kubeClient.GetDaemonSet(namespace, syncRequest.ResourceName)
+			if err != nil {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
+			} else if commit != "" {
+				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
+			}
 		}
 	}
 
