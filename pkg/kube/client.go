@@ -41,7 +41,7 @@ type Client interface {
 	GetDiscoveryClient() (discovery.DiscoveryInterface, error)
 	DeleteService(namespace string, name string) error
 	DeleteIngress(namespace string, name string) error
-	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
+	GetLogs(namespace string, pod string, container string, follow bool, line int64) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
@@ -439,14 +439,13 @@ func (c *client) DeleteIngress(namespace string, name string) error {
 	return client.ExtensionsV1beta1().Ingresses(namespace).Delete(name, &meta_v1.DeleteOptions{})
 }
 
-func (c *client) GetLogs(namespace string, pod string, containerName string) (io.ReadCloser, error) {
-	var tailLinesDefault int64 = 1000
+func (c *client) GetLogs(namespace string, pod string, containerName string, follow bool, line int64) (io.ReadCloser, error) {
 	req := c.client.CoreV1().Pods(namespace).GetLogs(
 		pod,
 		&core_v1.PodLogOptions{
-			Follow:    true,
+			Follow:    follow,
 			Container: containerName,
-			TailLines: &tailLinesDefault,
+			TailLines: &line,
 		},
 	)
 	readCloser, err := req.Stream()

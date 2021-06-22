@@ -23,7 +23,7 @@ func LogsByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
-	readCloser, err := opts.KubeClient.GetLogs(req.Namespace, req.PodName, req.ContainerName)
+	readCloser, err := opts.KubeClient.GetLogs(req.Namespace, req.PodName, req.ContainerName, true, 1000)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
@@ -41,5 +41,22 @@ func LogsByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *
 	pipe.OnClose(func() {
 		readCloser.Close()
 	})
+	return nil, nil
+}
+
+func DownloadLogByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var req *GetLogsByKubernetesRequest
+	err := json.Unmarshal([]byte(cmd.Payload), &req)
+	if err != nil {
+		return nil, command.NewResponseError(cmd.Key, model.KubernetesDownloadLogsFailed, err)
+	}
+
+	logReadCloser, err := opts.KubeClient.GetLogs(req.Namespace, req.PodName, req.ContainerName, false, 10000)
+	if err != nil {
+		return nil, command.NewResponseError(cmd.Key, model.KubernetesDownloadLogsFailed, err)
+	}
+
+	opts.WsClient.HandleDownloadLog(cmd.Key, opts.Token, logReadCloser)
+
 	return nil, nil
 }
