@@ -85,6 +85,8 @@ const (
 	// kubernetes
 	KubernetesGetLogs                   = "kubernetes_get_logs"
 	KubernetesGetLogsFailed             = "kubernetes_get_logs_failed"
+	KubernetesDownloadLogs              = "kubernetes_download_logs"
+	KubernetesDownloadLogsFailed        = "kubernetes_download_logs_failed"
 	KubernetesExec                      = "kubernetes_exec"
 	KubernetesExecFailed                = "kubernetes_exec_failed"
 	OperatePodCount                     = "operate_pod_count"

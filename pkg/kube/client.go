@@ -41,7 +41,7 @@ type Client interface {
 	GetDiscoveryClient() (discovery.DiscoveryInterface, error)
 	DeleteService(namespace string, name string) error
 	DeleteIngress(namespace string, name string) error
-	GetLogs(namespace string, pod string, container string) (io.ReadCloser, error)
+	GetLogs(namespace string, pod string, container string, follow bool, line int64) (io.ReadCloser, error)
 	Exec(namespace string, podName string, containerName string, local io.ReadWriter) error
 	LabelRepoObj(namespace, manifest, version string, commit string) (*bytes.Buffer, error)
 	GetService(namespace string, serviceName string) (string, error)
@@ -49,6 +49,11 @@ type Client interface {
 	GetConfigMap(namespace string, configMapName string) (string, error)
 	GetPersistentVolumeClaim(namespace string, pvcName string) (string, string, error)
 	GetPersistentVolume(namespace string, pvcName string) (string, string, error)
+	GetDeployment(namespace string, deploymentName string) (string, error)
+	GetStatefulSet(namespace string, statefulSetName string) (string, error)
+	GetJob(namespace string, jobName string) (string, error)
+	GetCronJob(namespace string, cronJobName string) (string, error)
+	GetDaemonSet(namespace string, daemonSetName string) (string, error)
 	GetNamespace(namespace string) error
 	DeleteNamespace(namespace string) error
 	GetSecret(namespace string, secretName string) (string, error)
@@ -434,14 +439,13 @@ func (c *client) DeleteIngress(namespace string, name string) error {
 	return client.ExtensionsV1beta1().Ingresses(namespace).Delete(name, &meta_v1.DeleteOptions{})
 }
 
-func (c *client) GetLogs(namespace string, pod string, containerName string) (io.ReadCloser, error) {
-	var tailLinesDefault int64 = 1000
+func (c *client) GetLogs(namespace string, pod string, containerName string, follow bool, line int64) (io.ReadCloser, error) {
 	req := c.client.CoreV1().Pods(namespace).GetLogs(
 		pod,
 		&core_v1.PodLogOptions{
-			Follow:    true,
+			Follow:    follow,
 			Container: containerName,
-			TailLines: &tailLinesDefault,
+			TailLines: &line,
 		},
 	)
 	readCloser, err := req.Stream()
@@ -860,4 +864,69 @@ func InArray(expectedResourceKind []string, kind string) bool {
 		}
 	}
 	return false
+}
+func (c *client) GetDeployment(namespace string, deploymentName string) (string, error) {
+	deployment, err := c.client.AppsV1().Deployments(namespace).Get(deploymentName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if deployment.Annotations != nil && deployment.Annotations[model.CommitLabel] != "" {
+		return deployment.Annotations[model.CommitLabel], nil
+	}
+	return "", nil
+}
+func (c *client) GetStatefulSet(namespace string, statefulSetName string) (string, error) {
+	statefulSet, err := c.client.AppsV1().StatefulSets(namespace).Get(statefulSetName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if statefulSet.Annotations != nil && statefulSet.Annotations[model.CommitLabel] != "" {
+		return statefulSet.Annotations[model.CommitLabel], nil
+	}
+	return "", nil
+}
+func (c *client) GetJob(namespace string, jobName string) (string, error) {
+	job, err := c.client.BatchV1().Jobs(namespace).Get(jobName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if job.Annotations != nil && job.Annotations[model.CommitLabel] != "" {
+		return job.Annotations[model.CommitLabel], nil
+	}
+	return "", nil
+}
+func (c *client) GetCronJob(namespace string, cronJobName string) (string, error) {
+	cronJob, err := c.client.BatchV1beta1().CronJobs(namespace).Get(cronJobName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if cronJob.Annotations != nil && cronJob.Annotations[model.CommitLabel] != "" {
+		return cronJob.Annotations[model.CommitLabel], nil
+	}
+	return "", nil
+}
+func (c *client) GetDaemonSet(namespace string, daemonSetName string) (string, error) {
+	daemon, err := c.client.AppsV1().DaemonSets(namespace).Get(daemonSetName, meta_v1.GetOptions{})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return "", err
+		}
+		return "", nil
+	}
+	if daemon.Annotations != nil && daemon.Annotations[model.CommitLabel] != "" {
+		return daemon.Annotations[model.CommitLabel], nil
+	}
+	return "", nil
 }

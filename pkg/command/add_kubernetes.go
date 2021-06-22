@@ -7,6 +7,7 @@ import (
 
 func init() {
 	Funcs.Add(model.KubernetesGetLogs, kubernetes.LogsByKubernetes)
+	Funcs.Add(model.KubernetesDownloadLogs, kubernetes.DownloadLogByKubernetes)
 	Funcs.Add(model.KubernetesExec, kubernetes.ExecByKubernetes)
 	Funcs.Add(model.OperatePodCount, kubernetes.ScalePod)
 
@@ -22,5 +23,5 @@ func init() {
 	// 新增删除pod方法
 	Funcs.Add(model.DeletePod, kubernetes.DeletePod)
 
-	Funcs.Add(model.DeletePersistentVolumeClaimByLabels,kubernetes.DeletePvcByLabels)
+	Funcs.Add(model.DeletePersistentVolumeClaimByLabels, kubernetes.DeletePvcByLabels)
 }
