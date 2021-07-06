@@ -137,6 +137,7 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 	}
 
 	req.Namespace = model.AgentNamespace
+	req.ReUseValues = true
 
 	ch := opts.CrChan
 
