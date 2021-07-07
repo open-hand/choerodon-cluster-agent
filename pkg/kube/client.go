@@ -435,7 +435,7 @@ func (c *client) DeleteIngress(namespace string, name string) error {
 }
 
 func (c *client) GetLogs(namespace string, pod string, containerName string) (io.ReadCloser, error) {
-	var tailLinesDefault int64 = 1000
+	var tailLinesDefault int64 = 500
 	req := c.client.CoreV1().Pods(namespace).GetLogs(
 		pod,
 		&core_v1.PodLogOptions{
