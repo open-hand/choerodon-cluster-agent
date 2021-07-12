@@ -142,14 +142,15 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		l[model.NetworkNoDelLabel] = "true"
 	case "Job":
 		addImagePullSecrets()
+		tplLabels := getTemplateLabels(t.Object)
 		if isTest {
 			l[model.TestLabel] = testLabel
-			tplLabels := getTemplateLabels(t.Object)
 			tplLabels[model.TestLabel] = testLabel
 			tplLabels[model.ReleaseLabel] = releaseName
-			if err := setTemplateLabels(t.Object, tplLabels); err != nil {
-				glog.Warningf("Set Test-Template Labels failed, %v", err)
-			}
+		}
+		tplLabels[model.CommitLabel] = commit
+		if err := setTemplateLabels(t.Object, tplLabels); err != nil {
+			glog.Warningf("Set Test-Template Labels failed, %v", err)
 		}
 	case "DaemonSet", "StatefulSet":
 		addAppLabels()
