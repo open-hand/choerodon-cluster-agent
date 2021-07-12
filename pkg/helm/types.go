@@ -93,6 +93,7 @@ type UpgradeReleaseRequest struct {
 	Namespace        string                         `json:"namespace,omitempty"`
 	AppServiceId     int64                          `json:"appServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
+	ReUseValues      bool                           `json:"reUseValues"`
 }
 
 type RollbackReleaseRequest struct {

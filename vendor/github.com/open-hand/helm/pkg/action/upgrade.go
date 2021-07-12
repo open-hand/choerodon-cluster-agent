@@ -95,7 +95,8 @@ func NewUpgrade(cfg *Configuration,
 	chartName string,
 	chartVersion string,
 	appServiceId int64,
-	agentVersion string) *Upgrade {
+	agentVersion string,
+	reuseValues bool) *Upgrade {
 	return &Upgrade{
 		ChartPathOptions: chartPathOptions,
 		cfg:              cfg,
@@ -108,6 +109,7 @@ func NewUpgrade(cfg *Configuration,
 		AppServiceId:     appServiceId,
 		AgentVersion:     agentVersion,
 		MaxHistory:       maxHistory,
+		ReuseValues:      reuseValues,
 	}
 }
 

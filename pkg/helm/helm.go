@@ -676,7 +676,8 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, passwo
 		request.ChartName,
 		request.ChartVersion,
 		request.AppServiceId,
-		model.AgentVersion)
+		model.AgentVersion,
+		request.ReUseValues)
 
 	chartPath, err := upgradeClient.ChartPathOptions.LocateChart(request.ChartName, envSettings)
 	if err != nil {
