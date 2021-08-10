@@ -176,9 +176,11 @@ func installHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pa
 		Values:           instance.Spec.Values,
 		ReleaseName:      instance.Name,
 		Command:          instance.Spec.CommandId,
+		V1Command:        instance.Spec.V1CommandId,
 		Commit:           instance.Annotations[model.CommitLabel],
 		Namespace:        instance.Namespace,
 		AppServiceId:     instance.Spec.AppServiceId,
+		V1AppServiceId:   instance.Spec.V1AppServiceId,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
 		FailedCount:      0,
 	}
@@ -219,9 +221,11 @@ func upgradeHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pa
 		Values:           instance.Spec.Values,
 		ReleaseName:      instance.Name,
 		Command:          instance.Spec.CommandId,
+		V1Command:        instance.Spec.V1CommandId,
 		Commit:           instance.Annotations[model.CommitLabel],
 		Namespace:        instance.Namespace,
 		AppServiceId:     instance.Spec.AppServiceId,
+		V1AppServiceId:   instance.Spec.V1AppServiceId,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
 	}
 	reqBytes, err := json.Marshal(req)
@@ -244,9 +248,11 @@ func crossUpgradeHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *mod
 		Values:           instance.Spec.Values,
 		ReleaseName:      instance.Name,
 		Command:          instance.Spec.CommandId,
+		V1Command:        instance.Spec.V1CommandId,
 		Commit:           instance.Annotations[model.CommitLabel],
 		Namespace:        instance.Namespace,
 		AppServiceId:     instance.Spec.AppServiceId,
+		V1AppServiceId:   instance.Spec.V1AppServiceId,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
 	}
 	reqBytes, err := json.Marshal(req)

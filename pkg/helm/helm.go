@@ -187,12 +187,14 @@ func (c *client) InstallRelease(request *InstallReleaseRequest, username, passwo
 		chartPathOptions,
 		request.Commit,
 		request.Command,
+		request.V1Command,
 		request.ImagePullSecrets,
 		request.Namespace,
 		request.ReleaseName,
 		request.ChartName,
 		request.ChartVersion,
 		request.AppServiceId,
+		request.V1AppServiceId,
 		model.AgentVersion,
 		"",
 		false)
@@ -268,6 +270,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest, username, passwo
 
 	rls, err := c.getHelmRelease(responseRelease)
 	rls.Command = request.Command
+	rls.V1Command = request.V1Command
 	rls.Commit = request.Commit
 	if err != nil {
 		return nil, err
@@ -355,12 +358,14 @@ func (c *client) ExecuteTest(request *TestReleaseRequest, username, password str
 		chartPathOptions,
 		"",
 		0,
+		"",
 		request.ImagePullSecrets,
 		TestNamespace,
 		request.ReleaseName,
 		request.ChartName,
 		request.ChartVersion,
 		0,
+		"",
 		model.AgentVersion,
 		request.Label,
 		true)
@@ -671,11 +676,13 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, passwo
 		chartPathOptions,
 		request.Commit,
 		request.Command,
+		request.V1Command,
 		request.ImagePullSecrets,
 		request.ReleaseName,
 		request.ChartName,
 		request.ChartVersion,
 		request.AppServiceId,
+		request.V1AppServiceId,
 		model.AgentVersion,
 		request.ReUseValues)
 
@@ -726,6 +733,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, passwo
 	}
 	rls.Commit = request.Commit
 	rls.Command = request.Command
+	rls.V1Command = request.V1Command
 	if rls.ChartName == "prometheus-operator" || rls.ChartName == "cert-manager" {
 		rls.Hooks = nil
 		rls.Resources = nil

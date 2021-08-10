@@ -78,10 +78,12 @@ type Upgrade struct {
 	ReleaseName     string
 	Commit          string
 	Command         int64
+	V1Command       string
 	ImagePullSecret []v1.LocalObjectReference
 	ChartName       string
 	ChartVersion    string
 	AppServiceId    int64
+	V1AppServiceId  string
 	AgentVersion    string
 }
 
@@ -90,11 +92,13 @@ func NewUpgrade(cfg *Configuration,
 	chartPathOptions ChartPathOptions,
 	commit string,
 	command int64,
+	v1Command string,
 	imagePullSecret []v1.LocalObjectReference,
 	ReleaseName string,
 	chartName string,
 	chartVersion string,
 	appServiceId int64,
+	v1AppServiceId string,
 	agentVersion string,
 	reuseValues bool) *Upgrade {
 	return &Upgrade{
@@ -102,11 +106,13 @@ func NewUpgrade(cfg *Configuration,
 		cfg:              cfg,
 		Commit:           commit,
 		Command:          command,
+		V1Command:        v1Command,
 		ImagePullSecret:  imagePullSecret,
 		ReleaseName:      ReleaseName,
 		ChartName:        chartName,
 		ChartVersion:     chartVersion,
 		AppServiceId:     appServiceId,
+		V1AppServiceId:   v1AppServiceId,
 		AgentVersion:     agentVersion,
 		MaxHistory:       maxHistory,
 		ReuseValues:      reuseValues,
@@ -251,7 +257,7 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 	if u.ChartName != "choerodon-cluster-agent" {
 		// 在这里对要新chart包中的对象添加标签
 		for _, r := range target {
-			err = action.AddLabel(u.ImagePullSecret, u.Command, u.AppServiceId, r, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false, true, u.cfg.ClientSet)
+			err = action.AddLabel(u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, r, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false, true, u.cfg.ClientSet)
 			if err != nil {
 				return nil, err
 			}
@@ -311,7 +317,7 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 
 	// pre-upgrade hooks
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(upgradedRelease, release.HookPreUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", false); err != nil {
+		if err := u.cfg.execHook(upgradedRelease, release.HookPreUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", false); err != nil {
 			return u.failRelease(upgradedRelease, kube.ResourceList{}, fmt.Errorf("pre-upgrade hooks failed: %s", err))
 		}
 	} else {
@@ -343,7 +349,7 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 
 	// post-upgrade hooks
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", false); err != nil {
+		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", false); err != nil {
 			return u.failRelease(upgradedRelease, results.Created, fmt.Errorf("post-upgrade hooks failed: %s", err))
 		}
 	}
