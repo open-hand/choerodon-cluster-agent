@@ -12,8 +12,10 @@ type InstallReleaseRequest struct {
 	ReleaseName              string                         `json:"releaseName,omitempty"`
 	Commit                   string                         `json:"commit,omitempty"`
 	Command                  int64                          `json:"command,omitempty"`
+	V1Command                string                         `json:"v1Command,omitempty"`
 	Namespace                string                         `json:"namespace,omitempty"`
 	AppServiceId             int64                          `json:"appServiceId,omitempty"`
+	V1AppServiceId           string                         `json:"v1AppServiceId,omitempty"`
 	ImagePullSecrets         []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	FailedCount              int                            `json:"failedCount,omitempty"`
 	LasttimeFailedInstallErr string                         `json:"lasttimeFailedInstallErr"`
@@ -63,6 +65,7 @@ type Release struct {
 	Config       string             `json:"config,omitempty"`
 	Commit       string             `json:"commit,omitempty"`
 	Command      int64              `json:"command,omitempty"`
+	V1Command    string             `json:"v1Command,omitempty"`
 }
 
 type ReleaseResource struct {
@@ -89,9 +92,11 @@ type UpgradeReleaseRequest struct {
 	ChartVersion     string                         `json:"chartVersion,omitempty"`
 	Values           string                         `json:"values,omitempty"`
 	Command          int64                          `json:"command,omitempty"`
+	V1Command        string                         `json:"v1Command,omitempty"`
 	Commit           string                         `json:"commit,omitempty"`
 	Namespace        string                         `json:"namespace,omitempty"`
 	AppServiceId     int64                          `json:"appServiceId,omitempty"`
+	V1AppServiceId   string                         `json:"v1AppServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	ReUseValues      bool                           `json:"reUseValues"`
 }

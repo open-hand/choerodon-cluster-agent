@@ -14,14 +14,18 @@ type C7NHelmReleaseSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-	RepoURL          string                        `json:"repoUrl,omitempty"`
-	ChartName        string                        `json:"chartName,omitempty"`
-	ChartVersion     string                        `json:"chartVersion,omitempty"`
-	CommandId        int64                         `json:"commandId,omitempty"`
+	RepoURL      string `json:"repoUrl,omitempty"`
+	ChartName    string `json:"chartName,omitempty"`
+	ChartVersion string `json:"chartVersion,omitempty"`
+	// 将在1.2.0版本弃用
+	CommandId int64 `json:"commandId,omitempty"`
+	// CommandId的字符串类型
+	V1CommandId      string                        `json:"v1CommandId,omitempty"`
 	Values           string                        `json:"values,omitempty"`
 	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
-	//12.01新增字段，Deployment要打的label多加一个choerodon.io/app-service-id
-	AppServiceId int64 `json:"appServiceId,omitempty"`
+	// 将在1.2.0版本弃用
+	AppServiceId   int64  `json:"appServiceId,omitempty"`
+	V1AppServiceId string `json:"v1AppServiceId,omitempty"`
 }
 
 // C7NHelmReleaseStatus defines the observed state of C7NHelmRelease

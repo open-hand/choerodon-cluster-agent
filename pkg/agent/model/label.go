@@ -12,9 +12,6 @@ const (
 	AgentVersionLabel       = "choerodon.io"
 	CommitLabel             = "choerodon.io/commit"
 	TlsSecretLabel          = "choerodon.io/tls-secret"
-	// 拼写错误，暂时不要更改
-	CommandLabel                    = "choeroodn.io/command"
-	AppServiceIdLabel               = "choerodon.io/app-service-id"
 	C7NHelmReleaseClusterLabel      = "choerodon.io/C7NHelmRelease-cluster"
 	C7NHelmReleaseOperateAnnotation = "choerodon.io/C7NHelmRelease-operate"
 	TestLabel                       = "choerodon.io/test"
