@@ -51,7 +51,7 @@ func DownloadLogByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Pa
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesDownloadLogsFailed, err)
 	}
 
-	logReadCloser, err := opts.KubeClient.GetLogs(req.Namespace, req.PodName, req.ContainerName, false, 10000)
+	logReadCloser, err := opts.KubeClient.GetLogs(req.Namespace, req.PodName, req.ContainerName, false, -1)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesDownloadLogsFailed, err)
 	}

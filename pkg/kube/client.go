@@ -440,12 +440,18 @@ func (c *client) DeleteIngress(namespace string, name string) error {
 }
 
 func (c *client) GetLogs(namespace string, pod string, containerName string, follow bool, line int64) (io.ReadCloser, error) {
+	var tailLine *int64
+	if line == -1 {
+		tailLine = nil
+	} else {
+		tailLine = &line
+	}
 	req := c.client.CoreV1().Pods(namespace).GetLogs(
 		pod,
 		&core_v1.PodLogOptions{
 			Follow:    follow,
 			Container: containerName,
-			TailLines: &line,
+			TailLines: tailLine,
 		},
 	)
 	readCloser, err := req.Stream()
