@@ -21,10 +21,11 @@ type Pipe interface {
 }
 
 const (
-	Log           = "agent_log"
-	Exec          = "agent_exec"
-	IntervalTime  = 3 * time.Second
-	CloseWaitTime = 5 * time.Second
+	Log            = "agent_log"
+	Exec           = "agent_exec"
+	IntervalTime   = 3 * time.Second
+	CloseWaitTime  = 5 * time.Second
+	MaxMessageSize = 524288
 )
 
 type pipe struct {
@@ -208,7 +209,7 @@ func (p *pipe) CopyToWebsocketForLog(end io.ReadWriter, conn *websocket.Conn) er
 		defer func() {
 			done <- true
 		}()
-		go trafficAntiShake(nil, conn, p, done, msgChan, errors)
+		go trafficAntiShake(conn, done, msgChan, errors)
 		for {
 			buf, err := r.ReadBytes('\n')
 			if err != nil {
@@ -240,7 +241,7 @@ func (p *pipe) PipeType() string {
 // 流量防抖作用
 // 在未使用该方法以前，有在较短时间内多次发送消息给客户端(这里指devops)，引起客户端线程数激增，性能下降
 // 使用该方法后，在一定时间，会把读取的消息拼接起来，达到指定时间后再返回给客户端，减少了消息发送次数，客户端处理线程数随之减少
-func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done chan bool, msgChan chan []byte, errors chan error) {
+func trafficAntiShake(conn *websocket.Conn, done chan bool, msgChan chan []byte, errors chan error) {
 	// 最大等待时间
 	interval := time.NewTimer(500 * time.Millisecond)
 	message := make([]byte, 0)
@@ -257,14 +258,8 @@ func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done cha
 				interval.Reset(IntervalTime)
 				continue
 			}
-			if end != nil {
-				if _, err := end.Write(message); err != nil {
-					errors <- err
-					return
-				}
-			}
 			if conn != nil {
-				if err := conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
+				if err := cutAndWriteMessage(conn, message); err != nil {
 					errors <- err
 					return
 				}
@@ -276,4 +271,31 @@ func trafficAntiShake(end io.ReadWriter, conn *websocket.Conn, p *pipe, done cha
 			message = append(message, msg...)
 		}
 	}
+}
+
+// 切割日志，防止一次发送过大日志导致websocket崩溃
+func cutAndWriteMessage(conn *websocket.Conn, message []byte) error {
+	messageLength := len(message)
+	// 没有超出最大消息限制，直接发送
+	if messageLength < MaxMessageSize {
+		if err := conn.WriteMessage(websocket.BinaryMessage, message); err != nil {
+			return err
+		}
+	} else {
+		// 超过最大消息限制，分割再发送
+		loopTime := (messageLength / MaxMessageSize) + 1
+		for i := 0; i < loopTime; i++ {
+			start := i * MaxMessageSize
+			end := 0
+			if (i+1)*MaxMessageSize < messageLength {
+				end = (i + 1) * MaxMessageSize
+			} else {
+				end = messageLength
+			}
+			if err := conn.WriteMessage(websocket.BinaryMessage, message[start:end]); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
