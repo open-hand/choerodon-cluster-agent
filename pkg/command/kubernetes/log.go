@@ -23,7 +23,7 @@ func LogsByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
-	readCloser, err := opts.KubeClient.GetLogs(req.Namespace, req.PodName, req.ContainerName, true, 1000)
+	readCloser, err := opts.KubeClient.GetLogs(req.Namespace, req.PodName, req.ContainerName, true, 500)
 	if err != nil {
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesGetLogsFailed, err)
 	}
