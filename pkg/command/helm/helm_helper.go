@@ -137,9 +137,13 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 						if strings.Contains(err.Error(), "not found") {
 							if kubeClient.IsReleaseJobRun(namespace, syncRequest.ResourceName) {
 								glog.Errorf("release %s not exist and not job run ", syncRequest.ResourceName, err)
+								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 							} else {
 								reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 							}
+						} else {
+							glog.Error(err.Error())
+							reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 						}
 					}
 					if release != nil && release.Status == helm_release.StatusDeployed.String() {
