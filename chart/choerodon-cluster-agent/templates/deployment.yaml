@@ -19,7 +19,7 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
-      dnsPolicy: Default
+      dnsPolicy: ClusterFirstWithHostNet
 {{- if not (empty .Values.hostAliases) }}
       hostAliases:
 {{ toYaml .Values.hostAliases | indent 6 }}
