@@ -114,6 +114,9 @@ const (
 	// clusterInfo
 	ClusterGetInfo       = "cluster_info"
 	ClusterGetInfoFailed = "cluster_info_failed"
+
+	// workload pod event
+	WorkloadPodEvent="workload_pod_event"
 )
 
 const (

@@ -677,6 +677,7 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 		tplLabels := getTemplateLabels(obj.Object)
 		tplLabels[model.ParentWorkloadLabel] = workloadKind
 		tplLabels[model.ParentWorkloadNameLabel] = workloadName
+		tplLabels[model.CommitLabel] = commit
 		if err := setTemplateLabels(obj.Object, tplLabels); err != nil {
 			glog.Warningf("Set Template Labels failed, %v", err)
 		}
@@ -686,6 +687,7 @@ func labelAndAnnotationsRepoObj(info *resource.Info, namespace, version string, 
 		tplLabels := getCronJobPodTemplateLabels(obj.Object)
 		tplLabels[model.ParentWorkloadLabel] = workloadKind
 		tplLabels[model.ParentWorkloadNameLabel] = workloadName
+		tplLabels[model.CommitLabel] = commit
 		if err := setCronJobPodTemplateLabels(obj.Object, tplLabels); err != nil {
 			glog.Warningf("Set Template Labels failed, %v", err)
 		}
