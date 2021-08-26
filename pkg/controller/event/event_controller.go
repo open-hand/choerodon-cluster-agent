@@ -164,7 +164,15 @@ func (r *ReconcileEvent) Reconcile(request reconcile.Request) (reconcile.Result,
 				pod.Labels[model.CommitLabel],
 			}
 			responseChan <- newTestPodEventRep(event, pod.Labels[model.ReleaseLabel], pod.Labels[model.TestLabel])
+		} else if pod.Labels[model.ParentWorkloadLabel] != "" && pod.Labels[model.ParentWorkloadNameLabel] != "" {
+			event := &eventWithCommandInfo{
+				instance,
+				pod.Labels[model.CommitLabel],
+			}
+			responseChan <- newWorkloadEventRep(event, pod.Labels[model.ParentWorkloadNameLabel])
+			return reconcile.Result{}, nil
 		} else {
+			// job产生的事件
 			event := &eventWithCommandInfo{
 				instance,
 				pod.Labels[model.CommitLabel],
@@ -203,6 +211,18 @@ func newInstanceEventRep(event *eventWithCommandInfo, release string) *model.Pac
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.Event:%s", event.Namespace, release, event.Name),
 		Type:    model.HelmPodEvent,
+		Payload: string(payload),
+	}
+}
+
+func newWorkloadEventRep(event *eventWithCommandInfo, release string) *model.Packet {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		glog.Error(err)
+	}
+	return &model.Packet{
+		Key:     fmt.Sprintf("env:%s.workload:%s.Event:%s", event.Namespace, release, event.Name),
+		Type:    model.WorkloadPodEvent,
 		Payload: string(payload),
 	}
 }
