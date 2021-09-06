@@ -122,6 +122,7 @@ func (c *client) PreInstallRelease(request *InstallReleaseRequest, username, pas
 
 	// 用来获取hooks
 	showClient := action.NewShow(cfg, "", chartPathOptions)
+	showClient.Namespace = request.Namespace
 	// 用来获取release
 	getClient := action.NewGet(cfg)
 	//查看release 是否存在。
