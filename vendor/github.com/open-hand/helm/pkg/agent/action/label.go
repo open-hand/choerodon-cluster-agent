@@ -14,9 +14,11 @@ import (
 
 func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	command int64,
+	V1Command string,
 	appServiceId int64,
+	V1AppServiceId string,
 	info *resource.Info,
-	version, releaseName, chartName, agentVersion, testLabel, namespace string,
+	commit, version, releaseName, chartName, agentVersion, testLabel, namespace string,
 	isTest bool,
 	isUpgrade bool,
 	clientSet *kubernetes.Clientset) error {
@@ -31,6 +33,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	var addBaseLabels = func() {
 		l[model.ReleaseLabel] = releaseName
 		l[model.AgentVersionLabel] = agentVersion
+		l[model.CommitLabel] = commit
 	}
 	var addAppLabels = func() {
 		l[model.AppLabel] = chartName
@@ -41,13 +44,16 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		tplLabels := getTemplateLabels(t.Object)
 		tplLabels[model.ReleaseLabel] = releaseName
 		tplLabels[model.AgentVersionLabel] = agentVersion
+		tplLabels[model.CommitLabel] = commit
 		//12.05 新增打标签。
 		//0 表示的是安装未填入值 -1代表更新
-		if appServiceId != 0 && appServiceId != -1 {
+		if (appServiceId != 0 && appServiceId != -1) || (V1AppServiceId != "0" && V1AppServiceId != "-1") {
 			tplLabels[model.AppServiceIdLabel] = strconv.FormatInt(appServiceId, 10)
+			tplLabels[model.V1AppServiceIdLabel] = V1AppServiceId
 		}
 		if !isTest {
 			tplLabels[model.CommandLabel] = strconv.Itoa(int(command))
+			tplLabels[model.V1CommandLabel] = V1Command
 		}
 		tplLabels[model.AppLabel] = chartName
 		tplLabels[model.AppVersionLabel] = version
@@ -140,14 +146,15 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		l[model.NetworkNoDelLabel] = "true"
 	case "Job":
 		addImagePullSecrets()
+		tplLabels := getTemplateLabels(t.Object)
 		if isTest {
 			l[model.TestLabel] = testLabel
-			tplLabels := getTemplateLabels(t.Object)
 			tplLabels[model.TestLabel] = testLabel
 			tplLabels[model.ReleaseLabel] = releaseName
-			if err := setTemplateLabels(t.Object, tplLabels); err != nil {
-				glog.Warningf("Set Test-Template Labels failed, %v", err)
-			}
+		}
+		tplLabels[model.CommitLabel] = commit
+		if err := setTemplateLabels(t.Object, tplLabels); err != nil {
+			glog.Warningf("Set Test-Template Labels failed, %v", err)
 		}
 	case "DaemonSet", "StatefulSet":
 		addAppLabels()
