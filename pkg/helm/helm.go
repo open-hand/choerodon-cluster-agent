@@ -575,6 +575,7 @@ func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest, username, pas
 
 	getClient := action.NewGet(cfg)
 	showClient := action.NewShow(cfg, "", chartPathOptions)
+	showClient.Namespace = request.Namespace
 
 	responseRelease, err := getClient.Run(request.ReleaseName)
 

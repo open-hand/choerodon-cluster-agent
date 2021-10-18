@@ -18,13 +18,13 @@ github.com/Azure/go-autorest/tracing
 github.com/BurntSushi/toml
 # github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e
 github.com/MakeNowJust/heredoc
-# github.com/Masterminds/goutils v1.1.0
+# github.com/Masterminds/goutils v1.1.1
 github.com/Masterminds/goutils
 # github.com/Masterminds/semver v1.5.0
 github.com/Masterminds/semver
-# github.com/Masterminds/semver/v3 v3.0.3
+# github.com/Masterminds/semver/v3 v3.1.1
 github.com/Masterminds/semver/v3
-# github.com/Masterminds/sprig/v3 v3.0.2
+# github.com/Masterminds/sprig/v3 v3.2.2
 github.com/Masterminds/sprig/v3
 # github.com/Microsoft/go-winio v0.4.15-0.20190919025122-fc70bd9a86b5
 github.com/Microsoft/go-winio
@@ -260,9 +260,9 @@ github.com/hashicorp/go-cleanhttp
 # github.com/hashicorp/golang-lru v0.5.3
 github.com/hashicorp/golang-lru
 github.com/hashicorp/golang-lru/simplelru
-# github.com/huandu/xstrings v1.2.0
+# github.com/huandu/xstrings v1.3.1
 github.com/huandu/xstrings
-# github.com/imdario/mergo v0.3.8
+# github.com/imdario/mergo v0.3.11
 github.com/imdario/mergo
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
@@ -310,7 +310,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/morikuni/aec v1.0.0
 github.com/morikuni/aec
-# github.com/open-hand/helm v0.0.0-20210706093648-588d8f12de80
+# github.com/open-hand/helm v0.0.0-20210915024710-42061f2066cf
 github.com/open-hand/helm/internal/experimental/registry
 github.com/open-hand/helm/internal/ignore
 github.com/open-hand/helm/internal/resolver
@@ -389,9 +389,11 @@ github.com/qri-io/jsonschema
 github.com/robfig/cron/v3
 # github.com/russross/blackfriday v1.5.2
 github.com/russross/blackfriday
+# github.com/shopspring/decimal v1.2.0
+github.com/shopspring/decimal
 # github.com/sirupsen/logrus v1.4.2
 github.com/sirupsen/logrus
-# github.com/spf13/cast v1.3.0
+# github.com/spf13/cast v1.3.1
 github.com/spf13/cast
 # github.com/spf13/cobra v0.0.6
 github.com/spf13/cobra
@@ -426,7 +428,9 @@ go.uber.org/zap/internal/bufferpool
 go.uber.org/zap/internal/color
 go.uber.org/zap/internal/exit
 go.uber.org/zap/zapcore
-# golang.org/x/crypto v0.0.0-20200302210943-78000ba7a073
+# golang.org/x/crypto v0.0.0-20200414173820-0848c9571904
+golang.org/x/crypto/bcrypt
+golang.org/x/crypto/blowfish
 golang.org/x/crypto/cast5
 golang.org/x/crypto/openpgp
 golang.org/x/crypto/openpgp/armor
@@ -542,7 +546,7 @@ gopkg.in/fsnotify.v1
 gopkg.in/go-playground/validator.v9
 # gopkg.in/inf.v0 v0.9.1
 gopkg.in/inf.v0
-# gopkg.in/yaml.v2 v2.2.8
+# gopkg.in/yaml.v2 v2.3.0
 gopkg.in/yaml.v2
 # k8s.io/api v0.17.3 => k8s.io/api v0.17.2
 k8s.io/api/admission/v1
