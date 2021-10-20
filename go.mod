@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/maorfr/helm-plugin-utils v0.0.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/open-hand/helm v0.25.0
+	github.com/open-hand/helm v0.25.1
 	github.com/operator-framework/operator-sdk v0.15.2
 	github.com/pkg/errors v0.9.1
 	github.com/qri-io/jsonschema v0.1.1

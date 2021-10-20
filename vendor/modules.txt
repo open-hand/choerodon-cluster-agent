@@ -310,7 +310,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/morikuni/aec v1.0.0
 github.com/morikuni/aec
-# github.com/open-hand/helm v0.25.0
+# github.com/open-hand/helm v0.25.1
 github.com/open-hand/helm/internal/experimental/registry
 github.com/open-hand/helm/internal/ignore
 github.com/open-hand/helm/internal/resolver
@@ -361,6 +361,8 @@ github.com/operator-framework/operator-sdk/pkg/k8sutil
 github.com/operator-framework/operator-sdk/pkg/leader
 github.com/operator-framework/operator-sdk/pkg/log/zap
 github.com/operator-framework/operator-sdk/pkg/restmapper
+# github.com/patrickmn/go-cache v2.1.0+incompatible
+github.com/patrickmn/go-cache
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv
 # github.com/pkg/errors v0.9.1
