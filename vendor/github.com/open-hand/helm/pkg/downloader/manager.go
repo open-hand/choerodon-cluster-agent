@@ -516,7 +516,7 @@ func (m *Manager) parallelRepoUpdate(repos []*repo.Entry) error {
 		}
 		wg.Add(1)
 		go func(r *repo.ChartRepository) {
-			if _, err := r.DownloadIndexFile(); err != nil {
+			if _, _, err := r.DownloadIndexFile(); err != nil {
 				fmt.Fprintf(m.Out, "...Unable to get an update from the %q chart repository (%s):\n\t%s\n", r.Config.Name, r.Config.URL, err)
 			} else {
 				fmt.Fprintf(m.Out, "...Successfully got an update from the %q chart repository\n", r.Config.Name)
