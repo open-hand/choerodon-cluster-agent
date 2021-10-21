@@ -270,12 +270,12 @@ func (c *client) InstallRelease(request *InstallReleaseRequest, username, passwo
 	}
 
 	rls, err := c.getHelmRelease(responseRelease)
-	rls.Command = request.Command
-	rls.V1Command = request.V1Command
-	rls.Commit = request.Commit
 	if err != nil {
 		return nil, err
 	}
+	rls.Command = request.Command
+	rls.V1Command = request.V1Command
+	rls.Commit = request.Commit
 	if rls.Name == "cert-manager" {
 		// 睡眠等待30秒，防止创建cert-manager对象的时候钩子pod还没启动
 		time.Sleep(30 * time.Second)
