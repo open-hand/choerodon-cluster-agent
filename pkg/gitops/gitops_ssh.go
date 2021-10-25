@@ -74,6 +74,10 @@ func config(host, namespace string) string {
 	result = result + fmt.Sprintf("  UserKnownHostsFile /dev/null\n")
 	result = result + fmt.Sprintf("  IdentityFile %s/rsa-%s\n", sshKeyPath, namespace)
 	result = result + fmt.Sprintf("  LogLevel error\n")
+	httpProxy := os.Getenv("HTTP_PROXY_URL")
+	if httpProxy != "" {
+		result = result + fmt.Sprintf("  ProxyCommand connect -H %s %s %s\n", httpProxy,"%h","%p")
+	}
 	return result
 }
 

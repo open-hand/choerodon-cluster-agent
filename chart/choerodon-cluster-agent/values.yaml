@@ -20,6 +20,7 @@ config:
   email: change_it@choerodon.io
   clusterId: 0
   choerodonId: "default"
+  httpProxyUrl: "www.baidu.com"
 
 logs:
   parser: docker
