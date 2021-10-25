@@ -31,6 +31,8 @@ spec:
         env:
           - name: ACME_EMAIL
             value: {{ .Values.config.email }}
+          - name: HTTP_PROXY_URL
+            value: {{ .Values.config.httpProxyUrl}}
           - name: POD_NAME
             valueFrom:
               fieldRef:
