@@ -5,12 +5,33 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
+	"github.com/golang/glog"
 	"io/ioutil"
 	"os"
 	"strings"
 )
 
 const sshKeyPath = "/ssh-keys"
+
+// 这个变量保存需要被替换的ssh地址
+var SshUrlMap = make(map[string]string)
+
+func init() {
+	rawOriginSshUrl := os.Getenv("ORIGIN_SSH_URL")
+	rawOverrideSshUrl := os.Getenv("REWRITE_SSH_URL")
+	if len(rawOriginSshUrl) == 0 || len(rawOverrideSshUrl) == 0 {
+		return
+	}
+
+	originSshUrls := strings.Split(rawOriginSshUrl, ",")
+	overrideSshUrls := strings.Split(rawOverrideSshUrl, ",")
+	if len(originSshUrls) != len(originSshUrls) {
+		return
+	}
+	for index, originSshUrl := range originSshUrls {
+		SshUrlMap[originSshUrl] = overrideSshUrls[index]
+	}
+}
 
 func (g *GitOps) PrepareSSHKeys(envs []model.EnvParas, opts *commandutil.Opts) error {
 
@@ -58,6 +79,10 @@ func writeSSHkey(fileName, key string) error {
 }
 
 func config(host, namespace string) string {
+	if rewriteUrl, ok := SshUrlMap[host]; ok {
+		glog.Infof("origin host %s has been rewrited to %s",host,rewriteUrl)
+		host = rewriteUrl
+	}
 
 	var result string
 	result = result + fmt.Sprintf("Host %s\n", namespace)
