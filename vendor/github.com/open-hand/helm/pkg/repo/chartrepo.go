@@ -42,7 +42,7 @@ import (
 )
 
 // 创建一个cache对象，默认ttl 3分钟，每3分钟对过期数据进行一次清理
-var IndexFileCache=cache.New(3*time.Minute, 3*time.Minute)
+var IndexFileCache = cache.New(3*time.Minute, 3*time.Minute)
 
 var mu = &sync.Mutex{}
 
@@ -120,10 +120,10 @@ func (r *ChartRepository) Load() error {
 }
 
 // DownloadIndexFile fetches the index from a repository.
-func (r *ChartRepository) DownloadIndexFile() (string, error) {
+func (r *ChartRepository) DownloadIndexFile() (*IndexFile, string, error) {
 	parsedURL, err := url.Parse(r.Config.URL)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	parsedURL.RawPath = path.Join(parsedURL.RawPath, "index.yaml")
 	parsedURL.Path = path.Join(parsedURL.Path, "index.yaml")
@@ -137,17 +137,17 @@ func (r *ChartRepository) DownloadIndexFile() (string, error) {
 		getter.WithBasicAuth(r.Config.Username, r.Config.Password),
 	)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	index, err := ioutil.ReadAll(resp)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	indexFile, err := loadIndex(index)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
 	// Create the chart list file in the cache directory
@@ -162,7 +162,7 @@ func (r *ChartRepository) DownloadIndexFile() (string, error) {
 	// Create the index file in the cache directory
 	fname := filepath.Join(r.CachePath, helmpath.CacheIndexFile(r.Config.Name))
 	os.MkdirAll(filepath.Dir(fname), 0755)
-	return fname, ioutil.WriteFile(fname, index, 0644)
+	return indexFile, fname, ioutil.WriteFile(fname, index, 0644)
 }
 
 // Index generates an index for the chart repository and writes an index.yaml file.
@@ -302,16 +302,11 @@ func GetAndCacheIndexFile(repoURL, username, password, certFile, keyFile, caFile
 	if err != nil {
 		return nil, err
 	}
-	idx, err := r.DownloadIndexFile()
+	repoIndex, _, err := r.DownloadIndexFile()
 	if err != nil {
 		return nil, errors.Wrapf(err, "looks like %q is not a valid chart repository or cannot be reached", repoURL)
 	}
 
-	// Read the index file for the repository to get chart information and return chart URL
-	repoIndex, err := LoadIndexFile(idx)
-	if err != nil {
-		return nil, err
-	}
 	IndexFileCache.Set(repoURL, repoIndex, cache.DefaultExpiration)
 	return repoIndex, nil
 }
