@@ -28,6 +28,8 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"sigs.k8s.io/yaml"
@@ -36,7 +38,13 @@ import (
 	"github.com/open-hand/helm/pkg/getter"
 	"github.com/open-hand/helm/pkg/helmpath"
 	"github.com/open-hand/helm/pkg/provenance"
+	"github.com/patrickmn/go-cache"
 )
+
+// 创建一个cache对象，默认ttl 3分钟，每3分钟对过期数据进行一次清理
+var IndexFileCache=cache.New(3*time.Minute, 3*time.Minute)
+
+var mu = &sync.Mutex{}
 
 // Entry represents a collection of parameters for chart repository
 type Entry struct {
@@ -205,34 +213,21 @@ func FindChartInRepoURL(repoURL, chartName, chartVersion, certFile, keyFile, caF
 // without adding repo to repositories, like FindChartInRepoURL,
 // but it also receives credentials for the chart repository.
 func FindChartInAuthRepoURL(repoURL, username, password, chartName, chartVersion, certFile, keyFile, caFile string, getters getter.Providers) (string, error) {
-
-	// Download and write the index file to a temporary location
-	buf := make([]byte, 20)
-	rand.Read(buf)
-	name := strings.ReplaceAll(base64.StdEncoding.EncodeToString(buf), "/", "-")
-
-	c := Entry{
-		URL:      repoURL,
-		Username: username,
-		Password: password,
-		CertFile: certFile,
-		KeyFile:  keyFile,
-		CAFile:   caFile,
-		Name:     name,
-	}
-	r, err := NewChartRepository(&c, getters)
-	if err != nil {
-		return "", err
-	}
-	idx, err := r.DownloadIndexFile()
-	if err != nil {
-		return "", errors.Wrapf(err, "looks like %q is not a valid chart repository or cannot be reached", repoURL)
-	}
-
-	// Read the index file for the repository to get chart information and return chart URL
-	repoIndex, err := LoadIndexFile(idx)
-	if err != nil {
-		return "", err
+	mu.Lock()
+	defer mu.Unlock()
+	var repoIndex *IndexFile
+	// 获取缓存中的repoIndex
+	value, exist := IndexFileCache.Get(repoURL)
+	if !exist {
+		// 未命中缓存
+		var err error
+		repoIndex, err = GetAndCacheIndexFile(repoURL, username, password, certFile, keyFile, caFile, getters)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		// 命中缓存
+		repoIndex = value.(*IndexFile)
 	}
 
 	errMsg := fmt.Sprintf("chart %q", chartName)
@@ -240,8 +235,19 @@ func FindChartInAuthRepoURL(repoURL, username, password, chartName, chartVersion
 		errMsg = fmt.Sprintf("%s version %q", errMsg, chartVersion)
 	}
 	cv, err := repoIndex.Get(chartName, chartVersion)
+	// err不为nil，可能是repoIndex数据过旧造成，尝试更新repoIndex后再获取ChartVersion,如果err仍不为nil，返回错误
 	if err != nil {
-		return "", errors.Errorf("%s not found in %s repository", errMsg, repoURL)
+		// 删除旧缓存
+		IndexFileCache.Delete(repoURL)
+		repoIndex, err = GetAndCacheIndexFile(repoURL, username, password, certFile, keyFile, caFile, getters)
+		if err != nil {
+			return "", err
+		}
+		cv, err = repoIndex.Get(chartName, chartVersion)
+		if err != nil {
+			return "", errors.Errorf("%s not found in %s repository", errMsg, repoURL)
+		}
+		IndexFileCache.Set(repoURL, IndexFileCache, cache.DefaultExpiration)
 	}
 
 	if len(cv.URLs) == 0 {
@@ -274,6 +280,40 @@ func ResolveReferenceURL(baseURL, refURL string) (string, error) {
 	// We need a trailing slash for ResolveReference to work, but make sure there isn't already one
 	parsedBaseURL.Path = strings.TrimSuffix(parsedBaseURL.Path, "/") + "/"
 	return parsedBaseURL.ResolveReference(parsedRefURL).String(), nil
+}
+
+func GetAndCacheIndexFile(repoURL, username, password, certFile, keyFile, caFile string, getters getter.Providers) (*IndexFile, error) {
+	// 如果不存在，从仓库下载index并导入
+	// Download and write the index file to a temporary location
+	buf := make([]byte, 20)
+	rand.Read(buf)
+	name := strings.ReplaceAll(base64.StdEncoding.EncodeToString(buf), "/", "-")
+
+	c := Entry{
+		URL:      repoURL,
+		Username: username,
+		Password: password,
+		CertFile: certFile,
+		KeyFile:  keyFile,
+		CAFile:   caFile,
+		Name:     name,
+	}
+	r, err := NewChartRepository(&c, getters)
+	if err != nil {
+		return nil, err
+	}
+	idx, err := r.DownloadIndexFile()
+	if err != nil {
+		return nil, errors.Wrapf(err, "looks like %q is not a valid chart repository or cannot be reached", repoURL)
+	}
+
+	// Read the index file for the repository to get chart information and return chart URL
+	repoIndex, err := LoadIndexFile(idx)
+	if err != nil {
+		return nil, err
+	}
+	IndexFileCache.Set(repoURL, repoIndex, cache.DefaultExpiration)
+	return repoIndex, nil
 }
 
 func (e *Entry) String() string {
