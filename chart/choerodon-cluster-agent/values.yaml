@@ -22,6 +22,18 @@ config:
   choerodonId: "default"
   httpProxyUrl: "www.baidu.com"
 
+  # 下面的配置用来设置ssh代理，将originSshUrl中的地址替换成rewriteSshUrl中的地址。多个地址以","分隔，形成对应关系
+  # 比如
+  # originSshUrl="gitlab1.com.cn,gitlab2.com.cn"
+  # rewriteSshUrl="new-gitlab1.com.cn,new-gitlab2.com.cn"
+  # 最终
+  # gitlab1.com.cn替换成new-gitlab1.com.cn
+  # gitlab2.com.cn替换成new-gitlab2.com.cn
+  # 原始的gitops仓库域名端口
+  originSshUrl: ""
+  # 替换后的gitops仓库域名端口
+  rewriteSshUrl: ""
+
 logs:
   parser: docker
 
@@ -37,7 +49,7 @@ resources:
     # cpu: 100m
     memory: 768Mi
 
-hostAliases: []
+hostAliases: [ ]
 #  - ip: "127.0.0.1"
 #    hostnames:
 #      - "foo.local"

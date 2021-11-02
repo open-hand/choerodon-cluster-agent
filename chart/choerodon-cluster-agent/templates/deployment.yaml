@@ -33,6 +33,10 @@ spec:
             value: {{ .Values.config.email }}
           - name: HTTP_PROXY_URL
             value: {{ .Values.config.httpProxyUrl}}
+          - name: ORIGIN_SHH_URL
+            value: {{ .Values.config.originSshUrl }}
+          - name: REWRITE_SSH_URL
+            value: {{ .Values.config.rewriteSshUrl }}
           - name: POD_NAME
             valueFrom:
               fieldRef:

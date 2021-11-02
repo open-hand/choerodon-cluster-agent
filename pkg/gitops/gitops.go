@@ -71,6 +71,7 @@ func (g *GitOps) listenEnvs() {
 			model.GitStopChanMap[envPara.Namespace] = gitStopChan
 
 			gitRemote := git.Remote{URL: strings.Replace(envPara.GitUrl, g.GitHost, envPara.Namespace, 1)}
+			glog.Infof("originGitUrl: %s,rewriteGitUrl: %s", envPara.GitUrl, gitRemote)
 			repo := git.NewRepo(gitRemote, envPara.Namespace, git.PollInterval(g.gitConfig.GitPollInterval))
 			g.Wg.Add(1)
 			// to wait create env git repo
