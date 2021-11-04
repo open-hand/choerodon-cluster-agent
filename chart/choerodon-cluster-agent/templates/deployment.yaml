@@ -29,22 +29,24 @@ spec:
         image: "{{ .Values.image.repository }}:{{ .Chart.Version }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         env:
-          - name: ACME_EMAIL
-            value: {{ .Values.config.email }}
-          - name: HTTP_PROXY_URL
-            value: {{ .Values.config.httpProxyUrl}}
-          - name: ORIGIN_SHH_URL
-            value: {{ .Values.config.originSshUrl }}
-          - name: REWRITE_SSH_URL
-            value: {{ .Values.config.rewriteSshUrl }}
-          - name: POD_NAME
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.name
-          - name: POD_NAMESPACE
-            valueFrom:
-              fieldRef:
-                fieldPath: metadata.namespace
+{{- if .Values.config.email }}
+        - name: ACME_EMAIL
+          value: {{ .Values.config.email }}
+{{- end }}
+{{- range $name, $value := .Values.env }}
+{{- if ne (len ($value | quote)) 0 }}
+        - name: {{ $name | quote }}
+          value: {{ $value | quote }}
+{{- end }}
+{{- end }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
         args:
           - /choerodon-cluster-agent
           - --v={{ .Values.config.logLevel }}

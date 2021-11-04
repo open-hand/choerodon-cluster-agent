@@ -9,19 +9,7 @@ image:
   tag: ""
   pullPolicy: IfNotPresent
 
-config:
-  connect:
-  token: ""
-  tillerConnectionTimeout: 2
-  port: 8088
-  logLevel: 0
-  envId: ""
-  extraArgs:
-  email: change_it@choerodon.io
-  clusterId: 0
-  choerodonId: "default"
-  httpProxyUrl: "www.baidu.com"
-
+env:
   # 下面的配置用来设置ssh代理，将originSshUrl中的地址替换成rewriteSshUrl中的地址。多个地址以","分隔，形成对应关系
   # 比如
   # originSshUrl="gitlab1.com.cn,gitlab2.com.cn"
@@ -30,9 +18,21 @@ config:
   # gitlab1.com.cn替换成new-gitlab1.com.cn
   # gitlab2.com.cn替换成new-gitlab2.com.cn
   # 原始的gitops仓库域名端口
-  originSshUrl: ""
+  ORIGIN_SHH_URL: 
   # 替换后的gitops仓库域名端口
-  rewriteSshUrl: ""
+  REWRITE_SSH_URL: 
+  ACME_EMAIL: 
+
+config:
+  connect:
+  token: ""
+  tillerConnectionTimeout: 2
+  port: 8088
+  logLevel: 0
+  envId: ""
+  clusterId: 0
+  choerodonId: "default"
+  extraArgs: {}
 
 logs:
   parser: docker
