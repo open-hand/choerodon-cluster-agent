@@ -310,7 +310,7 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/morikuni/aec v1.0.0
 github.com/morikuni/aec
-# github.com/open-hand/helm v0.0.0-20211021084335-bbf841ee73cb
+# github.com/open-hand/helm v0.0.0-20211104142002-fcdb1929a96d
 github.com/open-hand/helm/internal/experimental/registry
 github.com/open-hand/helm/internal/ignore
 github.com/open-hand/helm/internal/resolver
