@@ -26,10 +26,6 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	t := info.Object.(*unstructured.Unstructured)
 	kind := info.Mapping.GroupVersionKind.Kind
 
-	if t.GetNamespace() != "" && t.GetNamespace() != namespace {
-		return fmt.Errorf(" Kind:%s Name:%s. The namespace of this resource is not consistent with helm release", kind, t.GetName())
-	}
-
 	l := t.GetLabels()
 
 	if l == nil {
@@ -184,12 +180,14 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		}
 	case "Secret":
 		addAppLabels()
-	case "RoleBinding", "ClusterRoleBinding", "Role", "ClusterRole", "PodSecurityPolicy", "ServiceAccount":
 	case "Pod":
 		addAppLabels()
 	default:
-		glog.Warningf("Add Choerodon label failed, unsupported object: Kind %s of Release %s", kind, releaseName)
+		glog.Warningf("Skipping to add choerodon label, object: Kind %s of Release %s", kind, releaseName)
 		return nil
+	}
+	if t.GetNamespace() != "" && t.GetNamespace() != namespace {
+		return fmt.Errorf(" Kind:%s Name:%s. The namespace of this resource is not consistent with helm release", kind, t.GetName())
 	}
 	// add base labels
 	addBaseLabels()
