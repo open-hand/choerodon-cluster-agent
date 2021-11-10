@@ -186,7 +186,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		glog.Warningf("Skipping to add choerodon label, object: Kind %s of Release %s", kind, releaseName)
 		return nil
 	}
-	if t.GetNamespace() != "" && t.GetNamespace() != namespace {
+	if t.GetNamespace() != "" && t.GetNamespace() != namespace && chartName != "prometheus-operator" {
 		return fmt.Errorf(" Kind:%s Name:%s. The namespace of this resource is not consistent with helm release", kind, t.GetName())
 	}
 	// add base labels
