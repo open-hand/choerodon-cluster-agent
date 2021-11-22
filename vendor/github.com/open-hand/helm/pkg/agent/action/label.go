@@ -1,6 +1,7 @@
 package action
 
 import (
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/open-hand/helm/pkg/agent/model"
 	"k8s.io/api/core/v1"
@@ -23,6 +24,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	isUpgrade bool,
 	clientSet *kubernetes.Clientset) error {
 	t := info.Object.(*unstructured.Unstructured)
+	kind := info.Mapping.GroupVersionKind.Kind
 
 	l := t.GetLabels()
 
@@ -98,7 +100,6 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		}
 	}
 
-	kind := info.Mapping.GroupVersionKind.Kind
 	switch kind {
 	case "ReplicationController", "ReplicaSet", "Deployment":
 		addAppLabels()
@@ -179,12 +180,14 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		}
 	case "Secret":
 		addAppLabels()
-	case "RoleBinding", "ClusterRoleBinding", "Role", "ClusterRole", "PodSecurityPolicy", "ServiceAccount":
 	case "Pod":
 		addAppLabels()
 	default:
-		glog.Warningf("Add Choerodon label failed, unsupported object: Kind %s of Release %s", kind, releaseName)
+		glog.Warningf("Skipping to add choerodon label, object: Kind %s of Release %s", kind, releaseName)
 		return nil
+	}
+	if t.GetNamespace() != "" && t.GetNamespace() != namespace && chartName != "prometheus-operator" {
+		return fmt.Errorf(" Kind:%s Name:%s. The namespace of this resource is not consistent with helm release", kind, t.GetName())
 	}
 	// add base labels
 	addBaseLabels()
