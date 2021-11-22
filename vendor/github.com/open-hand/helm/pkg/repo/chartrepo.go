@@ -247,7 +247,6 @@ func FindChartInAuthRepoURL(repoURL, username, password, chartName, chartVersion
 		if err != nil {
 			return "", errors.Errorf("%s not found in %s repository", errMsg, repoURL)
 		}
-		IndexFileCache.Set(repoURL, IndexFileCache, cache.DefaultExpiration)
 	}
 
 	if len(cv.URLs) == 0 {
