@@ -9,13 +9,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type DeletePodInfo struct {
+type DeletedPodInfo struct {
 	PodName   string `json:"podName,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
+	Status    string `json:"status,omitempty"`
 }
 
 func DeletePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	var req DeletePodInfo
+	var req DeletedPodInfo
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		glog.V(1).Info("Unmarshal err: ", err)
@@ -27,23 +28,21 @@ func DeletePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.P
 	err = opts.KubeClient.GetKubeClient().CoreV1().Pods(namespace).Delete(podName, &metav1.DeleteOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return nil, &model.Packet{
-				Key:     cmd.Key,
-				Type:    model.DeletePod,
-				Payload: `{"status": "success"}`,
-			}
+			return nil, deletePodRespPacket(cmd.Key,"success",&req)
 		}
 		glog.V(1).Info("Delete pod err: ", err)
-		return nil, &model.Packet{
-			Key:     cmd.Key,
-			Type:    model.DeletePod,
-			Payload: `{"status": "failure"}`,
-		}
+		return nil, deletePodRespPacket(cmd.Key, "failed", &req)
 	}
 
-	return nil, &model.Packet{
-		Key:     cmd.Key,
+	return nil, deletePodRespPacket(cmd.Key, "success", &req)
+}
+
+func deletePodRespPacket(key, status string, deletePodInfo *DeletedPodInfo) *model.Packet {
+	deletePodInfo.Status = status
+	payloadByte, _ := json.Marshal(deletePodInfo)
+	return &model.Packet{
+		Key:     key,
 		Type:    model.DeletePod,
-		Payload: `{"status": "success"}`,
+		Payload: string(payloadByte),
 	}
 }
