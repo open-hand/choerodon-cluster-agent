@@ -9,14 +9,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type DeletedPodInfo struct {
+type DeletePodInfo struct {
 	PodName   string `json:"podName,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
 	Status    string `json:"status,omitempty"`
 }
 
 func DeletePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
-	var req DeletedPodInfo
+	var req DeletePodInfo
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
 		glog.V(1).Info("Unmarshal err: ", err)
@@ -37,7 +37,7 @@ func DeletePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.P
 	return nil, deletePodRespPacket(cmd.Key, "success", &req)
 }
 
-func deletePodRespPacket(key, status string, deletePodInfo *DeletedPodInfo) *model.Packet {
+func deletePodRespPacket(key, status string, deletePodInfo *DeletePodInfo) *model.Packet {
 	deletePodInfo.Status = status
 	payloadByte, _ := json.Marshal(deletePodInfo)
 	return &model.Packet{
