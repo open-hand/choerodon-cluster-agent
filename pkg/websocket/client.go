@@ -36,7 +36,6 @@ type Client interface {
 	PipeClose(pipeID string, pipe pipeutil.Pipe) error
 	URL() *url.URL
 	HandleDownloadLog(key, token, instanceId string, logReadCloser io.ReadCloser)
-	HandleDownloadPreviousLog(key, token string, logReadCloser io.ReadCloser)
 }
 
 type appClient struct {
@@ -404,41 +403,7 @@ func (c *appClient) HandleDownloadLog(key, token, instanceId string, logReadClos
 	if err != nil {
 		return
 	}
-	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, "agent_download_log", token, model.AgentVersion, instanceId)
-	headers := http.Header{}
-	conn, resp, err := dialWS(newURLStr, headers)
-	if resp != nil && resp.StatusCode == http.StatusNotFound {
-		glog.V(2).Info("response with not found")
-		logReadCloser.Close()
-	}
-	if err != nil {
-		glog.Error("failed to open websocket for downloading log,error is:", err.Error())
-	}
-	defer func() {
-		logReadCloser.Close()
-		conn.Close()
-		glog.Infof("key:%s,token:%s log transfer completed", key, token)
-	}()
-	n := -1
-	log := make([]byte, 524288)
-	for {
-		n, err = logReadCloser.Read(log)
-		if err != nil || n == 0 {
-			return
-		}
-		err := conn.WriteMessage(websocket.BinaryMessage, log[:n])
-		if err != nil {
-			fmt.Println(err)
-		}
-	}
-}
-
-func (c *appClient) HandleDownloadPreviousLog(key, token string, logReadCloser io.ReadCloser) {
-	newURL, err := util_url.ParseURL(c.url, "agent_download_previous_log")
-	if err != nil {
-		return
-	}
-	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, "agent_download_previous_log", token, model.AgentVersion)
+	newURLStr := fmt.Sprintf(BaseUrlForDownloadLog, newURL.Scheme, newURL.Host, key, key, c.clusterId, "agent_download_log", token, model.AgentVersion, instanceId)
 	headers := http.Header{}
 	conn, resp, err := dialWS(newURLStr, headers)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
