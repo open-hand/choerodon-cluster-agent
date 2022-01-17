@@ -349,7 +349,7 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 
 	// post-upgrade hooks
 	if !u.DisableHooks {
-		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", u.Namespace, false); err != nil {
+		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false); err != nil {
 			return u.failRelease(upgradedRelease, results.Created, fmt.Errorf("post-upgrade hooks failed: %s", err))
 		}
 	}
