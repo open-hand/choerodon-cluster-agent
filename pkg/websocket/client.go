@@ -393,7 +393,6 @@ func (c *appClient) pipeConnection(id string, key string, token string, pipe pip
 			}
 		}
 	}
-
 	pipe.Close()
 	return true, nil
 }
@@ -405,29 +404,46 @@ func (c *appClient) HandleDownloadLog(key, token, instanceId string, logReadClos
 	}
 	newURLStr := fmt.Sprintf(BaseUrlForDownloadLog, newURL.Scheme, newURL.Host, key, key, c.clusterId, "agent_download_log", token, model.AgentVersion, instanceId)
 	headers := http.Header{}
-	conn, resp, err := dialWS(newURLStr, headers)
-	if resp != nil && resp.StatusCode == http.StatusNotFound {
-		glog.V(2).Info("response with not found")
-		logReadCloser.Close()
-	}
-	if err != nil {
-		glog.Error("failed to open websocket for downloading log,error is:", err.Error())
+	var conn *websocket.Conn
+	var resp *http.Response
+	var dialErr error
+	dialCount := 0
+	for {
+		if dialCount > 20 {
+			glog.Error("failed to open websocket for downloading log after 20 times retry,error is:", err.Error())
+			return
+		}
+		conn, resp, dialErr = dialWS(newURLStr, headers)
+		if resp != nil && resp.StatusCode == http.StatusNotFound {
+			glog.V(2).Info("response with not found")
+			return
+		}
+		if dialErr == nil {
+			break
+		}
+		dialCount++
 	}
 	defer func() {
 		logReadCloser.Close()
 		conn.Close()
-		glog.Infof("key:%s,token:%s log transfer completed", key, token)
 	}()
 	n := -1
 	log := make([]byte, 524288)
 	for {
 		n, err = logReadCloser.Read(log)
 		if err != nil || n == 0 {
+			if err != nil {
+				glog.Error(err)
+			}
+			if n == 0 {
+				glog.Infof("key:%s,token:%s log transfer completed", key, token)
+			}
 			return
 		}
 		err := conn.WriteMessage(websocket.BinaryMessage, log[:n])
 		if err != nil {
-			fmt.Println(err)
+			glog.Error(err)
+			return
 		}
 	}
 }
