@@ -15,6 +15,7 @@ type GetLogsByKubernetesRequest struct {
 	ContainerName string `json:"containerName,omitempty"`
 	PipeID        string `json:"pipeID,omitempty"`
 	Namespace     string `json:"namespace,omitempty"`
+	InstanceId    string `json:"instanceId,omitempty"`
 	Previous      bool   `json:"previous,omitempty"`
 }
 
@@ -57,7 +58,7 @@ func DownloadLogByKubernetes(opts *command.Opts, cmd *model.Packet) ([]*model.Pa
 		return nil, command.NewResponseError(cmd.Key, model.KubernetesDownloadLogsFailed, err)
 	}
 
-	opts.WsClient.HandleDownloadLog(cmd.Key, opts.Token, logReadCloser)
+	opts.WsClient.HandleDownloadLog(cmd.Key, opts.Token, req.InstanceId, logReadCloser)
 
 	return nil, nil
 }
