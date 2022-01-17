@@ -35,7 +35,7 @@ type Client interface {
 	PipeConnection(pipeID string, key string, token string, pipe pipeutil.Pipe) error
 	PipeClose(pipeID string, pipe pipeutil.Pipe) error
 	URL() *url.URL
-	HandleDownloadLog(key, token string, logReadCloser io.ReadCloser)
+	HandleDownloadLog(key, token, instanceId string, logReadCloser io.ReadCloser)
 	HandleDownloadPreviousLog(key, token string, logReadCloser io.ReadCloser)
 }
 
@@ -399,12 +399,12 @@ func (c *appClient) pipeConnection(id string, key string, token string, pipe pip
 	return true, nil
 }
 
-func (c *appClient) HandleDownloadLog(key, token string, logReadCloser io.ReadCloser) {
+func (c *appClient) HandleDownloadLog(key, token, instanceId string, logReadCloser io.ReadCloser) {
 	newURL, err := util_url.ParseURL(c.url, "agent_download_log")
 	if err != nil {
 		return
 	}
-	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, "agent_download_log", token, model.AgentVersion)
+	newURLStr := fmt.Sprintf(BaseUrl, newURL.Scheme, newURL.Host, key, key, c.clusterId, "agent_download_log", token, model.AgentVersion, instanceId)
 	headers := http.Header{}
 	conn, resp, err := dialWS(newURLStr, headers)
 	if resp != nil && resp.StatusCode == http.StatusNotFound {
@@ -432,7 +432,6 @@ func (c *appClient) HandleDownloadLog(key, token string, logReadCloser io.ReadCl
 		}
 	}
 }
-
 
 func (c *appClient) HandleDownloadPreviousLog(key, token string, logReadCloser io.ReadCloser) {
 	newURL, err := util_url.ParseURL(c.url, "agent_download_previous_log")
