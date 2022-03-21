@@ -22,7 +22,7 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 
 	skipCheckNamespace := os.Getenv("SKIP_CHECK_EXIST_NAMESPACE") == "True"
 
-	if err = opts.KubeClient.GetNamespace(agentInitOpts.Envs[0].Namespace); err == nil && agentInitOpts.Envs[0].Namespace != model.AgentNamespace && !skipCheckNamespace {
+	if err = opts.KubeClient.GetNamespace(agentInitOpts.Envs[0].Namespace); err == nil && agentInitOpts.Envs[0].Namespace != "choerodon" && agentInitOpts.Envs[0].Namespace != model.AgentNamespace && !skipCheckNamespace {
 		return nil, commandutil.NewResponseError(cmd.Key, model.EnvCreateFailed, fmt.Errorf("env %s already exist", agentInitOpts.Envs[0].Namespace))
 	}
 	opts.AgentInitOps.Envs = append(opts.AgentInitOps.Envs, agentInitOpts.Envs[0])
