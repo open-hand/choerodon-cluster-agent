@@ -47,7 +47,6 @@ import (
 	"github.com/open-hand/helm/pkg/postrender"
 	"github.com/open-hand/helm/pkg/release"
 	"github.com/open-hand/helm/pkg/releaseutil"
-	"github.com/open-hand/helm/pkg/repo"
 	"github.com/open-hand/helm/pkg/storage"
 	"github.com/open-hand/helm/pkg/storage/driver"
 )
@@ -787,25 +786,24 @@ OUTER:
 //
 // If 'verify' was set on ChartPathOptions, this will attempt to also verify the chart.
 func (c *ChartPathOptions) LocateChart(name string, settings *cli.EnvSettings) (string, error) {
-	name = strings.TrimSpace(name)
 	version := strings.TrimSpace(c.Version)
-
-	if _, err := os.Stat(name); err == nil && strings.HasSuffix(name, ".tgz") {
-		abs, err := filepath.Abs(name)
-		if err != nil {
-			return abs, err
-		}
-		if c.Verify {
-			if _, err := downloader.VerifyChart(abs, c.Keyring); err != nil {
-				return "", err
-			}
-		}
-		return abs, nil
-	}
-	if filepath.IsAbs(name) || strings.HasPrefix(name, ".") {
-		return name, errors.Errorf("path %q not found", name)
-	}
-
+	name = fmt.Sprintf("%scharts/%s-%s.tgz", c.RepoURL, strings.TrimSpace(name), version)
+	//if _, err := os.Stat(name); err == nil && strings.HasSuffix(name, ".tgz") {
+	//	abs, err := filepath.Abs(name)
+	//	if err != nil {
+	//		return abs, err
+	//	}
+	//	if c.Verify {
+	//		if _, err := downloader.VerifyChart(abs, c.Keyring); err != nil {
+	//			return "", err
+	//		}
+	//	}
+	//	return abs, nil
+	//}
+	//if filepath.IsAbs(name) || strings.HasPrefix(name, ".") {
+	//	return name, errors.Errorf("path %q not found", name)
+	//}
+	//
 	dl := downloader.ChartDownloader{
 		Out:     os.Stdout,
 		Keyring: c.Keyring,
@@ -817,17 +815,17 @@ func (c *ChartPathOptions) LocateChart(name string, settings *cli.EnvSettings) (
 		RepositoryConfig: settings.RepositoryConfig,
 		RepositoryCache:  settings.RepositoryCache,
 	}
-	if c.Verify {
-		dl.Verify = downloader.VerifyAlways
-	}
-	if c.RepoURL != "" {
-		chartURL, err := repo.FindChartInAuthRepoURL(c.RepoURL, c.Username, c.Password, name, version,
-			c.CertFile, c.KeyFile, c.CaFile, getter.All(settings))
-		if err != nil {
-			return "", err
-		}
-		name = chartURL
-	}
+	//if c.Verify {
+	//	dl.Verify = downloader.VerifyAlways
+	//}
+	//if c.RepoURL != "" {
+	//	chartURL, err := repo.FindChartInAuthRepoURL(c.RepoURL, c.Username, c.Password, name, version,
+	//		c.CertFile, c.KeyFile, c.CaFile, getter.All(settings))
+	//	if err != nil {
+	//		return "", err
+	//	}
+	//	name = chartURL
+	//}
 
 	if err := os.MkdirAll(settings.RepositoryCache, 0755); err != nil {
 		return "", err
