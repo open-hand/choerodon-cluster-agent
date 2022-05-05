@@ -7,18 +7,14 @@ import (
 	helmcommon "github.com/choerodon/choerodon-cluster-agent/pkg/command/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/helm/helm2to3"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
 	"github.com/golang/glog"
-	"github.com/open-hand/helm/pkg/release"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/rand"
-	"strings"
 	"time"
 )
 
@@ -50,11 +46,6 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	model.GitRepoConcurrencySyncChan = make(chan struct{}, agentInitOpts.RepoConcurrencySyncSize)
 
 	model.CertManagerVersion = agentInitOpts.CertManagerVersion
-
-	err = agentConvert(opts, agentInitOpts.AgentName)
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
-	}
 
 	namespaces := opts.Namespaces
 
@@ -172,135 +163,20 @@ func ReSyncAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *m
 // 如果命名空间存在则检查labels，是否设置 "choerodon.io/helm-version":"helm3"
 // 未设置helm标签，则添加helm标签并调用helm升级函数，将helm实例从helm2升级到helm3
 func createNamespace(opts *commandutil.Opts, namespaceName string, releases []string) error {
-	ns, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Get(namespaceName, metav1.GetOptions{})
+	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Get(namespaceName, metav1.GetOptions{})
 	if err != nil {
 		// 如果命名空间不存在的话，则创建
 		if errors.IsNotFound(err) {
 			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:   namespaceName,
-					Labels: map[string]string{model.HelmVersion: "helm3"},
+					Name: namespaceName,
 				},
 			})
 			return err
 		}
 		return err
 	}
-
-	labels := ns.Labels
-	annotations := ns.Annotations
-	// 如果命名空间存在，则检查labels标签
-	if _, ok := labels[model.HelmVersion]; !ok {
-		return update(opts, releases, namespaceName, labels, annotations)
-	}
 	return nil
-}
-
-func update(opts *commandutil.Opts, releases []string, namespaceName string, labels, annotations map[string]string) error {
-	releaseCount := len(releases)
-	upgradeCount := 0
-
-	// 此处不对choerodon命名空间下的实例进行升级处理
-	// 安装agent的时候，会直接创建choerodon命名空间而不打上 model.HelmVersion 标签
-	// 然后用户直接创建pv,会导致choerodon没有标签也纳入环境管理（如果通过agent安装了prometheus或者cert-manager就会出现问题）
-	// 所以直接默认choeordon不需要进行helm迁移
-	if namespaceName != "choerodon" && releaseCount != 0 {
-		for i := 0; i < releaseCount; i++ {
-			getReleaseRequest := &helm.GetReleaseContentRequest{
-				ReleaseName: releases[i],
-				Namespace:   namespaceName,
-			}
-
-			// 查看该实例是否helm3管理，如果是upgradeCount加1，如果不是，进行升级操作然后再加1
-			_, err := opts.HelmClient.GetRelease(getReleaseRequest)
-			if err != nil {
-				// 实例不存在有可能是实例未升级，尝试升级操作
-				if strings.Contains(err.Error(), helm.ErrReleaseNotFound) {
-					helm2to3.RunConvert(releases[i])
-					if opts.ClearHelmHistory {
-						helm2to3.RunCleanup(releases[i])
-					}
-					upgradeCount++
-				}
-			} else {
-				// 实例存在表明实例被helm3管理，尝试进行数据清理，然后upgradeCount加1
-				if opts.ClearHelmHistory {
-					helm2to3.RunCleanup(releases[i])
-				}
-				upgradeCount++
-			}
-		}
-
-		if releaseCount != upgradeCount {
-			return fmt.Errorf("env %s : failed to upgrade helm2 to helm3 ", namespaceName)
-		}
-	}
-
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-
-	labels[model.HelmVersion] = "helm3"
-	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Update(&corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        namespaceName,
-			Labels:      labels,
-			Annotations: annotations,
-		},
-	})
-	return err
-}
-
-func agentConvert(opts *commandutil.Opts, agentName string) error {
-
-	deployment, err := opts.KubeClient.GetKubeClient().AppsV1().Deployments(model.AgentNamespace).Get(agentName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	labels := deployment.ObjectMeta.GetLabels()
-	annotations := deployment.ObjectMeta.GetAnnotations()
-
-	// agent实例是否由helm3进行管理的
-	if labels[model.HelmVersion] != "helm3" {
-		releaseRequest := &helm.GetReleaseContentRequest{
-			ReleaseName: agentName,
-			Namespace:   model.AgentNamespace,
-		}
-		rls, _ := opts.HelmClient.GetRelease(releaseRequest)
-
-		// 实例由helm3管理，更新标签
-		if rls != nil {
-			if rls.Status != release.StatusDeployed.String() {
-				return fmt.Errorf("agent: %s,status %s", agentName, rls.Status)
-			}
-			updateAgentDeploymentLabels(opts, deployment, labels, annotations)
-		} else {
-			// 实例由helm2管理，先升级成helm3管理，然后更新标签
-			err = helm2to3.RunConvert(agentName)
-			// 如果从helm2升级到helm3没有问题，就清理helm2的数据并给agent的deployment添加标签
-			if err == nil {
-				if opts.ClearHelmHistory {
-					helm2to3.RunCleanup(agentName)
-				}
-				updateAgentDeploymentLabels(opts, deployment, labels, annotations)
-			} else {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func updateAgentDeploymentLabels(opts *commandutil.Opts, deployment *appsv1.Deployment, labels, annotations map[string]string) {
-	if labels == nil {
-		labels = make(map[string]string)
-	}
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-	labels[model.HelmVersion] = "helm3"
-	deployment.SetLabels(labels)
-	opts.KubeClient.GetKubeClient().AppsV1().Deployments(model.AgentNamespace).Update(deployment)
 }
 
 func getClusterInfo(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
