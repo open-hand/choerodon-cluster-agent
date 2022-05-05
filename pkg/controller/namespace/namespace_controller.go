@@ -2,6 +2,7 @@ package namespace
 
 import (
 	"context"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/packet"
 
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
@@ -26,6 +27,9 @@ var log = logf.Log.WithName("controller_namespace")
 // Add creates a new Namespace Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager, args *controllerutil.Args) error {
+	if model.RestrictedModel {
+		return nil
+	}
 	return add(mgr, newReconciler(mgr, args))
 }
 

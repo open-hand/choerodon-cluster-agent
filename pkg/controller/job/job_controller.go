@@ -130,23 +130,23 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	} else if instance.Labels[model.TestLabel] != "" && instance.Labels[model.TestLabel] == r.args.PlatformCode {
 		//监听
-		if finsish, succeed := IsJobFinished(instance); finsish {
-			jobLogs, jobstatus, err := kubeClient.LogsForJob(namespace, instance.Name, model.TestLabel)
-
-			if succeed == false && jobstatus == "success" {
-				succeed = true
-			}
-
-			if err != nil {
-				glog.Error("get job log error ", err)
-			} else if strings.TrimSpace(jobLogs) != "" {
-				responseChan <- newTestJobLogRep(instance.Labels[model.TestLabel], instance.Labels[model.ReleaseLabel], jobLogs, namespace, succeed)
-			}
-			_, err = r.args.HelmClient.DeleteRelease(&helm.DeleteReleaseRequest{ReleaseName: instance.Labels[model.ReleaseLabel], Namespace: helm.TestNamespace})
-			if err != nil {
-				glog.Errorf("error delete release %s: ", instance.Labels[model.ReleaseLabel], err)
-			}
-		}
+		//if finsish, succeed := IsJobFinished(instance); finsish {
+		//	jobLogs, jobstatus, err := kubeClient.LogsForJob(namespace, instance.Name, model.TestLabel)
+		//
+		//	if succeed == false && jobstatus == "success" {
+		//		succeed = true
+		//	}
+		//
+		//	if err != nil {
+		//		glog.Error("get job log error ", err)
+		//	} else if strings.TrimSpace(jobLogs) != "" {
+		//		responseChan <- newTestJobLogRep(instance.Labels[model.TestLabel], instance.Labels[model.ReleaseLabel], jobLogs, namespace, succeed)
+		//	}
+		//	_, err = r.args.HelmClient.DeleteRelease(&helm.DeleteReleaseRequest{ReleaseName: instance.Labels[model.ReleaseLabel], Namespace: helm.TestNamespace})
+		//	if err != nil {
+		//		glog.Errorf("error delete release %s: ", instance.Labels[model.ReleaseLabel], err)
+		//	}
+		//}
 	} else if instance.Labels[model.WorkloadLabel] != "" {
 		responseChan <- newRepoJobRep(instance)
 	}

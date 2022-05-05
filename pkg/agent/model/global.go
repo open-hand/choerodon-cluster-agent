@@ -35,3 +35,6 @@ var InitLock = sync.Mutex{}
 
 // git repo初始化的时候控制并发的chan
 var GitRepoConcurrencySyncChan chan struct{}
+
+// agent是否处于限制模式
+var RestrictedModel bool

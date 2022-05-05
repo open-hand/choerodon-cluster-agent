@@ -29,8 +29,8 @@ func init() {
 
 	Funcs.Add(model.ResourceStatusSync, helm.SyncStatus)
 
-	Funcs.Add(model.TestExecute, helm.ExecuteTestRelease)
-	Funcs.Add(model.TestStatusRequest, helm.GetTestStatus)
+	//Funcs.Add(model.TestExecute, helm.ExecuteTestRelease)
+	//Funcs.Add(model.TestStatusRequest, helm.GetTestStatus)
 
 	Funcs.Add(model.ChartMuseumAuthentication, helm.AddHelmAccount)
 }

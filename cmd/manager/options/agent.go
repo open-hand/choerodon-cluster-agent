@@ -89,6 +89,7 @@ type AgentOptions struct {
 	clearHelmHistory   bool
 	clearHelmCacheCron string
 	pprof              bool
+	restrictedMod      bool
 }
 
 func printVersion() {
@@ -137,6 +138,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	printVersion()
 
 	model.AgentNamespace = os.Getenv("POD_NAMESPACE")
+
+	model.RestrictedModel = o.restrictedMod
 
 	model.ClusterId = o.ClusterId
 	if o.PrintVersion {
@@ -188,12 +191,10 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- err
 		return
 	}
-	version, err := discoveryClient.ServerVersion()
-	if err != nil {
-		errChan <- err
-		return
+	k8sVersion, err := discoveryClient.ServerVersion()
+	if err == nil {
+		model.KubernetesVersion = k8sVersion.GitVersion
 	}
-	model.KubernetesVersion = version.GitVersion
 
 	// new kubernetes clientf
 	kubeClient, err := kube.NewClient(f)
@@ -207,7 +208,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	glog.Info("init helm client success")
 
-	checkKube(kubeClient.GetKubeClient())
+	// 因为要缩小权限，所以这里不再校验权限
+	//checkKube(kubeClient.GetKubeClient())
 
 	glog.Infof("KubeClient init success.")
 
@@ -266,18 +268,24 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		kubectlDescriber := kubectl.NewKubectl(kubectlPath, cfg)
 		kubectlScaler := kubectl.NewKubectl(kubectlPath, cfg)
 
-		for _, crdYaml := range model.CRD_YAMLS {
-			if err := kubectlApplier.ApplySingleObj("kube-system", crdYaml); err != nil {
-				glog.V(1).Info(err)
+		if !model.RestrictedModel {
+			for _, crdYaml := range model.CRD_YAMLS {
+				if err := kubectlApplier.ApplySingleObj("kube-system", crdYaml); err != nil {
+					glog.V(1).Info(err)
+				}
 			}
 		}
 
 		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), kubeClient.GetV1alpha1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
 	}
-	polarisConfig, err := config.ParseFile(o.polarisFile)
-	if err != nil {
-		errChan <- err
-		return
+	var polarisConfig *config.Configuration
+
+	if !o.restrictedMod {
+		polarisConfig, err = config.ParseFile(o.polarisFile)
+		if err != nil {
+			errChan <- err
+			return
+		}
 	}
 	workerManager := agent.NewWorkerManager(
 		mgrs,
@@ -297,7 +305,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.Token,
 		o.PlatformCode,
 		o.syncAll,
-		&polarisConfig,
+		polarisConfig,
 		o.clearHelmHistory,
 	)
 
@@ -334,6 +342,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.pprof, "enable-pprof", false, "enable pprof")
+	fs.BoolVar(&o.restrictedMod, "restricted-mode", false, "whether cluster runs in restricted mode")
 	fs.StringVar(&o.clearHelmCacheCron, "clear-helm-cache-cron", "0 0 * * *", "cron jon for clear cache of helm")
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
 	fs.StringVar(&o.Listen, "listen", o.Listen, "address:port to listen on")

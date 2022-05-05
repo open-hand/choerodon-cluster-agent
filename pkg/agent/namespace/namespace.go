@@ -1,7 +1,6 @@
 package namespace
 
 import (
-	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"sync"
 )
 
@@ -14,8 +13,6 @@ func NewNamespaces() *Namespaces {
 	ns := &Namespaces{
 		m: map[string]bool{},
 	}
-	// for test-manager auto test
-	ns.Add(helm.TestNamespace)
 	return ns
 }
 

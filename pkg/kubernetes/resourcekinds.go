@@ -31,7 +31,7 @@ func init() {
 	ResourceKinds["configmap"] = &configMap{}
 	ResourceKinds["secret"] = &secret{}
 	ResourceKinds["persistentvolumeclaim"] = &persistentVolumeClaim{}
-	ResourceKinds["persistentvolume"] = &persistentVolume{}
+	//ResourceKinds["persistentvolume"] = &persistentVolume{}
 	ResourceKinds["certificate"] = &certificateKind{}
 	ResourceKinds["Deployment"] = &deploymentKind{}
 	ResourceKinds["DaemonSet"] = &daemonSetKind{}
@@ -305,6 +305,9 @@ type persistentVolume struct {
 }
 
 func (s *persistentVolume) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
+	if model.RestrictedModel {
+		return []K8sResource{}, nil
+	}
 	var K8sResources []K8sResource
 	persistentVolumes, err := c.Client.PersistentVolumes().List(meta_v1.ListOptions{})
 	if err != nil {
