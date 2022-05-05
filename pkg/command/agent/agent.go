@@ -77,14 +77,6 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	}
 	namespaces.Set(nsList)
 
-	// 检查choerodon-test命名空间
-	testManagerNamespace := helm.TestNamespace
-	nsList = append(nsList, testManagerNamespace)
-	err = createNamespace(opts, testManagerNamespace, []string{})
-	if err != nil {
-		return nil, commandutil.NewResponseError(cmd.Key, cmd.Type, err)
-	}
-
 	//里面含有好多 启动时的方法， 比如启动时发送cert-mgr的情况
 	opts.ControllerContext.ReSync()
 
@@ -124,8 +116,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	opts.AgentInitOps.Envs = agentInitOpts.Envs
 	go g.WithStop()
 
-	return getClusterInfo(opts, cmd)
-
+	return returnInitResult(opts, cmd)
 }
 
 // 以前用于重新部署实例，现在仅用于升级Agent
@@ -349,5 +340,13 @@ func getClusterInfo(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet,
 		Key:     cmd.Key,
 		Type:    model.ClusterGetInfo,
 		Payload: string(response),
+	}
+}
+
+func returnInitResult(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	if model.RestrictedModel {
+		return nil, nil
+	} else {
+		return getClusterInfo(opts, cmd)
 	}
 }

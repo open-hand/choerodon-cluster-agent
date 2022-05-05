@@ -43,7 +43,7 @@ type Exemption struct {
 }
 
 // ParseFile parses config from a file.
-func ParseFile(path string) (Configuration, error) {
+func ParseFile(path string) (*Configuration, error) {
 	var rawBytes []byte
 	var err error
 	if path == "" {
@@ -53,7 +53,7 @@ func ParseFile(path string) (Configuration, error) {
 		//path is a url
 		response, err2 := http.Get(path)
 		if err2 != nil {
-			return Configuration{}, err2
+			return &Configuration{}, err2
 		}
 		rawBytes, err = ioutil.ReadAll(response.Body)
 	} else {
@@ -61,9 +61,10 @@ func ParseFile(path string) (Configuration, error) {
 		rawBytes, err = ioutil.ReadFile(path)
 	}
 	if err != nil {
-		return Configuration{}, err
+		return &Configuration{}, err
 	}
-	return Parse(rawBytes)
+	configuration, err := Parse(rawBytes)
+	return &configuration, err
 }
 
 // Parse parses config from a byte array.

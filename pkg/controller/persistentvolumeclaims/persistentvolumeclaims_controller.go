@@ -30,6 +30,9 @@ var log = logf.Log.WithName("controller_persistentVolumeClaim")
 // Add creates a new PersistentVolumeClaim Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager, args *controllerutil.Args) error {
+	if model.RestrictedModel {
+		return nil
+	}
 	return add(mgr, newReconciler(mgr, args))
 }
 

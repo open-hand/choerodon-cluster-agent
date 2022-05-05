@@ -29,6 +29,9 @@ type ResponseInfo struct {
 }
 
 func ScanSystem(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	if model.RestrictedModel {
+		return nil, nil
+	}
 	var req ScanRequestInfo
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
