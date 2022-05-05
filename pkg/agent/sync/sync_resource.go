@@ -132,6 +132,9 @@ func syncService(ctx *Context) error {
 
 // 将集群中的空间发给devOps防止冲突
 func syncNamespace(ctx *Context) error {
+	if model.RestrictedModel {
+		return nil
+	}
 	namespaces, err := ctx.KubeClient.GetKubeClient().CoreV1().Namespaces().List(metav1.ListOptions{})
 	if err != nil {
 		return err
@@ -200,6 +203,9 @@ func newSyncRep(ns string) *model.Packet {
 }
 
 func syncMetrics(ctx *Context) error {
+	if model.RestrictedModel {
+		return nil
+	}
 	m := &node.Node{
 		Client: ctx.KubeClient.GetKubeClient(),
 		CrChan: ctx.CrChan,
