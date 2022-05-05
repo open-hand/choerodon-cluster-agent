@@ -102,8 +102,9 @@ func NewWorkerManager(
 func (w *workerManager) Start() {
 	w.wg.Add(1)
 	go w.runWorker()
-	go w.monitorCertMgr()
-
+	if !model.RestrictedModel {
+		go w.monitorCertMgr()
+	}
 }
 
 func (w *workerManager) runWorker() {

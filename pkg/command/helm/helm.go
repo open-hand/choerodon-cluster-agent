@@ -130,6 +130,9 @@ func UpgradeHelmRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 
 //专门用于安装cert-mgr
 func InstallCertManager(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	if model.RestrictedModel {
+		return nil, nil
+	}
 	// 根据k8s版本，创建不同的crd
 	// 大于等于15版本
 	model.CertManagerVersion = "1.1.1"
@@ -147,6 +150,9 @@ func InstallCertManager(opts *command.Opts, cmd *model.Packet) ([]*model.Packet,
 
 //专门用于卸载cert-mgr
 func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	if model.RestrictedModel {
+		return nil, nil
+	}
 	var delRequest helm.DeleteReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &delRequest)
 	if err != nil {
