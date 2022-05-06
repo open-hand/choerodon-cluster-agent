@@ -713,11 +713,13 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, passwo
 	vals, err := valueOpts.MergeValues(p)
 	if upgradeClient.ChartName == "choerodon-cluster-agent" && model.RestrictedModel {
 		vals["rbac"].(map[string]interface{})["create"] = false
-		extraArgs := vals["config"].(map[string]interface{})
-		if extraArgs == nil {
-			extraArgs = map[string]interface{}{}
+		extraArgs := make(map[string]interface{})
+		extraArgsInterface := vals["config"].(map[string]interface{})["extraArgs"]
+		if extraArgsInterface != nil {
+			extraArgs = extraArgsInterface.(map[string]interface{})
 		}
-		extraArgs["restricted-mode"]=true
+		extraArgs["restricted-mode"] = true
+		vals["config"].(map[string]interface{})["extraArgs"] = extraArgs
 	}
 	if err != nil {
 		return nil, err
