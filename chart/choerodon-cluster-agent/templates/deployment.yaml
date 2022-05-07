@@ -19,6 +19,11 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+{{- if .Values.kubeconfig }}
+      automountServiceAccountToken: false
+{{- else }}
+      serviceAccountName: {{ if .Values.rbac.create }}"{{ .Release.Name }}"{{ else }}"{{ .Values.rbac.serviceAccountName }}"{{ end }}
+{{- end }}
       dnsPolicy: ClusterFirstWithHostNet
 {{- if not (empty .Values.hostAliases) }}
       hostAliases:
@@ -67,8 +72,16 @@ spec:
         volumeMounts:
           - mountPath: "/polaris"
             name: cm-polaris-config
+{{- if .Values.kubeconfig }}
+          - mountPath: /var/www/.kube
+            name: c7n-agent-kubeconfig
+{{- end }}
       volumes:
         - name: cm-polaris-config
           configMap:
             name: cm-polaris-config
-      serviceAccountName: {{ if .Values.rbac.create }}"{{ .Release.Name }}"{{ else }}"{{ .Values.rbac.serviceAccountName }}"{{ end }}
+{{- if .Values.kubeconfig }}
+        - name: c7n-agent-kubeconfig
+          secret:
+            secretName: {{ .Values.kubeconfig }}
+{{- end }}

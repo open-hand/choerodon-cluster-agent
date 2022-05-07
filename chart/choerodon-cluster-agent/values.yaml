@@ -58,3 +58,6 @@ hostAliases: [ ]
 rbac:
   create: false
   serviceAccountName: default
+
+# kubeconfig secret name
+kubeconfig: 
