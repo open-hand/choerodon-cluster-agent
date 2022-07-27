@@ -8,6 +8,8 @@ FROM registry.cn-shanghai.aliyuncs.com/c7n/cluster-agent-base:1.1.0
 ENV USER_UID=33 \
     TINI_VERSION=v0.19.0
 
+USER 0
+
 RUN mkdir -p /ssh-keys \
     && mkdir -p /polaris \
     && mkdir -p /tmp \
