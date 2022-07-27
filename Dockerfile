@@ -3,7 +3,7 @@ WORKDIR /go/src/github.com/choerodon/choerodon-cluster-agent
 COPY . .
 RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GO111MODULE=on go build -o ./choerodon-cluster-agent -mod=vendor -v ./cmd/manager
 
-FROM registry.cn-shanghai.aliyuncs.com/c7n/debian:1.1
+FROM registry.cn-shanghai.aliyuncs.com/c7n/cluster-agent-base:1.1.0
 
 ENV USER_UID=33 \
     TINI_VERSION=v0.19.0

@@ -7,6 +7,7 @@ import (
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/golang/glog"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"strings"
 )
@@ -14,12 +15,26 @@ import (
 const sshKeyPath = "/ssh-keys"
 
 // 这个变量保存需要被替换的ssh地址
-var SshUrlMap = make(map[string]string)
+var SshRewriteUrlMap = make(map[string]string)
+var sshProxyMap = make(map[string]string)
 
 func init() {
 	rawOriginSshUrl := os.Getenv("ORIGIN_SSH_URL")
 	rawOverrideSshUrl := os.Getenv("REWRITE_SSH_URL")
 	if len(rawOriginSshUrl) == 0 || len(rawOverrideSshUrl) == 0 {
+		if sshProxy, exist := os.LookupEnv("SSH_PROXY"); exist && sshProxy != "" {
+			url, err := url.Parse(sshProxy)
+			if err != nil {
+				glog.Error(err.Error())
+				os.Exit(1)
+			}
+			sshProxyMap["schema"] = url.Scheme
+			if url.User != nil {
+				sshProxyMap["username"] = url.User.Username()
+				sshProxyMap["password"], _ = url.User.Password()
+			}
+			sshProxyMap["host"] = url.Host
+		}
 		return
 	}
 
@@ -29,7 +44,7 @@ func init() {
 		return
 	}
 	for index, originSshUrl := range originSshUrls {
-		SshUrlMap[originSshUrl] = overrideSshUrls[index]
+		SshRewriteUrlMap[originSshUrl] = overrideSshUrls[index]
 	}
 }
 
@@ -79,8 +94,8 @@ func writeSSHkey(fileName, key string) error {
 }
 
 func config(host, namespace string) string {
-	if rewriteUrl, ok := SshUrlMap[host]; ok {
-		glog.Infof("origin host %s has been rewrited to %s",host,rewriteUrl)
+	if rewriteUrl, ok := SshRewriteUrlMap[host]; ok {
+		glog.Infof("origin host %s has been rewrited to %s", host, rewriteUrl)
 		host = rewriteUrl
 	}
 
@@ -99,6 +114,13 @@ func config(host, namespace string) string {
 	result = result + fmt.Sprintf("  UserKnownHostsFile /dev/null\n")
 	result = result + fmt.Sprintf("  IdentityFile %s/rsa-%s\n", sshKeyPath, namespace)
 	result = result + fmt.Sprintf("  LogLevel error\n")
+	if len(SshRewriteUrlMap) == 0 && len(sshProxyMap) != 0 {
+		result = result + fmt.Sprintf("  ProxyCommand ncat --proxy-type %s --proxy-auth %s:%s --proxy %s %%h %%p\n",
+			sshProxyMap["schema"],
+			sshProxyMap["username"],
+			sshProxyMap["password"],
+			sshProxyMap["host"])
+	}
 	return result
 }
 
