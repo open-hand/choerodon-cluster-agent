@@ -192,6 +192,10 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	// add base labels
 	addBaseLabels()
 	t.SetLabels(l)
+
+	annotations := t.GetAnnotations()
+	annotations[model.CommitLabel] = commit
+	t.SetAnnotations(annotations)
 	return nil
 }
 
