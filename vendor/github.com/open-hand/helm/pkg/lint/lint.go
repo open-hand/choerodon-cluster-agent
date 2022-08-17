@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package lint // import "helm.sh/helm/v3/pkg/lint"
+package lint // import "github.com/open-hand/helm/pkg/lint"
 
 import (
 	"path/filepath"
@@ -30,7 +30,8 @@ func All(basedir string, values map[string]interface{}, namespace string, strict
 
 	linter := support.Linter{ChartDir: chartDir}
 	rules.Chartfile(&linter)
-	rules.Values(&linter)
+	rules.ValuesWithOverrides(&linter, values)
 	rules.Templates(&linter, values, namespace, strict)
+	rules.Dependencies(&linter)
 	return linter
 }

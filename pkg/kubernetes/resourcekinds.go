@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/apis/certmanager/v1"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/apis/certmanager/v1alpha1"
 	c7nv1alpha1 "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	batch_v1 "k8s.io/api/batch/v1"
@@ -54,20 +53,20 @@ type certificateKind struct {
 
 func (dk *certificateKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 	var K8sResources []K8sResource
-	if model.CertManagerVersion == "0.1.0" {
-		// 获取v1alpha1的certificate资源
-		v1Alpha1Certificates, err := c.Client.V1alpha1Certificates(namespace).List(meta_v1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		for i := range v1Alpha1Certificates.Items {
-			K8sResources = append(K8sResources, makeV1alpha1CertificateK8sResource(&v1Alpha1Certificates.Items[i]))
-		}
-	}
+	//if model.CertManagerVersion == "0.1.0" {
+	//	// 获取v1alpha1的certificate资源
+	//	v1Alpha1Certificates, err := c.Client.V1alpha1Certificates(namespace).List(context.TODO(),meta_v1.ListOptions{})
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	for i := range v1Alpha1Certificates.Items {
+	//		K8sResources = append(K8sResources, makeV1alpha1CertificateK8sResource(&v1Alpha1Certificates.Items[i]))
+	//	}
+	//}
 
 	if model.CertManagerVersion == "1.1.1" {
 		// 获取v1版本的certificate资源
-		v1Certificates, err := c.Client.V1Certificates(namespace).List(context.Background(), meta_v1.ListOptions{})
+		v1Certificates, err := c.Client.V1Certificates(namespace).List(context.TODO(), meta_v1.ListOptions{})
 		if err != nil {
 			return nil, err
 		}
@@ -88,14 +87,14 @@ func makeV1CertificateK8sResource(certificate *v1.Certificate) K8sResource {
 	}
 }
 
-func makeV1alpha1CertificateK8sResource(certificate *v1alpha1.Certificate) K8sResource {
-	return K8sResource{
-		ApiVersion: "v1alpha1",
-		Kind:       "Certificate",
-		Name:       certificate.Name,
-		K8sObject:  certificate,
-	}
-}
+//func makeV1alpha1CertificateK8sResource(certificate *v1alpha1.Certificate) K8sResource {
+//	return K8sResource{
+//		ApiVersion: "v1alpha1",
+//		Kind:       "Certificate",
+//		Name:       certificate.Name,
+//		K8sObject:  certificate,
+//	}
+//}
 
 // ==============================================
 // service
@@ -103,7 +102,7 @@ type serviceKind struct {
 }
 
 func (dk *serviceKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
-	services, err := c.Client.Services(namespace).List(meta_v1.ListOptions{})
+	services, err := c.Client.Services(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +133,7 @@ type ingressKind struct {
 }
 
 func (dk *ingressKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
-	ingresses, err := c.Client.Ingresses(namespace).List(meta_v1.ListOptions{})
+	ingresses, err := c.Client.Ingresses(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +208,7 @@ type configMap struct {
 }
 
 func (cm *configMap) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
-	configMaps, err := c.Client.ConfigMaps(namespace).List(meta_v1.ListOptions{})
+	configMaps, err := c.Client.ConfigMaps(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +240,7 @@ type secret struct {
 }
 
 func (s *secret) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
-	secrets, err := c.Client.Secrets(namespace).List(meta_v1.ListOptions{})
+	secrets, err := c.Client.Secrets(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +272,7 @@ type persistentVolumeClaim struct {
 }
 
 func (s *persistentVolumeClaim) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
-	persistentVolumeClaims, err := c.Client.PersistentVolumeClaims(namespace).List(meta_v1.ListOptions{})
+	persistentVolumeClaims, err := c.Client.PersistentVolumeClaims(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +308,7 @@ func (s *persistentVolume) GetResources(c *Cluster, namespace string) ([]K8sReso
 		return []K8sResource{}, nil
 	}
 	var K8sResources []K8sResource
-	persistentVolumes, err := c.Client.PersistentVolumes().List(meta_v1.ListOptions{})
+	persistentVolumes, err := c.Client.PersistentVolumes().List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -340,7 +339,7 @@ type deploymentKind struct {
 
 func (s *deploymentKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 	var K8sResources []K8sResource
-	deploymentList, err := c.Client.Deployments(namespace).List(meta_v1.ListOptions{})
+	deploymentList, err := c.Client.Deployments(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +369,7 @@ type statefulSetKind struct {
 
 func (s *statefulSetKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 	var K8sResources []K8sResource
-	statefulSetList, err := c.Client.StatefulSets(namespace).List(meta_v1.ListOptions{})
+	statefulSetList, err := c.Client.StatefulSets(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +400,7 @@ type jobKind struct {
 
 func (s *jobKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 	var K8sResources []K8sResource
-	jobList, err := c.Client.Jobs(namespace).List(meta_v1.ListOptions{})
+	jobList, err := c.Client.Jobs(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -431,7 +430,7 @@ type cronJobKind struct {
 
 func (s *cronJobKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 	var K8sResources []K8sResource
-	cronJobList, err := c.Client.CronJobs(namespace).List(meta_v1.ListOptions{})
+	cronJobList, err := c.Client.BatchV1beta1Interface.CronJobs(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -461,7 +460,7 @@ type daemonSetKind struct {
 
 func (s *daemonSetKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
 	var K8sResources []K8sResource
-	daemonSetList, err := c.Client.DaemonSets(namespace).List(meta_v1.ListOptions{})
+	daemonSetList, err := c.Client.DaemonSets(namespace).List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

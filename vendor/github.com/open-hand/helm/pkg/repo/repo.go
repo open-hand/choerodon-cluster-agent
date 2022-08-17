@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package repo // import "helm.sh/helm/v3/pkg/repo"
+package repo // import "github.com/open-hand/helm/pkg/repo"
 
 import (
 	"io/ioutil"

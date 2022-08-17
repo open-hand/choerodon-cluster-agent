@@ -69,7 +69,7 @@ func (c *clusterIssuers) Get(ctx context.Context, name string, options metav1.Ge
 		Resource("clusterissuers").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -85,7 +85,7 @@ func (c *clusterIssuers) List(ctx context.Context, opts metav1.ListOptions) (res
 		Resource("clusterissuers").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -101,7 +101,7 @@ func (c *clusterIssuers) Watch(ctx context.Context, opts metav1.ListOptions) (wa
 		Resource("clusterissuers").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a clusterIssuer and creates it.  Returns the server's representation of the clusterIssuer, and an error, if there is any.
@@ -111,7 +111,7 @@ func (c *clusterIssuers) Create(ctx context.Context, clusterIssuer *v1.ClusterIs
 		Resource("clusterissuers").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterIssuer).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -124,7 +124,7 @@ func (c *clusterIssuers) Update(ctx context.Context, clusterIssuer *v1.ClusterIs
 		Name(clusterIssuer.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterIssuer).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -139,7 +139,7 @@ func (c *clusterIssuers) UpdateStatus(ctx context.Context, clusterIssuer *v1.Clu
 		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(clusterIssuer).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -150,7 +150,7 @@ func (c *clusterIssuers) Delete(ctx context.Context, name string, opts metav1.De
 		Resource("clusterissuers").
 		Name(name).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -165,7 +165,7 @@ func (c *clusterIssuers) DeleteCollection(ctx context.Context, opts metav1.Delet
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -178,7 +178,7 @@ func (c *clusterIssuers) Patch(ctx context.Context, name string, pt types.PatchT
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

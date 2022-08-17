@@ -72,7 +72,7 @@ func (c *orders) Get(ctx context.Context, name string, options metav1.GetOptions
 		Resource("orders").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -89,7 +89,7 @@ func (c *orders) List(ctx context.Context, opts metav1.ListOptions) (result *v1.
 		Resource("orders").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -106,7 +106,7 @@ func (c *orders) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Inte
 		Resource("orders").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a order and creates it.  Returns the server's representation of the order, and an error, if there is any.
@@ -117,7 +117,7 @@ func (c *orders) Create(ctx context.Context, order *v1.Order, opts metav1.Create
 		Resource("orders").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(order).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -131,7 +131,7 @@ func (c *orders) Update(ctx context.Context, order *v1.Order, opts metav1.Update
 		Name(order.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(order).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -147,7 +147,7 @@ func (c *orders) UpdateStatus(ctx context.Context, order *v1.Order, opts metav1.
 		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(order).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -159,7 +159,7 @@ func (c *orders) Delete(ctx context.Context, name string, opts metav1.DeleteOpti
 		Resource("orders").
 		Name(name).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -175,7 +175,7 @@ func (c *orders) DeleteCollection(ctx context.Context, opts metav1.DeleteOptions
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -189,7 +189,7 @@ func (c *orders) Patch(ctx context.Context, name string, pt types.PatchType, dat
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

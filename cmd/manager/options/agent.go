@@ -14,14 +14,11 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/cron"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +33,8 @@ import (
 	"os/signal"
 	"path"
 	"runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sync"
 	"syscall"
 	"time"
@@ -99,7 +97,7 @@ func printVersion() {
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 
-	logf.SetLogger(zap.Logger())
+
 	options := NewAgentOptions()
 	cmd := &cobra.Command{
 		Use:  "choerodon-cluster-agent",
@@ -134,6 +132,12 @@ func NewAgentOptions() *AgentOptions {
 }
 
 func Run(o *AgentOptions, f cmdutil.Factory) {
+	opts := zap.Options{
+		Development: true,
+	}
+	opts.BindFlags(flag.CommandLine)
+
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	printVersion()
 
@@ -169,16 +173,17 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- fmt.Errorf("%s", <-c)
 	}()
 
-	// --------------- operator sdk start  -----------------  //
-	ctx := context.TODO()
-
-	// Become the leader before proceeding
-	err := leader.Become(ctx, "c7n-agent-lock-"+o.ClusterId)
-	if err != nil {
-		errChan <- err
-		return
-	}
-	glog.Info("become leader success")
+	//// --------------- operator sdk start  -----------------  //
+	//ctx := context.TODO()
+	//
+	//// Become the leader before proceeding
+	//leader.Become()
+	//err := leader.Become(ctx, "c7n-agent-lock-"+o.ClusterId)
+	//if err != nil {
+	//	errChan <- err
+	//	return
+	//}
+	//glog.Info("become leader success")
 
 	// for controller-manager
 	mgrs := &operatorutil.MgrList{}
@@ -276,17 +281,17 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			}
 		}
 
-		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), kubeClient.GetV1alpha1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
 	}
-	var polarisConfig *config.Configuration
-
-	if !o.restrictedMod {
-		polarisConfig, err = config.ParseFile(o.polarisFile)
-		if err != nil {
-			errChan <- err
-			return
-		}
-	}
+	//var polarisConfig *config.Configuration
+	//
+	//if !o.restrictedMod {
+	//	polarisConfig, err = config.ParseFile(o.polarisFile)
+	//	if err != nil {
+	//		errChan <- err
+	//		return
+	//	}
+	//}
 	workerManager := agent.NewWorkerManager(
 		mgrs,
 		crChan,
@@ -305,7 +310,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.Token,
 		o.PlatformCode,
 		o.syncAll,
-		polarisConfig,
+		//polarisConfig,
 		o.clearHelmHistory,
 	)
 
@@ -387,7 +392,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 
 func checkKube(client *k8sclient.Clientset) {
 	glog.Infof("check k8s role binding...")
-	_, err := client.CoreV1().Pods("").List(meta_v1.ListOptions{})
+	_, err := client.CoreV1().Pods("").List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		glog.Errorf("check role binding failed, %v", err)
 		os.Exit(0)

@@ -13,7 +13,7 @@ golang implementation of the [JSON Schema Specification](http://json-schema.org/
 * Encode schemas back to JSON
 * Supply Your own Custom Validators
 * Uses Standard Go idioms
-* Fastest Go implementation of [JSON Schema validators](http://json-schema.org/implementations.html#validators) (draft 7 only, benchmarks are [here](https://github.com/TheWildBlue/validator-benchmarks) - thanks [@TheWildBlue](https://github.com/TheWildBlue)!)
+* Fastest Go implementation of [JSON Schema validators](http://json-schema.org/implementations.html#validators) (draft2019_9 only, (old — draft 7) benchmarks are [here](https://github.com/TheWildBlue/validator-benchmarks) — thanks [@TheWildBlue](https://github.com/TheWildBlue)!)
 
 ### Getting Involved
 
@@ -23,16 +23,17 @@ like to submit changes, please see our
 
 ### Developing
 
-We've set up a separate document for [developer guidelines](https://github.com/qri-io/jsonschema/blob/master/DEVELOPERS.md)!
+We’ve set up a separate document for [developer guidelines](https://github.com/qri-io/jsonschema/blob/master/DEVELOPERS.md)!
 
 ## Basic Usage
 
-Here's a quick example pulled from the [godoc](https://godoc.org/github.com/qri-io/jsonschema):
+Here’s a quick example pulled from the [godoc](https://godoc.org/github.com/qri-io/jsonschema):
 
 ```go
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -40,30 +41,33 @@ import (
 )
 
 func main() {
+	ctx := context.Background()
 	var schemaData = []byte(`{
-      "title": "Person",
-      "type": "object",
-      "properties": {
-          "firstName": {
-              "type": "string"
-          },
-          "lastName": {
-              "type": "string"
-          },
-          "age": {
-              "description": "Age in years",
-              "type": "integer",
-              "minimum": 0
-          },
-          "friends": {
-            "type" : "array",
-            "items" : { "title" : "REFERENCE", "$ref" : "#" }
-          }
-      },
-      "required": ["firstName", "lastName"]
-    }`)
+    "$id": "https://qri.io/schema/",
+    "$comment" : "sample comment",
+    "title": "Person",
+    "type": "object",
+    "properties": {
+        "firstName": {
+            "type": "string"
+        },
+        "lastName": {
+            "type": "string"
+        },
+        "age": {
+            "description": "Age in years",
+            "type": "integer",
+            "minimum": 0
+        },
+        "friends": {
+          "type" : "array",
+          "items" : { "title" : "REFERENCE", "$ref" : "#" }
+        }
+    },
+    "required": ["firstName", "lastName"]
+  }`)
 
-	rs := &jsonschema.RootSchema{}
+	rs := &jsonschema.Schema{}
 	if err := json.Unmarshal(schemaData, rs); err != nil {
 		panic("unmarshal schema: " + err.Error())
 	}
@@ -72,17 +76,26 @@ func main() {
     "firstName" : "George",
     "lastName" : "Michael"
     }`)
+	errs, err := rs.ValidateBytes(ctx, valid)
+	if err != nil {
+		panic(err)
+	}
 
-	if errors, _ := rs.ValidateBytes(valid); len(errors) > 0 {
-		panic(errors)
+	if len(errs) > 0 {
+		fmt.Println(errs[0].Error())
 	}
 
 	var invalidPerson = []byte(`{
     "firstName" : "Prince"
     }`)
-	if errors, _ := rs.ValidateBytes(invalidPerson); len(errors) > 0 {
-                fmt.Println(errors[0].Error())
-  }
+
+	errs, err = rs.ValidateBytes(ctx, invalidPerson)
+	if err != nil {
+		panic(err)
+	}
+	if len(errs) > 0 {
+		fmt.Println(errs[0].Error())
+	}
 
 	var invalidFriend = []byte(`{
     "firstName" : "Jay",
@@ -91,71 +104,93 @@ func main() {
       "firstName" : "Nas"
       }]
     }`)
-	if errors, _ := rs.ValidateBytes(invalidFriend); len(errors) > 0 {
-	        fmt.Println(errors[0].Error())
-  }
+	errs, err = rs.ValidateBytes(ctx, invalidFriend)
+	if err != nil {
+		panic(err)
+	}
+	if len(errs) > 0 {
+		fmt.Println(errs[0].Error())
+	}
 }
+
+// Output:
+// /: {"firstName":"Prince... "lastName" value is required
+// /friends/0: {"firstName":"Nas"} "lastName" value is required
 ```
 
-## Custom Validators
+## Custom Keywords
 
 The [godoc](https://godoc.org/github.com/qri-io/jsonschema) gives an example of how to supply your own validators to extend the standard keywords supported by the spec.
 
-It involves two steps that should happen _before_ allocating any RootSchema instances that use the validator:
-1. create a custom type that implements the `Validator` interface
-2. call RegisterValidator with the keyword you'd like to detect in JSON, and a `ValMaker` function.
+It involves three steps that should happen _before_ allocating any Schema instances that use the validator:
+1. create a custom type that implements the `Keyword` interface
+2. Load the appropriate draft keyword set (see `draft2019_09_keywords.go`)
+3. call RegisterKeyword with the keyword you’d like to detect in JSON, and a `KeyMaker` function.
 
 
 ```go
 package main
 
 import (
-  "encoding/json"
-  "fmt"
-  "github.com/qri-io/jsonschema"
+    "context"
+    "encoding/json"
+    "fmt"
+
+    jptr "github.com/qri-io/jsonpointer"
+    "github.com/qri-io/jsonschema"
 )
 
 // your custom validator
 type IsFoo bool
 
-// newIsFoo is a jsonschama.ValMaker
-func newIsFoo() jsonschema.Validator {
-  return new(IsFoo)
+// newIsFoo is a jsonschama.KeyMaker
+func newIsFoo() jsonschema.Keyword {
+    return new(IsFoo)
 }
 
-// Validate implements jsonschema.Validator
-func (f IsFoo) Validate(data interface{}) []jsonschema.ValError {
-  if str, ok := data.(string); ok {
-    if str != "foo" {
-      return []jsonschema.ValError{
-        {Message: fmt.Sprintf("'%s' is not foo. It should be foo. plz make '%s' == foo. plz", str, str)},
-      }
+// Validate implements jsonschema.Keyword
+func (f *IsFoo) Validate(propPath string, data interface{}, errs *[]jsonschema.KeyError) {}
+
+// Register implements jsonschema.Keyword
+func (f *IsFoo) Register(uri string, registry *jsonschema.SchemaRegistry) {}
+
+// Resolve implements jsonschema.Keyword
+func (f *IsFoo) Resolve(pointer jptr.Pointer, uri string) *jsonschema.Schema {
+    return nil
+}
+
+// ValidateKeyword implements jsonschema.Keyword
+func (f *IsFoo) ValidateKeyword(ctx context.Context, currentState *jsonschema.ValidationState, data interface{}) {
+    if str, ok := data.(string); ok {
+        if str != "foo" {
+            currentState.AddError(data, fmt.Sprintf("should be foo. plz make '%s' == foo. plz", str))
+        }
     }
-  }
-  return nil
 }
 
 func main() {
-  // register a custom validator by supplying a function
-  // that creates new instances of your Validator.
-  jsonschema.RegisterValidator("foo", newIsFoo)
+    // register a custom validator by supplying a function
+    // that creates new instances of your Validator.
+    jsonschema.RegisterKeyword("foo", newIsFoo)
 
-  schBytes := []byte(`{ "foo": true }`)
+    // If you register a custom validator, you'll need to manually register
+    // any other JSON Schema validators you need.
+    jsonschema.LoadDraft2019_09()
 
-  // parse a schema that uses your custom keyword
-  rs := new(jsonschema.RootSchema)
-  if err := json.Unmarshal(schBytes, rs); err != nil {
-    // Real programs handle errors.
-    panic(err)
-  }
+    schBytes := []byte(`{ "foo": true }`)
 
-  // validate some JSON
-  errors := rs.ValidateBytes([]byte(`"bar"`))
+    rs := new(jsonschema.Schema)
+    if err := json.Unmarshal(schBytes, rs); err != nil {
+        // Real programs handle errors.
+        panic(err)
+    }
 
-  // print le error
-  fmt.Println(errs[0].Error())
-
-  // Output: 'bar' is not foo. It should be foo. plz make 'bar' == foo. plz
+    errs, err := rs.ValidateBytes(context.Background(), []byte(`"bar"`))
+    if err != nil {
+        panic(err)
+    }
+    fmt.Println(errs[0].Error())
+    // Output: /: "bar" should be foo. plz make 'bar' == foo. plz
 }
 ```
 
