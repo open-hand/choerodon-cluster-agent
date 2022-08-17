@@ -737,8 +737,8 @@ github.com/onsi/gomega v1.5.0/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1Cpa
 github.com/onsi/gomega v1.7.0/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
 github.com/onsi/gomega v1.8.1 h1:C5Dqfs/LeauYDX0jJXIe2SWmwCbGzx9yF8C8xy3Lh34=
 github.com/onsi/gomega v1.8.1/go.mod h1:Ho0h+IUsWyvy1OpqCwxlQ/21gkhVunqlU8fDGcoTdcA=
-github.com/open-hand/helm v0.0.0-20220816152103-7f9bde9f319a h1:Ttj5vU5aaL+9cjALjZqyHWEuEWi7MdFYDDipXL7L8wc=
-github.com/open-hand/helm v0.0.0-20220816152103-7f9bde9f319a/go.mod h1:07qZJMSqxv7nusjmCLoXmeP1tjoa5wxmjJpcpPZy9lw=
+github.com/open-hand/helm v0.0.0-20220817022051-b75639c929f5 h1:P068yHGAbZAdHDfj2Q1Xq4DR9aZLEip1j1fOOpG9yPM=
+github.com/open-hand/helm v0.0.0-20220817022051-b75639c929f5/go.mod h1:07qZJMSqxv7nusjmCLoXmeP1tjoa5wxmjJpcpPZy9lw=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v0.0.0-20180430190053-c9281466c8b2/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v1.0.0-rc1 h1:WzifXhOVOEOuFYOJAW6aQqW0TooG2iki3E3Ii+WN7gQ=
