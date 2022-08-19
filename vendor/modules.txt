@@ -190,27 +190,9 @@ github.com/go-openapi/jsonpointer
 ## explicit; go 1.13
 github.com/go-openapi/jsonreference
 github.com/go-openapi/jsonreference/internal
-# github.com/go-openapi/spec v0.20.7
-## explicit; go 1.13
-github.com/go-openapi/spec
 # github.com/go-openapi/swag v0.19.15
 ## explicit; go 1.11
 github.com/go-openapi/swag
-# github.com/gobuffalo/logger v1.0.6
-## explicit; go 1.13
-github.com/gobuffalo/logger
-# github.com/gobuffalo/packd v1.0.1
-## explicit; go 1.13
-github.com/gobuffalo/packd
-github.com/gobuffalo/packd/internal/takeon/github.com/markbates/errx
-# github.com/gobuffalo/packr/v2 v2.8.3
-## explicit; go 1.16
-github.com/gobuffalo/packr/v2
-github.com/gobuffalo/packr/v2/file
-github.com/gobuffalo/packr/v2/file/resolver
-github.com/gobuffalo/packr/v2/file/resolver/encoding/hex
-github.com/gobuffalo/packr/v2/jam/parser
-github.com/gobuffalo/packr/v2/plog
 # github.com/gobwas/glob v0.2.3
 ## explicit
 github.com/gobwas/glob
@@ -307,9 +289,6 @@ github.com/josharian/intern
 github.com/json-iterator/go
 # github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0
 ## explicit
-# github.com/karrick/godirwalk v1.16.1
-## explicit; go 1.13
-github.com/karrick/godirwalk
 # github.com/klauspost/compress v1.14.1
 ## explicit; go 1.15
 github.com/klauspost/compress
@@ -340,15 +319,6 @@ github.com/mailru/easyjson/jwriter
 # github.com/maorfr/helm-plugin-utils v0.6.0
 ## explicit; go 1.16
 github.com/maorfr/helm-plugin-utils/pkg
-# github.com/markbates/errx v1.1.0
-## explicit; go 1.12
-github.com/markbates/errx
-# github.com/markbates/oncer v1.0.0
-## explicit; go 1.12
-github.com/markbates/oncer
-# github.com/markbates/safe v1.0.1
-## explicit
-github.com/markbates/safe
 # github.com/mattn/go-colorable v0.1.12
 ## explicit; go 1.13
 github.com/mattn/go-colorable
@@ -481,12 +451,6 @@ github.com/prometheus/common/model
 github.com/prometheus/procfs
 github.com/prometheus/procfs/internal/fs
 github.com/prometheus/procfs/internal/util
-# github.com/qri-io/jsonpointer v0.1.1
-## explicit
-github.com/qri-io/jsonpointer
-# github.com/qri-io/jsonschema v0.2.1
-## explicit; go 1.13
-github.com/qri-io/jsonschema
 # github.com/robfig/cron/v3 v3.0.1
 ## explicit; go 1.12
 github.com/robfig/cron/v3

@@ -35,6 +35,8 @@ import (
 	"runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -97,7 +99,6 @@ func printVersion() {
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 
-
 	options := NewAgentOptions()
 	cmd := &cobra.Command{
 		Use:  "choerodon-cluster-agent",
@@ -133,7 +134,7 @@ func NewAgentOptions() *AgentOptions {
 
 func Run(o *AgentOptions, f cmdutil.Factory) {
 	opts := zap.Options{
-		Development: true,
+		Development: false,
 	}
 	opts.BindFlags(flag.CommandLine)
 
@@ -171,6 +172,20 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		c := make(chan os.Signal)
 		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 		errChan <- fmt.Errorf("%s", <-c)
+	}()
+
+	go func() {
+		var mux *http.ServeMux
+		if o.pprof {
+			mux = http.NewServeMux()
+			mux.HandleFunc("/debug/pprof/", pprof.Index)
+			mux.HandleFunc("/debug/pprof/heap", pprof.Index)
+			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		}
+		errChan <- http.ListenAndServe(o.Listen, mux)
 	}()
 
 	//// --------------- operator sdk start  -----------------  //
@@ -265,7 +280,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			_, err = os.Stat(kubectlPath)
 		}
 		if err != nil {
-			glog.Fatal(err)
+			errChan <- err
+			return
 		}
 		glog.Infof("kubectl %s", kubectlPath)
 		cfg, _ := f.ToRESTConfig()
@@ -274,8 +290,21 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		kubectlScaler := kubectl.NewKubectl(kubectlPath, cfg)
 
 		if !model.RestrictedModel {
-			for _, crdYaml := range model.CRD_YAMLS {
-				if err := kubectlApplier.ApplySingleObj("kube-system", crdYaml); err != nil {
+			subVersion, err := strconv.Atoi(strings.Split(strings.TrimPrefix(model.KubernetesVersion, "v"), ".")[1])
+			if err != nil {
+				errChan <- err
+				return
+			}
+			if subVersion < 22 {
+				// k8s 22以下的版本使用此crd
+				glog.Infof("k8s version:%s use v1beta1 crd", model.KubernetesVersion)
+				if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAMLS[model.V1_BETA1]); err != nil {
+					glog.V(1).Info(err)
+				}
+			} else {
+				// k8s 22及以上的版本使用此crd
+				glog.Infof("k8s version:%s use v1 crd", model.KubernetesVersion)
+				if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAMLS[model.V1]); err != nil {
 					glog.V(1).Info(err)
 				}
 			}
@@ -283,6 +312,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
 	}
+
+	// TODO polaris
 	//var polarisConfig *config.Configuration
 	//
 	//if !o.restrictedMod {
@@ -315,20 +346,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	)
 
 	go workerManager.Start()
-
-	go func() {
-		var mux *http.ServeMux
-		if o.pprof {
-			mux = http.NewServeMux()
-			mux.HandleFunc("/debug/pprof/", pprof.Index)
-			mux.HandleFunc("/debug/pprof/heap", pprof.Index)
-			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		}
-		errChan <- http.ListenAndServe(o.Listen, mux)
-	}()
 
 	glog.Infof("cron: %s", o.clearHelmCacheCron)
 	cron.AddCronJob(o.clearHelmCacheCron, func() {

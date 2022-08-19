@@ -166,6 +166,7 @@ func NewInstall(cfg *Configuration,
 		AgentVersion:     agentVersion,
 		TestLabel:        testLabel,
 		IsTest:           isTest,
+		CreateNamespace:  true,
 	}
 	in.ChartPathOptions.registryClient = cfg.RegistryClient
 

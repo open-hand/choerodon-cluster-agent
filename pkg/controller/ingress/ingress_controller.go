@@ -7,15 +7,15 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/golang/glog"
-	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	v1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 )
@@ -47,7 +47,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Ingress
-	err = c.Watch(&source.Kind{Type: &extensionsv1beta1.Ingress{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &v1.Ingress{}}, &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ type ReconcileIngress struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileIngress) Reconcile(ctx context.Context,request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileIngress) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	if !r.args.Namespaces.Contain(request.Namespace) {
 		return reconcile.Result{}, nil
 	}
@@ -80,7 +80,7 @@ func (r *ReconcileIngress) Reconcile(ctx context.Context,request reconcile.Reque
 	responseChan := r.args.CrChan.ResponseChan
 
 	// Fetch the Ingress instance
-	instance := &extensionsv1beta1.Ingress{}
+	instance := &v1.Ingress{}
 	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -111,7 +111,7 @@ func newIngressDelRep(name string, namespace string) *model.Packet {
 	}
 }
 
-func newIngressRep(ingress *extensionsv1beta1.Ingress) *model.Packet {
+func newIngressRep(ingress *v1.Ingress) *model.Packet {
 	payload, err := json.Marshal(ingress)
 	if err != nil {
 		glog.Error(err)
@@ -122,36 +122,3 @@ func newIngressRep(ingress *extensionsv1beta1.Ingress) *model.Packet {
 		Payload: string(payload),
 	}
 }
-
-// TODO ingress sync
-//func (c *controller) resourceSync() {
-//	namespaces := c.namespaces.GetAll()
-//	for _, ns := range namespaces {
-//		pods, err := c.lister.Ingresses(ns).List(labels.NewSelector())
-//		if err != nil {
-//			glog.Fatal("can not list resource, no rabc bind, exit !")
-//		} else {
-//			var serviceList []string
-//			for _, pod := range pods {
-//				if pod.Labels[model.ReleaseLabel] != "" {
-//					serviceList = append(serviceList, pod.GetName())
-//				}
-//			}
-//			resourceList := &kubernetes.ResourceList{
-//				Resources:    serviceList,
-//				ResourceType: "Ingress",
-//			}
-//			content, err := json.Marshal(resourceList)
-//			if err != nil {
-//				glog.Fatal("marshal ingress list error")
-//			} else {
-//				response := &model.Packet{
-//					Key:     fmt.Sprintf("env:%s", ns),
-//					Type:    model.ResourceSync,
-//					Payload: string(content),
-//				}
-//				c.responseChan <- response
-//			}
-//		}
-//	}
-//}
