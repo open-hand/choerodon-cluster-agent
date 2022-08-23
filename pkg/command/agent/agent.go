@@ -86,17 +86,18 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	}
 
 	for _, ns := range nsList {
-		if opts.Mgrs.IsExist(ns) {
+		currentNamespace := ns
+		if opts.Mgrs.IsExist(currentNamespace) {
 			continue
 		}
-		mgr, err := operator.New(cfg, ns, args)
+		mgr, err := operator.New(cfg, currentNamespace, args)
 		if err != nil {
 			return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 		}
 		// check success added avoid repeat watch
-		if opts.Mgrs.AddStop(ns, mgr) {
+		if opts.Mgrs.AddStop(currentNamespace, mgr) {
 			go func() {
-				if err := mgr.Start(opts.Mgrs.GetCtx(ns)); err != nil {
+				if err := mgr.Start(opts.Mgrs.GetCtx(currentNamespace)); err != nil {
 					opts.CrChan.ResponseChan <- commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 				}
 			}()
