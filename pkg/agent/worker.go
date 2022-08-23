@@ -9,6 +9,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	v1 "k8s.io/api/core/v1"
@@ -47,8 +48,8 @@ type workerManager struct {
 	platformCode       string
 	syncAll            bool
 	mgrs               *operatorutil.MgrList
-	//polarisConfig      *config.Configuration
-	clearHelmHistory bool
+	polarisConfig      *config.Configuration
+	clearHelmHistory   bool
 }
 
 func NewWorkerManager(
@@ -69,7 +70,7 @@ func NewWorkerManager(
 	token string,
 	platformCode string,
 	syncAll bool,
-//polarisConfig *config.Configuration,
+	polarisConfig *config.Configuration,
 	clearHelmHistory bool) *workerManager {
 	if platformCode == "" {
 		platformCode = token
@@ -94,8 +95,8 @@ func NewWorkerManager(
 		platformCode:       platformCode,
 		syncAll:            syncAll,
 		mgrs:               mgrs,
-		//polarisConfig:      polarisConfig,
-		clearHelmHistory: clearHelmHistory,
+		polarisConfig:      polarisConfig,
+		clearHelmHistory:   clearHelmHistory,
 	}
 }
 
@@ -143,8 +144,8 @@ func (w *workerManager) runWorker() {
 						WsClient:          w.appClient,
 						Token:             w.token,
 						Mgrs:              w.mgrs,
-						//PolarisConfig:     w.polarisConfig,
-						ClearHelmHistory: w.clearHelmHistory,
+						PolarisConfig:     w.polarisConfig,
+						ClearHelmHistory:  w.clearHelmHistory,
 					}
 					newCmds, resp = processCmdFunc(opts, cmd)
 				} else {

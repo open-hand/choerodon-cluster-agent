@@ -1,4 +1,4 @@
-package ingress
+package v1
 
 import (
 	"context"
@@ -30,7 +30,10 @@ var log = logf.Log.WithName("controller_ingress")
 // Add creates a new Ingress Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager, args *controllerutil.Args) error {
-	return add(mgr, newReconciler(mgr, args))
+	if !model.OldKubernetesVersion {
+		return add(mgr, newReconciler(mgr, args))
+	}
+	return nil
 }
 
 // newReconciler returns a new reconcile.Reconciler

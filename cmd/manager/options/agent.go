@@ -14,6 +14,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/cron"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
@@ -36,7 +37,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -213,7 +213,18 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	}
 	k8sVersion, err := discoveryClient.ServerVersion()
 	if err == nil {
-		model.KubernetesVersion = k8sVersion.GitVersion
+		model.KubernetesVersion = k8sVersion
+		minorVersion, err := strconv.Atoi(k8sVersion.Minor)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		if minorVersion < 22 {
+			model.OldKubernetesVersion = true
+		} else {
+			model.OldKubernetesVersion = false
+		}
+
 	}
 
 	// new kubernetes clientf
@@ -290,12 +301,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		kubectlScaler := kubectl.NewKubectl(kubectlPath, cfg)
 
 		if !model.RestrictedModel {
-			subVersion, err := strconv.Atoi(strings.Split(strings.TrimPrefix(model.KubernetesVersion, "v"), ".")[1])
-			if err != nil {
-				errChan <- err
-				return
-			}
-			if subVersion < 22 {
+			if model.OldKubernetesVersion {
 				// k8s 22以下的版本使用此crd
 				glog.Infof("k8s version:%s use v1beta1 crd", model.KubernetesVersion)
 				if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAMLS[model.V1_BETA1]); err != nil {
@@ -313,16 +319,15 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
 	}
 
-	// TODO polaris
-	//var polarisConfig *config.Configuration
-	//
-	//if !o.restrictedMod {
-	//	polarisConfig, err = config.ParseFile(o.polarisFile)
-	//	if err != nil {
-	//		errChan <- err
-	//		return
-	//	}
-	//}
+	var polarisConfig *config.Configuration
+
+	if !o.restrictedMod {
+		polarisConfig, err = config.ParseFile(o.polarisFile)
+		if err != nil {
+			errChan <- err
+			return
+		}
+	}
 	workerManager := agent.NewWorkerManager(
 		mgrs,
 		crChan,
@@ -341,7 +346,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		o.Token,
 		o.PlatformCode,
 		o.syncAll,
-		//polarisConfig,
+		polarisConfig,
 		o.clearHelmHistory,
 	)
 

@@ -22,7 +22,6 @@ const (
 
 	// helm
 	// HelmReleaseUpgrade 以前用于升级agent及重新部署实例，现仅用于升级agent
-	// Deprecated: 将在0.20移除
 	HelmReleaseUpgrade              = "helm_release_upgrade"
 	HelmReleaseSyncedFailed         = "helm_release_sync_failed"
 	HelmReleaseInstallFailed        = "helm_release_install_failed"
@@ -83,20 +82,20 @@ const (
 	PodMetricsSync = "pod_metrics_sync"
 
 	// kubernetes
-	KubernetesGetLogs                   = "kubernetes_get_logs"
-	KubernetesGetLogsFailed             = "kubernetes_get_logs_failed"
-	KubernetesDownloadLogs              = "kubernetes_download_logs"
-	KubernetesDownloadLogsFailed        = "kubernetes_download_logs_failed"
-	KubernetesDownloadPreviousLogs              = "kubernetes_download_previous_logs"
-	KubernetesDownloadPreviousLogsFailed        = "kubernetes_download_previous_logs_failed"
-	KubernetesExec                      = "kubernetes_exec"
-	KubernetesExecFailed                = "kubernetes_exec_failed"
-	OperatePodCount                     = "operate_pod_count"
-	OperatePodCountFailed               = "operate_pod_count_failed"
-	OperatePodCountSuccess              = "operate_pod_count_succeed"
-	OperateDockerRegistrySecret         = "operate_docker_registry_secret"
-	OperateDockerRegistrySecretFailed   = "operate_docker_registry_secret_failed"
-	DeletePersistentVolumeClaimByLabels = "delete_persistent_volume_claim_by_labels"
+	KubernetesGetLogs                    = "kubernetes_get_logs"
+	KubernetesGetLogsFailed              = "kubernetes_get_logs_failed"
+	KubernetesDownloadLogs               = "kubernetes_download_logs"
+	KubernetesDownloadLogsFailed         = "kubernetes_download_logs_failed"
+	KubernetesDownloadPreviousLogs       = "kubernetes_download_previous_logs"
+	KubernetesDownloadPreviousLogsFailed = "kubernetes_download_previous_logs_failed"
+	KubernetesExec                       = "kubernetes_exec"
+	KubernetesExecFailed                 = "kubernetes_exec_failed"
+	OperatePodCount                      = "operate_pod_count"
+	OperatePodCountFailed                = "operate_pod_count_failed"
+	OperatePodCountSuccess               = "operate_pod_count_succeed"
+	OperateDockerRegistrySecret          = "operate_docker_registry_secret"
+	OperateDockerRegistrySecretFailed    = "operate_docker_registry_secret_failed"
+	DeletePersistentVolumeClaimByLabels  = "delete_persistent_volume_claim_by_labels"
 
 	// git ops
 	GitOpsSync       = "git_ops_sync"
@@ -118,7 +117,7 @@ const (
 	ClusterGetInfoFailed = "cluster_info_failed"
 
 	// workload pod event
-	WorkloadPodEvent="workload_pod_event"
+	WorkloadPodEvent = "workload_pod_event"
 )
 
 const (
