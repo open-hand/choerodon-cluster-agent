@@ -2,11 +2,11 @@ package kube
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	v1_versioned "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/client/clientset/versioned"
-	v1alpha1_versioned "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/client/clientset/versioned"
 	choerodon_version "github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/clientset/versioned"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	"github.com/ghodss/yaml"
@@ -60,7 +60,7 @@ type Client interface {
 	IsSecretExist(namespace string, secretName string) (bool, error)
 	GetKubeClient() *kubernetes.Clientset
 	GetV1CrdClient() *v1_versioned.Clientset
-	GetV1alpha1CrdClient() *v1alpha1_versioned.Clientset
+	//GetV1alpha1CrdClient() *v1alpha1_versioned.Clientset
 	GetC7nClient() *choerodon_version.Clientset
 	GetRESTConfig() (*rest.Config, error)
 	IsReleaseJobRun(namespace, releaseName string) bool
@@ -76,10 +76,10 @@ const testContainer string = "automation-test"
 
 type client struct {
 	cmdutil.Factory
-	client            *kubernetes.Clientset
-	v1CrdClient       *v1_versioned.Clientset
-	v1alpha1CrdClient *v1alpha1_versioned.Clientset
-	c7nClient         *choerodon_version.Clientset
+	client      *kubernetes.Clientset
+	v1CrdClient *v1_versioned.Clientset
+	//v1alpha1CrdClient *v1alpha1_versioned.Clientset
+	c7nClient *choerodon_version.Clientset
 }
 
 func NewClient(f cmdutil.Factory) (Client, error) {
@@ -95,21 +95,21 @@ func NewClient(f cmdutil.Factory) (Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get v1 crd client: %v", err)
 	}
-	v1alpha1CrdClient, err := v1alpha1_versioned.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("get v1alpha1 crd client: %v", err)
-	}
+	//v1alpha1CrdClient, err := v1alpha1_versioned.NewForConfig(restConfig)
+	//if err != nil {
+	//	return nil, fmt.Errorf("get v1alpha1 crd client: %v", err)
+	//}
 
 	c7nClient, err := choerodon_version.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error building c7n clientset: %v", err)
 	}
 	return &client{
-		Factory:           f,
-		client:            kubeClient,
-		v1CrdClient:       v1CrdClient,
-		v1alpha1CrdClient: v1alpha1CrdClient,
-		c7nClient:         c7nClient,
+		Factory:     f,
+		client:      kubeClient,
+		v1CrdClient: v1CrdClient,
+		//v1alpha1CrdClient: v1alpha1CrdClient,
+		c7nClient: c7nClient,
 	}, nil
 }
 
@@ -118,7 +118,7 @@ func (c *client) GetRESTConfig() (*rest.Config, error) {
 }
 
 func (c *client) DeleteJob(namespace string, name string) error {
-	job, err := c.client.BatchV1().Jobs(namespace).Get(name, meta_v1.GetOptions{})
+	job, err := c.client.BatchV1().Jobs(namespace).Get(context.TODO(), name, meta_v1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -126,11 +126,11 @@ func (c *client) DeleteJob(namespace string, name string) error {
 	if err != nil {
 		return err
 	}
-	err = c.client.BatchV1().Jobs(namespace).Delete(name, &meta_v1.DeleteOptions{})
+	err = c.client.BatchV1().Jobs(namespace).Delete(context.TODO(), name, meta_v1.DeleteOptions{})
 	if err != nil {
 		return err
 	}
-	return c.client.CoreV1().Pods(namespace).DeleteCollection(&meta_v1.DeleteOptions{}, meta_v1.ListOptions{
+	return c.client.CoreV1().Pods(namespace).DeleteCollection(context.TODO(), meta_v1.DeleteOptions{}, meta_v1.ListOptions{
 		LabelSelector: selector.String(),
 	})
 }
@@ -147,9 +147,9 @@ func (c *client) GetV1CrdClient() *v1_versioned.Clientset {
 	return c.v1CrdClient
 }
 
-func (c *client) GetV1alpha1CrdClient() *v1alpha1_versioned.Clientset {
-	return c.v1alpha1CrdClient
-}
+//func (c *client) GetV1alpha1CrdClient() *v1alpha1_versioned.Clientset {
+//	return c.v1alpha1CrdClient
+//}
 
 func (c *client) GetC7nClient() *choerodon_version.Clientset {
 	return c.c7nClient
@@ -170,7 +170,7 @@ func (c *client) BuildUnstructured(namespace string, manifest string) (ResourceL
 }
 
 func (c *client) GetC7NHelmRelease(name, namespace string) *v1alpha1.C7NHelmRelease {
-	c7nHelmRelease, err := c.c7nClient.C7NHelmReleaseV1alpha1().C7nHelmReleases(namespace).Get(name, meta_v1.GetOptions{})
+	c7nHelmRelease, err := c.c7nClient.C7NHelmReleaseV1alpha1().C7nHelmReleases(namespace).Get(context.TODO(), name, meta_v1.GetOptions{})
 	if errors.IsNotFound(err) {
 		glog.Infof("C7nHelmRelease:%s not exists", name)
 		return nil
@@ -179,7 +179,7 @@ func (c *client) GetC7NHelmRelease(name, namespace string) *v1alpha1.C7NHelmRele
 }
 
 func (c *client) UpdateC7nHelmRelease(release *v1alpha1.C7NHelmRelease, namespace string) {
-	_, err := c.c7nClient.C7NHelmReleaseV1alpha1().C7nHelmReleases(namespace).Update(release)
+	_, err := c.c7nClient.C7NHelmReleaseV1alpha1().C7nHelmReleases(namespace).Update(context.TODO(), release)
 	if err != nil {
 		glog.Infof("update C7NHelmRelease %s failed,err is:%s", release.GetName(), err.Error())
 	}
@@ -188,7 +188,7 @@ func (c *client) UpdateC7nHelmRelease(release *v1alpha1.C7NHelmRelease, namespac
 func (c *client) LogsForJob(namespace string, name string, jobLabel string) (string, string, error) {
 
 	var jobStatus = ""
-	job, err := c.client.BatchV1().Jobs(namespace).Get(name, meta_v1.GetOptions{})
+	job, err := c.client.BatchV1().Jobs(namespace).Get(context.TODO(), name, meta_v1.GetOptions{})
 	if err != nil {
 		return "", jobStatus, err
 	}
@@ -196,7 +196,7 @@ func (c *client) LogsForJob(namespace string, name string, jobLabel string) (str
 	if err != nil {
 		return "", jobStatus, err
 	}
-	podList, err := c.client.CoreV1().Pods(namespace).List(meta_v1.ListOptions{LabelSelector: selector.String()})
+	podList, err := c.client.CoreV1().Pods(namespace).List(context.TODO(), meta_v1.ListOptions{LabelSelector: selector.String()})
 	if err != nil {
 		return "", jobStatus, err
 	}
@@ -228,7 +228,7 @@ func (c *client) LogsForJob(namespace string, name string, jobLabel string) (str
 	}
 
 	req := c.client.CoreV1().Pods(namespace).GetLogs(pod.Name, options)
-	readCloser, err := req.Stream()
+	readCloser, err := req.Stream(context.TODO())
 	if err != nil {
 		return "", jobStatus, err
 	}
@@ -244,21 +244,21 @@ func (c *client) CreateOrUpdateService(namespace string, serviceStr string) (*co
 	if err != nil {
 		return nil, err
 	}
-	oldService, err := c.client.CoreV1().Services(namespace).Get(svc.Name, meta_v1.GetOptions{})
+	oldService, err := c.client.CoreV1().Services(namespace).Get(context.TODO(), svc.Name, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return c.client.CoreV1().Services(namespace).Create(svc)
+			return c.client.CoreV1().Services(namespace).Create(context.TODO(), svc, meta_v1.CreateOptions{})
 		}
 		return nil, err
 	}
 	svc.ResourceVersion = oldService.ResourceVersion
 	svc.Spec.ClusterIP = oldService.Spec.ClusterIP
-	return c.client.CoreV1().Services(namespace).Update(svc)
+	return c.client.CoreV1().Services(namespace).Update(context.TODO(), svc, meta_v1.UpdateOptions{})
 }
 
 func (c *client) GetService(namespace string, serviceName string) (string, error) {
 
-	service, err := c.client.CoreV1().Services(namespace).Get(serviceName, meta_v1.GetOptions{})
+	service, err := c.client.CoreV1().Services(namespace).Get(context.TODO(), serviceName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err
@@ -272,7 +272,7 @@ func (c *client) GetService(namespace string, serviceName string) (string, error
 }
 
 func (c *client) GetIngress(namespace string, ingressName string) (string, error) {
-	ingress, err := c.client.ExtensionsV1beta1().Ingresses(namespace).Get(ingressName, meta_v1.GetOptions{})
+	ingress, err := c.client.ExtensionsV1beta1().Ingresses(namespace).Get(context.TODO(), ingressName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err
@@ -286,7 +286,7 @@ func (c *client) GetIngress(namespace string, ingressName string) (string, error
 }
 
 func (c *client) GetSecret(namespace string, secretName string) (string, error) {
-	secret, err := c.client.CoreV1().Secrets(namespace).Get(secretName, meta_v1.GetOptions{})
+	secret, err := c.client.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err
@@ -300,7 +300,7 @@ func (c *client) GetSecret(namespace string, secretName string) (string, error) 
 }
 
 func (c *client) IsSecretExist(namespace string, secretName string) (bool, error) {
-	secret, err := c.client.CoreV1().Secrets(namespace).Get(secretName, meta_v1.GetOptions{})
+	secret, err := c.client.CoreV1().Secrets(namespace).Get(context.TODO(), secretName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return false, err
@@ -315,7 +315,7 @@ func (c *client) IsSecretExist(namespace string, secretName string) (bool, error
 }
 
 func (c *client) GetConfigMap(namespace string, configMapName string) (string, error) {
-	configMap, err := c.client.CoreV1().ConfigMaps(namespace).Get(configMapName, meta_v1.GetOptions{})
+	configMap, err := c.client.CoreV1().ConfigMaps(namespace).Get(context.TODO(), configMapName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err
@@ -329,7 +329,7 @@ func (c *client) GetConfigMap(namespace string, configMapName string) (string, e
 }
 
 func (c *client) GetPersistentVolumeClaim(namespace string, pvcName string) (string, string, error) {
-	pvc, err := c.client.CoreV1().PersistentVolumeClaims(namespace).Get(pvcName, meta_v1.GetOptions{})
+	pvc, err := c.client.CoreV1().PersistentVolumeClaims(namespace).Get(context.TODO(), pvcName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", "", err
@@ -342,7 +342,7 @@ func (c *client) GetPersistentVolumeClaim(namespace string, pvcName string) (str
 	return "", "", nil
 }
 func (c *client) GetPersistentVolume(namespace string, pvName string) (string, string, error) {
-	pv, err := c.client.CoreV1().PersistentVolumes().Get(pvName, meta_v1.GetOptions{})
+	pv, err := c.client.CoreV1().PersistentVolumes().Get(context.TODO(), pvName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", "", err
@@ -370,7 +370,7 @@ func (c *client) IsReleaseJobRun(namespace, releaseName string) bool {
 		LabelSelector: slector.String(),
 	}
 
-	jobList, err := c.client.BatchV1().Jobs(namespace).List(selector)
+	jobList, err := c.client.BatchV1().Jobs(namespace).List(context.TODO(), selector)
 
 	if err != nil {
 		glog.Infof("resource sync list job error: %v", err)
@@ -383,7 +383,7 @@ func (c *client) IsReleaseJobRun(namespace, releaseName string) bool {
 }
 
 func (c *client) GetNamespace(namespace string) error {
-	_, err := c.client.CoreV1().Namespaces().Get(namespace, meta_v1.GetOptions{})
+	_, err := c.client.CoreV1().Namespaces().Get(context.TODO(), namespace, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return fmt.Errorf("get Namespace error : %v", err)
@@ -395,7 +395,7 @@ func (c *client) GetNamespace(namespace string) error {
 }
 
 func (c *client) DeleteNamespace(namespace string) error {
-	err := c.client.CoreV1().Namespaces().Delete(namespace, &meta_v1.DeleteOptions{})
+	err := c.client.CoreV1().Namespaces().Delete(context.TODO(), namespace, meta_v1.DeleteOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return fmt.Errorf("delete namespace error : %v", err)
@@ -414,13 +414,13 @@ func (c *client) CreateOrUpdateIngress(namespace string, ingressStr string) (*ex
 	if err != nil {
 		return nil, err
 	}
-	if _, err := client.ExtensionsV1beta1().Ingresses(namespace).Get(ing.Name, meta_v1.GetOptions{}); err != nil {
+	if _, err := client.ExtensionsV1beta1().Ingresses(namespace).Get(context.TODO(), ing.Name, meta_v1.GetOptions{}); err != nil {
 		if errors.IsNotFound(err) {
-			return client.ExtensionsV1beta1().Ingresses(namespace).Create(ing)
+			return client.ExtensionsV1beta1().Ingresses(namespace).Create(context.TODO(), ing, meta_v1.CreateOptions{})
 		}
 		return nil, err
 	}
-	return client.ExtensionsV1beta1().Ingresses(namespace).Update(ing)
+	return client.ExtensionsV1beta1().Ingresses(namespace).Update(context.TODO(), ing, meta_v1.UpdateOptions{})
 }
 
 func (c *client) DeleteService(namespace string, name string) error {
@@ -428,7 +428,7 @@ func (c *client) DeleteService(namespace string, name string) error {
 	if err != nil {
 		return err
 	}
-	return client.CoreV1().Services(namespace).Delete(name, &meta_v1.DeleteOptions{})
+	return client.CoreV1().Services(namespace).Delete(context.TODO(), name, meta_v1.DeleteOptions{})
 }
 
 func (c *client) DeleteIngress(namespace string, name string) error {
@@ -436,7 +436,7 @@ func (c *client) DeleteIngress(namespace string, name string) error {
 	if err != nil {
 		return err
 	}
-	return client.ExtensionsV1beta1().Ingresses(namespace).Delete(name, &meta_v1.DeleteOptions{})
+	return client.ExtensionsV1beta1().Ingresses(namespace).Delete(context.TODO(), name, meta_v1.DeleteOptions{})
 }
 
 func (c *client) GetLogs(namespace string, pod string, containerName string, follow bool, previous bool, line int64) (io.ReadCloser, error) {
@@ -455,7 +455,7 @@ func (c *client) GetLogs(namespace string, pod string, containerName string, fol
 			Previous:  previous,
 		},
 	)
-	readCloser, err := req.Stream()
+	readCloser, err := req.Stream(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -467,7 +467,7 @@ func (c *client) Exec(namespace string, podName string, containerName string, lo
 	if err != nil {
 		return err
 	}
-	pod, err := c.client.CoreV1().Pods(namespace).Get(podName, meta_v1.GetOptions{})
+	pod, err := c.client.CoreV1().Pods(namespace).Get(context.TODO(), podName, meta_v1.GetOptions{})
 	if err != nil {
 		glog.Errorf("can not find pod %s :%v", podName, err)
 		return err
@@ -522,7 +522,7 @@ func (c *client) GetSelectRelationPod(info *resource.Info) (map[string][]core_v1
 		return nil, nil
 	}
 
-	pods, err := c.client.CoreV1().Pods(info.Namespace).List(meta_v1.ListOptions{
+	pods, err := c.client.CoreV1().Pods(info.Namespace).List(context.TODO(), meta_v1.ListOptions{
 		FieldSelector: fields.Everything().String(),
 		LabelSelector: labels.Set(selector).AsSelector().String(),
 	})
@@ -856,14 +856,14 @@ func getSelectorFromObject(obj runtime.Object) (map[string]string, bool) {
 }
 
 func (c *client) CreateOrUpdateDockerRegistrySecret(namespace string, secret *core_v1.Secret) (*core_v1.Secret, error) {
-	_, err := c.client.CoreV1().Secrets(namespace).Get(secret.Name, meta_v1.GetOptions{})
+	_, err := c.client.CoreV1().Secrets(namespace).Get(context.TODO(), secret.Name, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
-			return c.client.CoreV1().Secrets(namespace).Create(secret)
+			return c.client.CoreV1().Secrets(namespace).Create(context.TODO(), secret, meta_v1.CreateOptions{})
 		}
 		return nil, err
 	}
-	return c.client.CoreV1().Secrets(namespace).Update(secret)
+	return c.client.CoreV1().Secrets(namespace).Update(context.TODO(), secret, meta_v1.UpdateOptions{})
 }
 
 func InArray(expectedResourceKind []string, kind string) bool {
@@ -875,7 +875,7 @@ func InArray(expectedResourceKind []string, kind string) bool {
 	return false
 }
 func (c *client) GetDeployment(namespace string, deploymentName string) (string, error) {
-	deployment, err := c.client.AppsV1().Deployments(namespace).Get(deploymentName, meta_v1.GetOptions{})
+	deployment, err := c.client.AppsV1().Deployments(namespace).Get(context.TODO(), deploymentName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err
@@ -888,7 +888,7 @@ func (c *client) GetDeployment(namespace string, deploymentName string) (string,
 	return "", nil
 }
 func (c *client) GetStatefulSet(namespace string, statefulSetName string) (string, error) {
-	statefulSet, err := c.client.AppsV1().StatefulSets(namespace).Get(statefulSetName, meta_v1.GetOptions{})
+	statefulSet, err := c.client.AppsV1().StatefulSets(namespace).Get(context.TODO(), statefulSetName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err
@@ -901,7 +901,7 @@ func (c *client) GetStatefulSet(namespace string, statefulSetName string) (strin
 	return "", nil
 }
 func (c *client) GetJob(namespace string, jobName string) (string, error) {
-	job, err := c.client.BatchV1().Jobs(namespace).Get(jobName, meta_v1.GetOptions{})
+	job, err := c.client.BatchV1().Jobs(namespace).Get(context.TODO(), jobName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err
@@ -914,7 +914,7 @@ func (c *client) GetJob(namespace string, jobName string) (string, error) {
 	return "", nil
 }
 func (c *client) GetCronJob(namespace string, cronJobName string) (string, error) {
-	cronJob, err := c.client.BatchV1beta1().CronJobs(namespace).Get(cronJobName, meta_v1.GetOptions{})
+	cronJob, err := c.client.BatchV1beta1().CronJobs(namespace).Get(context.TODO(), cronJobName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err
@@ -927,7 +927,7 @@ func (c *client) GetCronJob(namespace string, cronJobName string) (string, error
 	return "", nil
 }
 func (c *client) GetDaemonSet(namespace string, daemonSetName string) (string, error) {
-	daemon, err := c.client.AppsV1().DaemonSets(namespace).Get(daemonSetName, meta_v1.GetOptions{})
+	daemon, err := c.client.AppsV1().DaemonSets(namespace).Get(context.TODO(), daemonSetName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", err

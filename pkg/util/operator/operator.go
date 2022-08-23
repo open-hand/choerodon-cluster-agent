@@ -1,12 +1,14 @@
 package operator
 
 import (
+	"context"
 	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type Mgr struct {
 	crmanager.Manager
-	stopCh chan struct{}
+	ctx        context.Context
+	cancelFunc context.CancelFunc
 }
 
 type MgrList map[string]*Mgr
@@ -30,16 +32,22 @@ func (ms *MgrList) IsExist(namespace string) bool {
 	return false
 }
 
-func (ms *MgrList) AddStop(namespace string, manager crmanager.Manager, stopCh chan struct{}) bool {
+func (ms *MgrList) AddStop(namespace string, manager crmanager.Manager) bool {
 	if _, ok := (*ms)[namespace]; ok && (*ms)[namespace] != nil {
 		return false
 	}
+	ctx, cancelFunc := context.WithCancel(context.TODO())
 	mgr := &Mgr{
-		stopCh:  stopCh,
-		Manager: manager,
+		ctx:        ctx,
+		Manager:    manager,
+		cancelFunc: cancelFunc,
 	}
 	(*ms)[namespace] = mgr
 	return true
+}
+
+func (ms *MgrList) GetCtx(namespace string) context.Context {
+	return (*ms)[namespace].ctx
 }
 
 func (ms *MgrList) Remove(namespace string) bool {
@@ -48,14 +56,14 @@ func (ms *MgrList) Remove(namespace string) bool {
 	if mgr, ok = (*ms)[namespace]; !ok {
 		return false
 	}
-	close(mgr.stopCh)
+	mgr.cancelFunc()
 	delete(*ms, namespace)
 	return true
 }
 
 func (ms *MgrList) StopAll() bool {
 	for _, m := range *ms {
-		close(m.stopCh)
+		m.cancelFunc()
 	}
 	return true
 }

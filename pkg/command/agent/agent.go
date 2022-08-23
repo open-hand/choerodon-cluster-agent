@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
@@ -92,11 +93,10 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 		if err != nil {
 			return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 		}
-		stopCh := make(chan struct{}, 1)
 		// check success added avoid repeat watch
-		if opts.Mgrs.AddStop(ns, mgr, stopCh) {
+		if opts.Mgrs.AddStop(ns, mgr) {
 			go func() {
-				if err := mgr.Start(stopCh); err != nil {
+				if err := mgr.Start(opts.Mgrs.GetCtx(ns)); err != nil {
 					opts.CrChan.ResponseChan <- commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 				}
 			}()
@@ -162,15 +162,15 @@ func ReSyncAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *m
 // 如果命名空间存在则检查labels，是否设置 "choerodon.io/helm-version":"helm3"
 // 未设置helm标签，则添加helm标签并调用helm升级函数，将helm实例从helm2升级到helm3
 func createNamespace(opts *commandutil.Opts, namespaceName string, releases []string) error {
-	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Get(namespaceName, metav1.GetOptions{})
+	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
 	if err != nil {
 		// 如果命名空间不存在的话，则创建
 		if errors.IsNotFound(err) {
-			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&corev1.Namespace{
+			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: namespaceName,
 				},
-			})
+			}, metav1.CreateOptions{})
 			return err
 		}
 		return err
@@ -186,15 +186,15 @@ func getClusterInfo(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet,
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}
 
-	namespaceList, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().List(listOpts)
+	namespaceList, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().List(context.TODO(), listOpts)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}
-	nodeList, err := opts.KubeClient.GetKubeClient().CoreV1().Nodes().List(listOpts)
+	nodeList, err := opts.KubeClient.GetKubeClient().CoreV1().Nodes().List(context.TODO(), listOpts)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}
-	podList, err := opts.KubeClient.GetKubeClient().CoreV1().Pods("").List(listOpts)
+	podList, err := opts.KubeClient.GetKubeClient().CoreV1().Pods("").List(context.TODO(), listOpts)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}

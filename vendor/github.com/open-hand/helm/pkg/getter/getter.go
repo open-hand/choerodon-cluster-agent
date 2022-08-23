@@ -18,10 +18,13 @@ package getter
 
 import (
 	"bytes"
+	"net/http"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/open-hand/helm/pkg/cli"
+	"github.com/open-hand/helm/pkg/registry"
 )
 
 // options are generic parameters to be provided to the getter during instantiation.
@@ -32,10 +35,16 @@ type options struct {
 	certFile              string
 	keyFile               string
 	caFile                string
+	unTar                 bool
 	insecureSkipVerifyTLS bool
 	username              string
 	password              string
+	passCredentialsAll    bool
 	userAgent             string
+	version               string
+	registryClient        *registry.Client
+	timeout               time.Duration
+	transport             *http.Transport
 }
 
 // Option allows specifying various settings configurable by the user for overriding the defaults
@@ -55,6 +64,12 @@ func WithBasicAuth(username, password string) Option {
 	return func(opts *options) {
 		opts.username = username
 		opts.password = password
+	}
+}
+
+func WithPassCredentialsAll(pass bool) Option {
+	return func(opts *options) {
+		opts.passCredentialsAll = pass
 	}
 }
 
@@ -78,6 +93,38 @@ func WithTLSClientConfig(certFile, keyFile, caFile string) Option {
 		opts.certFile = certFile
 		opts.keyFile = keyFile
 		opts.caFile = caFile
+	}
+}
+
+// WithTimeout sets the timeout for requests
+func WithTimeout(timeout time.Duration) Option {
+	return func(opts *options) {
+		opts.timeout = timeout
+	}
+}
+
+func WithTagName(tagname string) Option {
+	return func(opts *options) {
+		opts.version = tagname
+	}
+}
+
+func WithRegistryClient(client *registry.Client) Option {
+	return func(opts *options) {
+		opts.registryClient = client
+	}
+}
+
+func WithUntar() Option {
+	return func(opts *options) {
+		opts.unTar = true
+	}
+}
+
+// WithTransport sets the http.Transport to allow overwriting the HTTPGetter default.
+func WithTransport(transport *http.Transport) Option {
+	return func(opts *options) {
+		opts.transport = transport
 	}
 }
 
@@ -130,11 +177,16 @@ var httpProvider = Provider{
 	New:     NewHTTPGetter,
 }
 
+var ociProvider = Provider{
+	Schemes: []string{registry.OCIScheme},
+	New:     NewOCIGetter,
+}
+
 // All finds all of the registered getters as a list of Provider instances.
 // Currently, the built-in getters and the discovered plugins with downloader
 // notations are collected.
 func All(settings *cli.EnvSettings) Providers {
-	result := Providers{httpProvider}
+	result := Providers{httpProvider, ociProvider}
 	pluginDownloaders, _ := collectPlugins(settings)
 	result = append(result, pluginDownloaders...)
 	return result
