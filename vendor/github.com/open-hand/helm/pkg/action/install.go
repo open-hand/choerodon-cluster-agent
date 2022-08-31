@@ -314,16 +314,16 @@ func (i *Install) RunWithContext(ctx context.Context, chrt *chart.Chart, vals ma
 	var toBeAdopted kube.ResourceList
 	resources, err := i.cfg.KubeClient.Build(bytes.NewBufferString(rel.Manifest), !i.DisableOpenAPIValidation)
 
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to build kubernetes objects from release manifest")
+	}
+
 	// 在这里对要创建的对象添加标签
 	for _, r := range resources {
 		err = action.AddLabel(i.ImagePullSecret, i.Command, i.V1Command, i.AppServiceId, i.V1AppServiceId, r, i.Commit, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.Namespace, i.IsTest)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to build kubernetes objects from release manifest")
 	}
 
 	// It is safe to use "force" here because these are resources currently rendered by the chart.
