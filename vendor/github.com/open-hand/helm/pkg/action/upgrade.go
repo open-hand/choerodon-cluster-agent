@@ -145,7 +145,7 @@ func NewUpgrade(cfg *Configuration,
 	v1AppServiceId string,
 	agentVersion string,
 	reuseValues bool) *Upgrade {
-	up:= &Upgrade{
+	up := &Upgrade{
 		ChartPathOptions: chartPathOptions,
 		cfg:              cfg,
 		Commit:           commit,
@@ -168,13 +168,13 @@ func NewUpgrade(cfg *Configuration,
 }
 
 // Run executes the upgrade on the given release.
-func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface{},valuesRaw string) (*release.Release, error) {
+func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface{}, valuesRaw string) (*release.Release, error) {
 	ctx := context.Background()
-	return u.RunWithContext(ctx, name, chart, vals,valuesRaw)
+	return u.RunWithContext(ctx, name, chart, vals, valuesRaw)
 }
 
 // RunWithContext executes the upgrade on the given release with context.
-func (u *Upgrade) RunWithContext(ctx context.Context, name string, chart *chart.Chart, vals map[string]interface{},valuesRaw string) (*release.Release, error) {
+func (u *Upgrade) RunWithContext(ctx context.Context, name string, chart *chart.Chart, vals map[string]interface{}, valuesRaw string) (*release.Release, error) {
 	if err := u.cfg.KubeClient.IsReachable(); err != nil {
 		return nil, err
 	}
@@ -322,6 +322,10 @@ func (u *Upgrade) performUpgrade(ctx context.Context, originalRelease, upgradedR
 	}
 	target, err := u.cfg.KubeClient.Build(bytes.NewBufferString(upgradedRelease.Manifest), !u.DisableOpenAPIValidation)
 
+	if err != nil {
+		return upgradedRelease, errors.Wrap(err, "unable to build kubernetes objects from new release manifest")
+	}
+
 	// 如果是agent升级，则跳过添加标签这一步，因为agent原本是直接在集群中安装的没有对应标签，如果在这里加标签k8s会报错
 	if u.ChartName != "choerodon-cluster-agent" {
 		// 在这里对要新chart包中的对象添加标签
@@ -331,10 +335,6 @@ func (u *Upgrade) performUpgrade(ctx context.Context, originalRelease, upgradedR
 				return nil, err
 			}
 		}
-	}
-
-	if err != nil {
-		return upgradedRelease, errors.Wrap(err, "unable to build kubernetes objects from new release manifest")
 	}
 
 	// It is safe to use force only on target because these are resources currently rendered by the chart.
