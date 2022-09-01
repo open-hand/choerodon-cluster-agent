@@ -72,7 +72,7 @@ func (c *issuers) Get(ctx context.Context, name string, options metav1.GetOption
 		Resource("issuers").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -89,7 +89,7 @@ func (c *issuers) List(ctx context.Context, opts metav1.ListOptions) (result *v1
 		Resource("issuers").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -106,7 +106,7 @@ func (c *issuers) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Int
 		Resource("issuers").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a issuer and creates it.  Returns the server's representation of the issuer, and an error, if there is any.
@@ -117,7 +117,7 @@ func (c *issuers) Create(ctx context.Context, issuer *v1.Issuer, opts metav1.Cre
 		Resource("issuers").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(issuer).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -131,7 +131,7 @@ func (c *issuers) Update(ctx context.Context, issuer *v1.Issuer, opts metav1.Upd
 		Name(issuer.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(issuer).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -147,7 +147,7 @@ func (c *issuers) UpdateStatus(ctx context.Context, issuer *v1.Issuer, opts meta
 		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(issuer).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -159,7 +159,7 @@ func (c *issuers) Delete(ctx context.Context, name string, opts metav1.DeleteOpt
 		Resource("issuers").
 		Name(name).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -175,7 +175,7 @@ func (c *issuers) DeleteCollection(ctx context.Context, opts metav1.DeleteOption
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -189,7 +189,7 @@ func (c *issuers) Patch(ctx context.Context, name string, pt types.PatchType, da
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

@@ -2,6 +2,7 @@ package kube
 
 import (
 	"bytes"
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -42,7 +43,7 @@ type k8sResource struct {
 }
 
 // CreateResourceProvider returns a new ResourceProvider object to interact with k8s resources
-func CreateResourceProvider(directory string,namespace string) (*ResourceProvider, error) {
+func CreateResourceProvider(directory string, namespace string) (*ResourceProvider, error) {
 	if directory != "" {
 		return CreateResourceProviderFromPath(directory)
 	}
@@ -123,47 +124,47 @@ func CreateResourceProviderFromAPI(kube kubernetes.Interface, clusterName string
 		logrus.Errorf("Error fetching Cluster API version %v", err)
 		return nil, err
 	}
-	deploys, err := kube.AppsV1().Deployments(namespace).List(listOpts)
+	deploys, err := kube.AppsV1().Deployments(namespace).List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching Deployments %v", err)
 		return nil, err
 	}
-	statefulSets, err := kube.AppsV1().StatefulSets(namespace).List(listOpts)
+	statefulSets, err := kube.AppsV1().StatefulSets(namespace).List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching StatefulSets%v", err)
 		return nil, err
 	}
-	daemonSets, err := kube.AppsV1().DaemonSets(namespace).List(listOpts)
+	daemonSets, err := kube.AppsV1().DaemonSets(namespace).List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching DaemonSets %v", err)
 		return nil, err
 	}
-	jobs, err := kube.BatchV1().Jobs(namespace).List(listOpts)
+	jobs, err := kube.BatchV1().Jobs(namespace).List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching Jobs %v", err)
 		return nil, err
 	}
-	cronJobs, err := kube.BatchV1beta1().CronJobs(namespace).List(listOpts)
+	cronJobs, err := kube.BatchV1beta1().CronJobs(namespace).List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching CronJobs %v", err)
 		return nil, err
 	}
-	replicationControllers, err := kube.CoreV1().ReplicationControllers(namespace).List(listOpts)
+	replicationControllers, err := kube.CoreV1().ReplicationControllers(namespace).List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching ReplicationControllers %v", err)
 		return nil, err
 	}
-	nodes, err := kube.CoreV1().Nodes().List(listOpts)
+	nodes, err := kube.CoreV1().Nodes().List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching Nodes %v", err)
 		return nil, err
 	}
-	namespaces, err := kube.CoreV1().Namespaces().List(listOpts)
+	namespaces, err := kube.CoreV1().Namespaces().List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching Namespaces %v", err)
 		return nil, err
 	}
-	pods, err := kube.CoreV1().Pods(namespace).List(listOpts)
+	pods, err := kube.CoreV1().Pods(namespace).List(context.TODO(), listOpts)
 	if err != nil {
 		logrus.Errorf("Error fetching Pods %v", err)
 		return nil, err

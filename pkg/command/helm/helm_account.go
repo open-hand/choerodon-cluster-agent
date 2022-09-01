@@ -1,6 +1,7 @@
 package helm
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -26,7 +27,7 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 		return nil, command.NewResponseError(cmd.Key, model.ChartMuseumAuthenticationFailed, err)
 	}
 
-	secret, err := opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Get(SecretName, meta_v1.GetOptions{})
+	secret, err := opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Get(context.TODO(), SecretName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// secret 不存在，创建secret
@@ -39,7 +40,7 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 			data["info"] = chartAccountJsonContent
 			secret.Data = data
 
-			if secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Create(secret); err != nil {
+			if secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Create(context.TODO(), secret, meta_v1.CreateOptions{}); err != nil {
 				return nil, command.NewResponseError(cmd.Key, model.ChartMuseumAuthenticationFailed, err)
 			}
 			resp, err := getResponsePacket(secret, cmd)
@@ -55,7 +56,7 @@ func AddHelmAccount(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *mo
 
 	secret.Data["info"] = chartAccountJsonContent
 
-	secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Update(secret)
+	secret, err = opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Update(context.TODO(), secret, meta_v1.UpdateOptions{})
 
 	resp, err := getResponsePacket(secret, cmd)
 	if err != nil {

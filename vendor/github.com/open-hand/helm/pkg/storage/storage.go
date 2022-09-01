@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package storage // import "helm.sh/helm/v3/pkg/storage"
+package storage // import "github.com/open-hand/helm/pkg/storage"
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 	"github.com/open-hand/helm/pkg/storage/driver"
 )
 
-// The type field of the Kubernetes storage object which stores the Helm release
+// HelmStorageType is the type field of the Kubernetes storage object which stores the Helm release
 // version. It is modified slightly replacing the '/': sh.helm/release.v1
 // Note: The version 'v1' is incremented if the release object metadata is
 // modified between major releases.
@@ -55,13 +55,16 @@ func (s *Storage) Get(name string, version int) (*rspb.Release, error) {
 }
 
 // Create creates a new storage entry holding the release. An
-// error is returned if the storage driver failed to store the
-// release, or a release with identical an key already exists.
+// error is returned if the storage driver fails to store the
+// release, or a release with an identical key already exists.
 func (s *Storage) Create(rls *rspb.Release) error {
 	s.Log("creating release %q", makeKey(rls.Name, rls.Version))
 	if s.MaxHistory > 0 {
 		// Want to make space for one more release.
-		s.removeLeastRecent(rls.Name, s.MaxHistory-1)
+		if err := s.removeLeastRecent(rls.Name, s.MaxHistory-1); err != nil &&
+			!errors.Is(err, driver.ErrReleaseNotFound) {
+			return err
+		}
 	}
 	return s.Driver.Create(makeKey(rls.Name, rls.Version), rls)
 }
@@ -116,7 +119,7 @@ func (s *Storage) Deployed(name string) (*rspb.Release, error) {
 	}
 
 	if len(ls) == 0 {
-		return nil, errors.Errorf("%q has no deployed releases", name)
+		return nil, driver.NewErrNoDeployedReleases(name)
 	}
 
 	// If executed concurrently, Helm's database gets corrupted
@@ -177,7 +180,7 @@ func (s *Storage) DeployedAll(name string) ([]*rspb.Release, error) {
 		return ls, nil
 	}
 	if strings.Contains(err.Error(), "not found") {
-		return nil, errors.Errorf("%q has no deployed releases", name)
+		return nil, driver.NewErrNoDeployedReleases(name)
 	}
 	return nil, err
 }
@@ -190,7 +193,7 @@ func (s *Storage) History(name string) ([]*rspb.Release, error) {
 	return s.Driver.Query(map[string]string{"name": name, "owner": "helm"})
 }
 
-// removeLeastRecent removes items from history until the lengh number of releases
+// removeLeastRecent removes items from history until the length number of releases
 // does not exceed max.
 //
 // We allow max to be set explicitly so that calling functions can "make space"
@@ -206,21 +209,37 @@ func (s *Storage) removeLeastRecent(name string, max int) error {
 	if len(h) <= max {
 		return nil
 	}
-	overage := len(h) - max
 
 	// We want oldest to newest
 	relutil.SortByRevision(h)
 
+	lastDeployed, err := s.Deployed(name)
+	if err != nil && !errors.Is(err, driver.ErrNoDeployedReleases) {
+		return err
+	}
+
+	var toDelete []*rspb.Release
+	for _, rel := range h {
+		// once we have enough releases to delete to reach the max, stop
+		if len(h)-len(toDelete) == max {
+			break
+		}
+		if lastDeployed != nil {
+			if rel.Version != lastDeployed.Version {
+				toDelete = append(toDelete, rel)
+			}
+		} else {
+			toDelete = append(toDelete, rel)
+		}
+	}
+
 	// Delete as many as possible. In the case of API throughput limitations,
 	// multiple invocations of this function will eventually delete them all.
-	toDelete := h[0:overage]
 	errs := []error{}
 	for _, rel := range toDelete {
-		key := makeKey(name, rel.Version)
-		_, innerErr := s.Delete(name, rel.Version)
-		if innerErr != nil {
-			s.Log("error pruning %s from release history: %s", key, innerErr)
-			errs = append(errs, innerErr)
+		err = s.deleteReleaseVersion(name, rel.Version)
+		if err != nil {
+			errs = append(errs, err)
 		}
 	}
 
@@ -233,6 +252,16 @@ func (s *Storage) removeLeastRecent(name string, max int) error {
 	default:
 		return errors.Errorf("encountered %d deletion errors. First is: %s", c, errs[0])
 	}
+}
+
+func (s *Storage) deleteReleaseVersion(name string, version int) error {
+	key := makeKey(name, version)
+	_, err := s.Delete(name, version)
+	if err != nil {
+		s.Log("error pruning %s from release history: %s", key, err)
+		return err
+	}
+	return nil
 }
 
 // Last fetches the last revision of the named release.

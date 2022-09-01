@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -26,7 +27,7 @@ func DeletePvcByLabels(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, 
 	listPvcOptions := metav1.ListOptions{
 		LabelSelector: labelPvc.String(),
 	}
-	err = opts.KubeClient.GetKubeClient().CoreV1().PersistentVolumeClaims(req.Namespace).DeleteCollection(&metav1.DeleteOptions{}, listPvcOptions)
+	err = opts.KubeClient.GetKubeClient().CoreV1().PersistentVolumeClaims(req.Namespace).DeleteCollection(context.TODO(),metav1.DeleteOptions{}, listPvcOptions)
 	if err != nil {
 		glog.Info("Delete Pvc err: ", err.Error())
 		return nil, nil

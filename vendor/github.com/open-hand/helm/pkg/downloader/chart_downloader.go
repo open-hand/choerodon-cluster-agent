@@ -18,18 +18,20 @@ package downloader
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/pkg/errors"
 
+	"github.com/open-hand/helm/internal/fileutil"
 	"github.com/open-hand/helm/internal/urlutil"
 	"github.com/open-hand/helm/pkg/getter"
 	"github.com/open-hand/helm/pkg/helmpath"
 	"github.com/open-hand/helm/pkg/provenance"
+	"github.com/open-hand/helm/pkg/registry"
 	"github.com/open-hand/helm/pkg/repo"
 )
 
@@ -68,33 +70,9 @@ type ChartDownloader struct {
 	Getters getter.Providers
 	// Options provide parameters to be passed along to the Getter being initialized.
 	Options          []getter.Option
+	RegistryClient   *registry.Client
 	RepositoryConfig string
 	RepositoryCache  string
-}
-
-// atomicWriteFile atomically (as atomic as os.Rename allows) writes a file to a
-// disk.
-func atomicWriteFile(filename string, body io.Reader, mode os.FileMode) error {
-	tempFile, err := ioutil.TempFile(filepath.Split(filename))
-	if err != nil {
-		return err
-	}
-	tempName := tempFile.Name()
-
-	if _, err := io.Copy(tempFile, body); err != nil {
-		tempFile.Close() // return value is ignored as we are already on error path
-		return err
-	}
-
-	if err := tempFile.Close(); err != nil {
-		return err
-	}
-
-	if err := os.Chmod(tempName, mode); err != nil {
-		return err
-	}
-
-	return os.Rename(tempName, filename)
 }
 
 // DownloadTo retrieves a chart. Depending on the settings, it may also download a provenance file.
@@ -125,8 +103,13 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 	}
 
 	name := filepath.Base(u.Path)
+	if u.Scheme == registry.OCIScheme {
+		idx := strings.LastIndexByte(name, ':')
+		name = fmt.Sprintf("%s-%s.tgz", name[:idx], name[idx+1:])
+	}
+
 	destfile := filepath.Join(dest, name)
-	if err := atomicWriteFile(destfile, data, 0644); err != nil {
+	if err := fileutil.AtomicWriteFile(destfile, data, 0644); err != nil {
 		return destfile, nil, err
 	}
 
@@ -142,7 +125,7 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 			return destfile, ver, nil
 		}
 		provfile := destfile + ".prov"
-		if err := atomicWriteFile(provfile, body, 0644); err != nil {
+		if err := fileutil.AtomicWriteFile(provfile, body, 0644); err != nil {
 			return destfile, nil, err
 		}
 
@@ -158,12 +141,46 @@ func (c *ChartDownloader) DownloadTo(ref, version, dest string) (string, *proven
 	return destfile, ver, nil
 }
 
+func (c *ChartDownloader) getOciURI(ref, version string, u *url.URL) (*url.URL, error) {
+	var tag string
+	var err error
+
+	// Evaluate whether an explicit version has been provided. Otherwise, determine version to use
+	_, errSemVer := semver.NewVersion(version)
+	if errSemVer == nil {
+		tag = version
+	} else {
+		// Retrieve list of repository tags
+		tags, err := c.RegistryClient.Tags(strings.TrimPrefix(ref, fmt.Sprintf("%s://", registry.OCIScheme)))
+		if err != nil {
+			return nil, err
+		}
+		if len(tags) == 0 {
+			return nil, errors.Errorf("Unable to locate any tags in provided repository: %s", ref)
+		}
+
+		// Determine if version provided
+		// If empty, try to get the highest available tag
+		// If exact version, try to find it
+		// If semver constraint string, try to find a match
+		tag, err = registry.GetTagMatchingVersionOrConstraint(tags, version)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	u.Path = fmt.Sprintf("%s:%s", u.Path, tag)
+
+	return u, err
+}
+
 // ResolveChartVersion resolves a chart reference to a URL.
 //
 // It returns the URL and sets the ChartDownloader's Options that can fetch
 // the URL using the appropriate Getter.
 //
-// A reference may be an HTTP URL, a 'reponame/chartname' reference, or a local path.
+// A reference may be an HTTP URL, an oci reference URL, a 'reponame/chartname'
+// reference, or a local path.
 //
 // A version is a SemVer string (1.2.3-beta.1+f334a6789).
 //
@@ -177,7 +194,10 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 	if err != nil {
 		return nil, errors.Errorf("invalid chart URL format: %s", ref)
 	}
-	c.Options = append(c.Options, getter.WithURL(ref))
+
+	if registry.IsOCI(u.String()) {
+		return c.getOciURI(ref, version, u)
+	}
 
 	rf, err := loadRepoConfig(c.RepositoryConfig)
 	if err != nil {
@@ -196,6 +216,8 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 			// If there is no special config, return the default HTTP client and
 			// swallow the error.
 			if err == ErrNoOwnerRepo {
+				// Make sure to add the ref URL as the URL for the getter
+				c.Options = append(c.Options, getter.WithURL(ref))
 				return u, nil
 			}
 			return u, err
@@ -214,6 +236,7 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 			c.Options = append(
 				c.Options,
 				getter.WithBasicAuth(rc.Username, rc.Password),
+				getter.WithPassCredentialsAll(rc.PassCredentialsAll),
 			)
 		}
 		return u, nil
@@ -233,6 +256,10 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 		return u, err
 	}
 
+	// Now that we have the chart repository information we can use that URL
+	// to set the URL for the getter.
+	c.Options = append(c.Options, getter.WithURL(rc.URL))
+
 	r, err := repo.NewChartRepository(rc, c.Getters)
 	if err != nil {
 		return u, err
@@ -243,7 +270,10 @@ func (c *ChartDownloader) ResolveChartVersion(ref, version string) (*url.URL, er
 			c.Options = append(c.Options, getter.WithTLSClientConfig(r.Config.CertFile, r.Config.KeyFile, r.Config.CAFile))
 		}
 		if r.Config.Username != "" && r.Config.Password != "" {
-			c.Options = append(c.Options, getter.WithBasicAuth(r.Config.Username, r.Config.Password))
+			c.Options = append(c.Options,
+				getter.WithBasicAuth(r.Config.Username, r.Config.Password),
+				getter.WithPassCredentialsAll(r.Config.PassCredentialsAll),
+			)
 		}
 	}
 

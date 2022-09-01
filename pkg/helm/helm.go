@@ -200,7 +200,7 @@ func (c *client) InstallRelease(request *InstallReleaseRequest, username, passwo
 		"",
 		false)
 
-	// 如果是安装prometheus-operator，则先删掉集群中的prometheus相关crd
+	// 如果是安装prometheus用v3定义创建容器的属性-operator，则先删掉集群中的prometheus相关crd
 	if request.ChartName == "prometheus-operator" {
 		kubectlPath, err := exec.LookPath("kubectl")
 		if err != nil {
@@ -341,112 +341,6 @@ func (c *client) ApplyCertManagerCrd() error {
 	}
 	return kubectlApplier.ApplySingleObj("cert-manager", string(certManagerCrd))
 }
-
-// 执行测试
-//func (c *client) ExecuteTest(request *TestReleaseRequest, username, password string) (*TestReleaseResponse, error) {
-//
-//	chartPathOptions := action.ChartPathOptions{
-//		RepoURL:  request.RepoURL,
-//		Version:  request.ChartVersion,
-//		Username: username,
-//		Password: password,
-//	}
-//
-//	cfg, envSettings := getCfg(TestNamespace)
-//
-//	installClient := action.NewInstall(
-//		cfg,
-//		chartPathOptions,
-//		"",
-//		0,
-//		"",
-//		request.ImagePullSecrets,
-//		TestNamespace,
-//		request.ReleaseName,
-//		request.ChartName,
-//		request.ChartVersion,
-//		0,
-//		"",
-//		model.AgentVersion,
-//		request.Label,
-//		true)
-//
-//	cp, err := installClient.ChartPathOptions.LocateChart(request.ChartName, envSettings)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	glog.V(1).Infof("CHART PATH: %s\n", cp)
-//
-//	valueOpts := getValueOpts(request.Values)
-//	p := getter.All(envSettings)
-//	vals, err := valueOpts.MergeValues(p)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	// Check chart dependencies to make sure all are present in /charts
-//	chartRequested, err := loader.Load(cp)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	validInstallableChart, err := isChartInstallable(chartRequested)
-//	if !validInstallableChart {
-//		return nil, err
-//	}
-//
-//	if chartRequested.Metadata.Deprecated {
-//		glog.Info("WARNING: This chart is deprecated")
-//	}
-//
-//	if req := chartRequested.Metadata.Dependencies; req != nil {
-//		// If CheckDependencies returns an error, we have unfulfilled dependencies.
-//		// As of Helm 2.4.0, this is treated as a stopping condition:
-//		// https://github.com/helm/helm/issues/2209
-//		if err := action.CheckDependencies(chartRequested, req); err != nil {
-//			if installClient.DependencyUpdate {
-//				man := &downloader.Manager{
-//					ChartPath:        cp,
-//					Keyring:          installClient.ChartPathOptions.Keyring,
-//					SkipUpdate:       false,
-//					Getters:          p,
-//					RepositoryConfig: envSettings.RepositoryConfig,
-//					RepositoryCache:  envSettings.RepositoryCache,
-//				}
-//				if err := man.Update(); err != nil {
-//					return nil, err
-//				}
-//			} else {
-//				return nil, err
-//			}
-//		}
-//	}
-//
-//	responseRelease, err := installClient.Run(chartRequested, vals, request.Values)
-//
-//	resp := &TestReleaseResponse{ReleaseName: request.ReleaseName}
-//	if err != nil {
-//		newError := fmt.Errorf("execute test release %s: %v", request.ReleaseName, err)
-//		if responseRelease != nil {
-//			_, err := c.getHelmRelease(responseRelease)
-//			if err != nil {
-//				c.DeleteRelease(&DeleteReleaseRequest{ReleaseName: request.ReleaseName})
-//				return nil, err
-//			}
-//
-//			return resp, newError
-//		}
-//		c.DeleteRelease(&DeleteReleaseRequest{ReleaseName: request.ReleaseName})
-//		return nil, newError
-//	}
-//
-//	_, err = c.getHelmRelease(responseRelease)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return resp, err
-//}
 
 // TODO 获得资源信息包括pod信息，这里要注意从manifest获取，agent添加的相关label信息会丢失,需要测试是否有问题
 func (c *client) GetResources(namespace string, manifest string) ([]*ReleaseResource, error) {

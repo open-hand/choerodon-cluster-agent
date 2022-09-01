@@ -20,8 +20,6 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +34,9 @@ import (
 	"os/signal"
 	"path"
 	"runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -99,7 +99,6 @@ func printVersion() {
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 
-	logf.SetLogger(zap.Logger())
 	options := NewAgentOptions()
 	cmd := &cobra.Command{
 		Use:  "choerodon-cluster-agent",
@@ -134,6 +133,12 @@ func NewAgentOptions() *AgentOptions {
 }
 
 func Run(o *AgentOptions, f cmdutil.Factory) {
+	opts := zap.Options{
+		Development: false,
+	}
+	opts.BindFlags(flag.CommandLine)
+
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	printVersion()
 
@@ -169,16 +174,31 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- fmt.Errorf("%s", <-c)
 	}()
 
-	// --------------- operator sdk start  -----------------  //
-	ctx := context.TODO()
+	go func() {
+		var mux *http.ServeMux
+		if o.pprof {
+			mux = http.NewServeMux()
+			mux.HandleFunc("/debug/pprof/", pprof.Index)
+			mux.HandleFunc("/debug/pprof/heap", pprof.Index)
+			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		}
+		errChan <- http.ListenAndServe(o.Listen, mux)
+	}()
 
-	// Become the leader before proceeding
-	err := leader.Become(ctx, "c7n-agent-lock-"+o.ClusterId)
-	if err != nil {
-		errChan <- err
-		return
-	}
-	glog.Info("become leader success")
+	//// --------------- operator sdk start  -----------------  //
+	//ctx := context.TODO()
+	//
+	//// Become the leader before proceeding
+	//leader.Become()
+	//err := leader.Become(ctx, "c7n-agent-lock-"+o.ClusterId)
+	//if err != nil {
+	//	errChan <- err
+	//	return
+	//}
+	//glog.Info("become leader success")
 
 	// for controller-manager
 	mgrs := &operatorutil.MgrList{}
@@ -193,7 +213,18 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	}
 	k8sVersion, err := discoveryClient.ServerVersion()
 	if err == nil {
-		model.KubernetesVersion = k8sVersion.GitVersion
+		model.KubernetesVersion = k8sVersion
+		minorVersion, err := strconv.Atoi(k8sVersion.Minor)
+		if err != nil {
+			errChan <- err
+			return
+		}
+		if minorVersion < 22 {
+			model.OldKubernetesVersion = true
+		} else {
+			model.OldKubernetesVersion = false
+		}
+
 	}
 
 	// new kubernetes clientf
@@ -260,7 +291,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			_, err = os.Stat(kubectlPath)
 		}
 		if err != nil {
-			glog.Fatal(err)
+			errChan <- err
+			return
 		}
 		glog.Infof("kubectl %s", kubectlPath)
 		cfg, _ := f.ToRESTConfig()
@@ -269,15 +301,24 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		kubectlScaler := kubectl.NewKubectl(kubectlPath, cfg)
 
 		if !model.RestrictedModel {
-			for _, crdYaml := range model.CRD_YAMLS {
-				if err := kubectlApplier.ApplySingleObj("kube-system", crdYaml); err != nil {
+			if model.OldKubernetesVersion {
+				// k8s 22以下的版本使用此crd
+				glog.Infof("k8s version:%s use v1beta1 crd", model.KubernetesVersion)
+				if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAMLS[model.V1_BETA1]); err != nil {
+					glog.V(1).Info(err)
+				}
+			} else {
+				// k8s 22及以上的版本使用此crd
+				glog.Infof("k8s version:%s use v1 crd", model.KubernetesVersion)
+				if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAMLS[model.V1]); err != nil {
 					glog.V(1).Info(err)
 				}
 			}
 		}
 
-		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), kubeClient.GetV1alpha1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
 	}
+
 	var polarisConfig *config.Configuration
 
 	if !o.restrictedMod {
@@ -310,20 +351,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	)
 
 	go workerManager.Start()
-
-	go func() {
-		var mux *http.ServeMux
-		if o.pprof {
-			mux = http.NewServeMux()
-			mux.HandleFunc("/debug/pprof/", pprof.Index)
-			mux.HandleFunc("/debug/pprof/heap", pprof.Index)
-			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		}
-		errChan <- http.ListenAndServe(o.Listen, mux)
-	}()
 
 	glog.Infof("cron: %s", o.clearHelmCacheCron)
 	cron.AddCronJob(o.clearHelmCacheCron, func() {
@@ -387,7 +414,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 
 func checkKube(client *k8sclient.Clientset) {
 	glog.Infof("check k8s role binding...")
-	_, err := client.CoreV1().Pods("").List(meta_v1.ListOptions{})
+	_, err := client.CoreV1().Pods("").List(context.TODO(), meta_v1.ListOptions{})
 	if err != nil {
 		glog.Errorf("check role binding failed, %v", err)
 		os.Exit(0)

@@ -17,15 +17,18 @@ limitations under the License.
 package action
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/open-hand/helm/pkg/release"
 	"strings"
 
+	"github.com/pkg/errors"
+	"k8s.io/cli-runtime/pkg/printers"
 	"sigs.k8s.io/yaml"
 
 	"github.com/open-hand/helm/pkg/chart"
 	"github.com/open-hand/helm/pkg/chart/loader"
 	"github.com/open-hand/helm/pkg/chartutil"
+	"github.com/open-hand/helm/pkg/release"
 )
 
 // ShowOutputFormat is the format of the output of `helm show`
@@ -42,6 +45,8 @@ const (
 	ShowReadme ShowOutputFormat = "readme"
 	// ShowHook is the format which only show the chart's hooks
 	ShowHook ShowOutputFormat = "hook"
+	// ShowCRDs is the format which only shows the chart's CRDs
+	ShowCRDs ShowOutputFormat = "crds"
 )
 
 var readmeFileNames = []string{"readme.md", "readme.txt", "readme"}
@@ -54,11 +59,13 @@ func (o ShowOutputFormat) String() string {
 //
 // It provides the implementation of 'helm show' and its respective subcommands.
 type Show struct {
-	cfg          *Configuration
-	Namespace    string
+	cfg       *Configuration
+	Namespace string
 	ChartPathOptions
-	Devel        bool
-	OutputFormat ShowOutputFormat
+	Devel            bool
+	OutputFormat     ShowOutputFormat
+	JSONPathTemplate string
+	chart            *chart.Chart // for testing
 }
 
 // NewShow creates a new Show object with the given configuration.
@@ -70,31 +77,52 @@ func NewShow(cfg *Configuration, output ShowOutputFormat, chartPathOptions Chart
 	}
 }
 
+// NewShowWithConfig creates a new Show object with the given configuration.
+func NewShowWithConfig(output ShowOutputFormat, cfg *Configuration) *Show {
+	sh := &Show{
+		OutputFormat: output,
+	}
+	sh.ChartPathOptions.registryClient = cfg.RegistryClient
+
+	return sh
+}
+
 // Run executes 'helm show' against the given release.
 func (s *Show) Run(chartpath string, vals map[string]interface{}) (string, error) {
-	var out strings.Builder
-	chrt, err := loader.Load(chartpath)
-	if err != nil {
-		return "", err
+	if s.chart == nil {
+		chrt, err := loader.Load(chartpath)
+		if err != nil {
+			return "", err
+		}
+		s.chart = chrt
 	}
-	cf, err := yaml.Marshal(chrt.Metadata)
+	cf, err := yaml.Marshal(s.chart.Metadata)
 	if err != nil {
 		return "", err
 	}
 
+	var out strings.Builder
 	if s.OutputFormat == ShowChart || s.OutputFormat == ShowAll {
 		fmt.Fprintln(&out, "\n--- ChartInfo")
 
 		fmt.Fprintf(&out, "%s\n", cf)
 	}
 
-	if (s.OutputFormat == ShowValues || s.OutputFormat == ShowAll) && chrt.Values != nil {
+	if (s.OutputFormat == ShowValues || s.OutputFormat == ShowAll) && s.chart.Values != nil {
 		if s.OutputFormat == ShowAll {
-			fmt.Fprintln(&out, "\n--- Values")
+			fmt.Fprintln(&out, "---")
 		}
-		for _, f := range chrt.Raw {
-			if f.Name == chartutil.ValuesfileName {
-				fmt.Fprintln(&out, string(f.Data))
+		if s.JSONPathTemplate != "" {
+			printer, err := printers.NewJSONPathPrinter(s.JSONPathTemplate)
+			if err != nil {
+				return "", errors.Wrapf(err, "error parsing jsonpath %s", s.JSONPathTemplate)
+			}
+			printer.Execute(&out, s.chart.Values)
+		} else {
+			for _, f := range s.chart.Raw {
+				if f.Name == chartutil.ValuesfileName {
+					fmt.Fprintln(&out, string(f.Data))
+				}
 			}
 		}
 	}
@@ -103,7 +131,7 @@ func (s *Show) Run(chartpath string, vals map[string]interface{}) (string, error
 		if s.OutputFormat == ShowAll {
 			fmt.Fprintln(&out, "\n--- Hooks")
 		}
-		hooks, err := s.FindHooks(chrt, vals)
+		hooks, err := s.FindHooks(s.chart, vals)
 		if err != nil {
 			return "", nil
 		}
@@ -116,15 +144,25 @@ func (s *Show) Run(chartpath string, vals map[string]interface{}) (string, error
 	}
 
 	if s.OutputFormat == ShowReadme || s.OutputFormat == ShowAll {
-		if s.OutputFormat == ShowAll {
-			fmt.Fprintln(&out, "\n--- README")
+		readme := findReadme(s.chart.Files)
+		if readme != nil {
+			if s.OutputFormat == ShowAll {
+				fmt.Fprintln(&out, "---")
+			}
+			fmt.Fprintf(&out, "%s\n", readme.Data)
 		}
-		readme := findReadme(chrt.Files)
-		if readme == nil {
-			fmt.Fprintln(&out, "\n(README is empty)")
-			return out.String(), nil
+	}
+
+	if s.OutputFormat == ShowCRDs || s.OutputFormat == ShowAll {
+		crds := s.chart.CRDObjects()
+		if len(crds) > 0 {
+			if s.OutputFormat == ShowAll && !bytes.HasPrefix(crds[0].File.Data, []byte("---")) {
+				fmt.Fprintln(&out, "---")
+			}
+			for _, crd := range crds {
+				fmt.Fprintf(&out, "%s\n", string(crd.File.Data))
+			}
 		}
-		fmt.Fprintf(&out, "%s\n", readme.Data)
 	}
 	return out.String(), nil
 }
@@ -151,7 +189,7 @@ func (s *Show) FindHooks(chrt *chart.Chart, vals map[string]interface{}) ([]*rel
 		return nil, err
 	}
 	valuesToRender, err := chartutil.ToRenderValues(chrt, vals, options, caps)
-	hooks, _, _, err := s.cfg.renderResources(chrt, valuesToRender, chrt.Name(), "", false, true, false, nil)
+	hooks, _, _, err := s.cfg.renderResources(chrt, valuesToRender, chrt.Name(), "", false, true, false, nil, false)
 	if err != nil {
 		return nil, err
 	}
