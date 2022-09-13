@@ -30,7 +30,7 @@ func init() {
 	ResourceKinds["configmap"] = &configMap{}
 	ResourceKinds["secret"] = &secret{}
 	ResourceKinds["persistentvolumeclaim"] = &persistentVolumeClaim{}
-	//ResourceKinds["persistentvolume"] = &persistentVolume{}
+	ResourceKinds["persistentvolume"] = &persistentVolume{}
 	ResourceKinds["certificate"] = &certificateKind{}
 	ResourceKinds["Deployment"] = &deploymentKind{}
 	ResourceKinds["DaemonSet"] = &daemonSetKind{}
