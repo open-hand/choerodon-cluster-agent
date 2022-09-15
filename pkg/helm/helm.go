@@ -151,7 +151,7 @@ func (c *client) PreInstallRelease(request *InstallReleaseRequest, username, pas
 		return nil, err
 	}
 
-	hooks, err := showClient.FindHooks(chrt, vals)
+	hooks, err := showClient.FindHooks(request.ReleaseName, chrt, vals)
 
 	if err != nil {
 		glog.V(1).Infof("sort error...")
@@ -513,7 +513,7 @@ func (c *client) PreUpgradeRelease(request *UpgradeReleaseRequest, username, pas
 		return nil, err
 	}
 
-	hooks, err := showClient.FindHooks(chrt, vals)
+	hooks, err := showClient.FindHooks(request.ReleaseName, chrt, vals)
 
 	if err != nil {
 		glog.V(1).Infof("sort error...")

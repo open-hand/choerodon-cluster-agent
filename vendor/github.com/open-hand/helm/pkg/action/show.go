@@ -131,7 +131,7 @@ func (s *Show) Run(chartpath string, vals map[string]interface{}) (string, error
 		if s.OutputFormat == ShowAll {
 			fmt.Fprintln(&out, "\n--- Hooks")
 		}
-		hooks, err := s.FindHooks(s.chart, vals)
+		hooks, err := s.FindHooks("", s.chart, vals)
 		if err != nil {
 			return "", nil
 		}
@@ -178,9 +178,9 @@ func findReadme(files []*chart.File) (file *chart.File) {
 	return nil
 }
 
-func (s *Show) FindHooks(chrt *chart.Chart, vals map[string]interface{}) ([]*release.Hook, error) {
+func (s *Show) FindHooks(releaseName string, chrt *chart.Chart, vals map[string]interface{}) ([]*release.Hook, error) {
 	options := chartutil.ReleaseOptions{
-		Name:      chrt.Name(),
+		Name:      releaseName,
 		Namespace: s.Namespace,
 		Revision:  1,
 	}
@@ -189,7 +189,7 @@ func (s *Show) FindHooks(chrt *chart.Chart, vals map[string]interface{}) ([]*rel
 		return nil, err
 	}
 	valuesToRender, err := chartutil.ToRenderValues(chrt, vals, options, caps)
-	hooks, _, _, err := s.cfg.renderResources(chrt, valuesToRender, chrt.Name(), "", false, true, false, nil, false)
+	hooks, _, _, err := s.cfg.renderResources(chrt, valuesToRender, releaseName, "", false, true, false, nil, false)
 	if err != nil {
 		return nil, err
 	}
