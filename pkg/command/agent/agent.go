@@ -200,8 +200,10 @@ func getClusterInfo(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet,
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}
 
+	glog.Infof("current k8s version: %s", serverVersion.GitVersion)
+
 	clusterInfo := ClusterInfo{
-		Version:    serverVersion.Major + "." + serverVersion.Minor,
+		Version:    serverVersion.GitVersion,
 		Pods:       len(podList.Items),
 		Namespaces: len(namespaceList.Items),
 		Nodes:      len(nodeList.Items),
