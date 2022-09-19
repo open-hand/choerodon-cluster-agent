@@ -221,9 +221,31 @@ func getClusterInfo(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet,
 	}
 }
 
+func returnClusterInfoResult(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	serverVersion, err := opts.KubeClient.GetKubeClient().Discovery().ServerVersion()
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+	glog.Infof("current k8s version: %s", serverVersion.GitVersion)
+	clusterInfo := ClusterInfo{
+		Version:   serverVersion.GitVersion,
+		ClusterId: model.ClusterId,
+	}
+	response, err := json.Marshal(clusterInfo)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.ClusterGetInfo,
+		Payload: string(response),
+	}
+}
+
 func returnInitResult(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	if model.RestrictedModel {
-		return nil, nil
+		return returnClusterInfoResult(opts, cmd)
 	} else {
 		return getClusterInfo(opts, cmd)
 	}
