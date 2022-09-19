@@ -37,6 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -214,7 +215,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	k8sVersion, err := discoveryClient.ServerVersion()
 	if err == nil {
 		model.KubernetesVersion = k8sVersion
-		minorVersion, err := strconv.Atoi(k8sVersion.Minor)
+		split := strings.Split(k8sVersion.GitVersion, ".")
+		minorVersion, err := strconv.Atoi(split[1])
 		if err != nil {
 			errChan <- err
 			return
