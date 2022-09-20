@@ -6,7 +6,6 @@ config:
   connect:
   #the token of this environment
   token: ""
-  tillerConnectionTimeout: 2
   port: 8088
   logLevel: 0
   #the environment Id

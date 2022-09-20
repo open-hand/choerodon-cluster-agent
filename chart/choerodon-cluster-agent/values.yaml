@@ -26,7 +26,6 @@ env:
 config:
   connect:
   token: ""
-  tillerConnectionTimeout: 2
   port: 8088
   logLevel: 0
   envId: ""
