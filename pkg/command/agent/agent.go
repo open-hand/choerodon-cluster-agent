@@ -24,6 +24,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	defer func() {
 		model.InitLock.Unlock()
 		model.Initialized = true
+		model.StartHealthyProbServer()
 	}()
 
 	if model.Initialized == true {

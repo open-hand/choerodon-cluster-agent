@@ -54,10 +54,11 @@ var (
 )
 
 type AgentOptions struct {
-	Listen       string
-	UpstreamURL  string
-	Token        string
-	PrintVersion bool
+	Listen        string
+	HealthyListen string
+	UpstreamURL   string
+	Token         string
+	PrintVersion  bool
 	// kubernetes controller
 	PlatformCode                  string
 	ConcurrentEndpointSyncs       int32
@@ -118,6 +119,7 @@ func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 func NewAgentOptions() *AgentOptions {
 	a := &AgentOptions{
 		Listen:                        "0.0.0.0:8088",
+		HealthyListen:                 "0.0.0.0:8000",
 		ConcurrentEndpointSyncs:       5,
 		ConcurrentServiceSyncs:        1,
 		ConcurrentRSSyncs:             1,
@@ -146,6 +148,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	model.AgentNamespace = os.Getenv("POD_NAMESPACE")
 
 	model.RestrictedModel = o.restrictedMod
+
+	model.HealthyListen = o.HealthyListen
 
 	model.ClusterId = o.ClusterId
 	if o.PrintVersion {
@@ -375,6 +379,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.clearHelmCacheCron, "clear-helm-cache-cron", "0 0 * * *", "cron jon for clear cache of helm")
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
 	fs.StringVar(&o.Listen, "listen", o.Listen, "address:port to listen on")
+	fs.StringVar(&o.HealthyListen, "healthy-listen", o.HealthyListen, "address:port for healthy check")
 	fs.StringVar(&model.AgentVersion, "agent-version", "", "agent version")
 	fs.IntVar(&model.MaxWebsocketMessageLength, "max-websocket-message-length", 131072, "the max length of websocket message")
 	fs.IntVar(&model.MaxJobLogLength, "max-job-log-length", 102400, "the max length of job log")
