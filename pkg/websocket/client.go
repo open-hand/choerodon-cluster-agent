@@ -114,6 +114,7 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 					}
 					model.GitRunning = false
 					model.Initialized = false
+					model.StopHealthyProbServer()
 				}
 			}
 			time.Sleep(backOff)
@@ -355,7 +356,7 @@ func (c *appClient) closePipeConn(id string) {
 	}
 }
 
-func (c *appClient) pipeConnection(id string, key string, token string, pipe pipeutil.Pipe, ) (bool, error) {
+func (c *appClient) pipeConnection(id string, key string, token string, pipe pipeutil.Pipe) (bool, error) {
 	newURL, err := util_url.ParseURL(c.url, pipe.PipeType())
 	if err != nil {
 		return false, err

@@ -24,6 +24,7 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	defer func() {
 		model.InitLock.Unlock()
 		model.Initialized = true
+		model.StartHealthyProbServer()
 	}()
 
 	if model.Initialized == true {
@@ -127,6 +128,7 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 	if err != nil {
 		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 	}
+	req.ReUseValues = true
 
 	resp, err := opts.HelmClient.UpgradeRelease(&req, username, password)
 	if err != nil {

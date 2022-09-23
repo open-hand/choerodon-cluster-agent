@@ -53,19 +53,20 @@ type TestReleaseStatus struct {
 
 //安装或者升级 返回值。
 type Release struct {
-	Name         string             `json:"name,omitempty"`
-	Revision     int                `json:"revision,omitempty"`
-	Namespace    string             `json:"namespace,omitempty"`
-	Status       string             `json:"status,omitempty"`
-	ChartName    string             `json:"chartName,omitempty"`
-	ChartVersion string             `json:"chartVersion,omitempty"`
-	Manifest     string             `json:"-"`
-	Hooks        []*ReleaseHook     `json:"hooks,omitempty"`
-	Resources    []*ReleaseResource `json:"resources,omitempty"`
-	Config       string             `json:"config,omitempty"`
-	Commit       string             `json:"commit,omitempty"`
-	Command      int64              `json:"command,omitempty"`
-	V1Command    string             `json:"v1Command,omitempty"`
+	Name         string                 `json:"name,omitempty"`
+	Revision     int                    `json:"revision,omitempty"`
+	Namespace    string                 `json:"namespace,omitempty"`
+	Status       string                 `json:"status,omitempty"`
+	ChartName    string                 `json:"chartName,omitempty"`
+	ChartVersion string                 `json:"chartVersion,omitempty"`
+	Manifest     string                 `json:"-"`
+	Hooks        []*ReleaseHook         `json:"hooks,omitempty"`
+	Resources    []*ReleaseResource     `json:"resources,omitempty"`
+	Config       string                 `json:"config,omitempty"`
+	Commit       string                 `json:"commit,omitempty"`
+	Command      int64                  `json:"command,omitempty"`
+	V1Command    string                 `json:"v1Command,omitempty"`
+	ConfigMap    map[string]interface{} `json:"configMap"`
 }
 
 type ReleaseResource struct {
