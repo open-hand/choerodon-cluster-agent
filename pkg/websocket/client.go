@@ -101,20 +101,21 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 				glog.Error(err)
 				model.ReconnectFlag = true
 				// 只有在gitops监听运行中并且agent初始化完成后才会停止gitops监听并重新初始化
-				if model.GitRunning && model.Initialized {
+				if model.Initialized {
 					defer func() {
 						if e := recover(); e != nil {
 							fmt.Println(e)
 						}
 					}()
-					glog.Info("websocket disconnected, all gitops goroutines exit")
-					for k, v := range model.GitStopChanMap {
-						close(v)
-						delete(model.GitStopChanMap, k)
+					if model.GitRunning {
+						glog.Info("websocket disconnected, all gitops goroutines exit")
+						for k, v := range model.GitStopChanMap {
+							close(v)
+							delete(model.GitStopChanMap, k)
+						}
 					}
 					model.GitRunning = false
 					model.Initialized = false
-					model.StopHealthyProbServer()
 				}
 			}
 			time.Sleep(backOff)
