@@ -1,7 +1,6 @@
 package options
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent"
@@ -22,8 +21,6 @@ import (
 	"github.com/golang/glog"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/homedir"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"net/http"
@@ -149,8 +146,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	model.RestrictedModel = o.restrictedMod
 
-	model.HealthyListen = o.HealthyListen
-
 	model.ClusterId = o.ClusterId
 	if o.PrintVersion {
 		fmt.Println(version.GetVersion())
@@ -179,6 +174,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- fmt.Errorf("%s", <-c)
 	}()
 
+	// pprof
 	go func() {
 		var mux *http.ServeMux
 		if o.pprof {
@@ -192,18 +188,17 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		}
 		errChan <- http.ListenAndServe(o.Listen, mux)
 	}()
-
-	//// --------------- operator sdk start  -----------------  //
-	//ctx := context.TODO()
-	//
-	//// Become the leader before proceeding
-	//leader.Become()
-	//err := leader.Become(ctx, "c7n-agent-lock-"+o.ClusterId)
-	//if err != nil {
-	//	errChan <- err
-	//	return
-	//}
-	//glog.Info("become leader success")
+	
+	// 健康检查
+	go func() {
+		mux := http.ServeMux{}
+		mux.HandleFunc("/healthy", healthy)
+		HealthyProbServer := &http.Server{Addr: o.HealthyListen, Handler: &mux}
+		err := HealthyProbServer.ListenAndServe()
+		if err != nil {
+			glog.Error(err)
+		}
+	}()
 
 	// for controller-manager
 	mgrs := &operatorutil.MgrList{}
@@ -419,12 +414,19 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.clearHelmHistory, "clear-helm-history", false, "clear helm2 release deploy history")
 }
 
-func checkKube(client *k8sclient.Clientset) {
-	glog.Infof("check k8s role binding...")
-	_, err := client.CoreV1().Pods("").List(context.TODO(), meta_v1.ListOptions{})
-	if err != nil {
-		glog.Errorf("check role binding failed, %v", err)
-		os.Exit(0)
+func healthy(resp http.ResponseWriter, req *http.Request) {
+	if model.Initialized {
+		resp.WriteHeader(http.StatusOK)
+		_, err := resp.Write([]byte("healthy"))
+		if err != nil {
+			glog.Error(err)
+		}
+	} else {
+		resp.WriteHeader(http.StatusServiceUnavailable)
+		_, err := resp.Write([]byte("unhealthy"))
+		if err != nil {
+			glog.Error(err)
+		}
 	}
-	glog.Infof("k8s role binding succeed.")
+
 }

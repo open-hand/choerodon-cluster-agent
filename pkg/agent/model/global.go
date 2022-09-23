@@ -42,6 +42,3 @@ var GitRepoConcurrencySyncChan chan struct{}
 
 // agent是否处于限制模式
 var RestrictedModel bool
-
-// 健康检查端口
-var HealthyListen string
