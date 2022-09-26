@@ -1,49 +1,61 @@
-{{- define "service.labels.standard" -}}
-choerodon.io/release: {{ .Release.Name | quote }}
-{{- end -}}
+{{/* vim: set filetype=mustache: */}}
 
-{{- define "service.match.labels" -}}
-choerodon.io/release: {{ .Release.Name | quote }}
-{{- end -}}
-
-{{- define "service.logging.deployment.label" -}}
-choerodon.io/logs-parser: {{ .Values.logs.parser | quote }}
-{{- end -}}
-
-{{- define "service.monitoring.pod.annotations" -}}
-choerodon.io/metrics-group: {{ .Values.metrics.group | quote }}
-choerodon.io/metrics-path: {{ .Values.metrics.path | quote }}
+{{/*
+Return the proper image name
+*/}}
+{{- define "server.image" -}}
+{{ include "common.images.image" (dict "imageRoot" .Values.image "chart" .Chart "global" .Values.global) }}
 {{- end -}}
 
 {{/*
-Return the appropriate apiVersion for deployment.
+Return the proper Docker Image Registry Secret Names
 */}}
-{{- define "app.deployment.apiVersion" -}}
-{{- if semverCompare "<1.9-0" .Capabilities.KubeVersion.GitVersion -}}
-{{- print "apps/v1beta2" -}}
-{{- else -}}
-{{- print "apps/v1" -}}
-{{- end -}}
+{{- define "server.imagePullSecrets" -}}
+{{- include "common.images.pullSecrets" (dict "images" (list .Values.image) "global" .Values.global) -}}
 {{- end -}}
 
 {{/*
-Return the appropriate apiVersion for statefulset.
+Get the credentials secret.
 */}}
-{{- define "app.statefulset.apiVersion" -}}
-{{- if semverCompare "<1.9-0" .Capabilities.KubeVersion.GitVersion -}}
-{{- print "apps/v1beta2" -}}
+{{- define "server.secretName" -}}
+{{- if .Values.global.server.existingSecret }}
+    {{- printf "%s" .Values.global.server.existingSecret -}}
+{{- else if .Values.existingSecret -}}
+    {{- printf "%s" .Values.existingSecret -}}
 {{- else -}}
-{{- print "apps/v1" -}}
+    {{- printf "%s" (include "common.names.fullname" .) -}}
 {{- end -}}
 {{- end -}}
 
 {{/*
-Return the appropriate apiVersion for ingress.
+Return true if a PVC object should be created
 */}}
-{{- define "app.ingress.apiVersion" -}}
-{{- if semverCompare "<1.14-0" .Capabilities.KubeVersion.GitVersion -}}
-{{- print "extensions/v1beta1" -}}
-{{- else -}}
-{{- print "networking.k8s.io/v1beta1" -}}
+{{- define "server.createPVC" -}}
+{{- if and .Values.persistence.enabled (not .Values.persistence.existingClaim) }}
+    {{- true -}}
 {{- end -}}
+{{- end -}}
+
+{{/*
+Return the PVC name
+*/}}
+{{- define "server.claimName" -}}
+{{- if and .Values.persistence.existingClaim }}
+    {{- printf "%s" (tpl .Values.persistence.existingClaim $) -}}
+{{- else -}}
+    {{- printf "%s" (include "common.names.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Returns the proper service account name depending if an explicit service account name is set
+in the values file. If the name is not set it will default to either common.names.fullname if serviceAccount.create
+is true or default otherwise.
+*/}}
+{{- define "server.serviceAccountName" -}}
+    {{- if .Values.rbac.create -}}
+        {{ default (include "common.names.fullname" .) .Values.rbac.name }}
+    {{- else -}}
+        {{ default "default" .Values.rbac.name }}
+    {{- end -}}
 {{- end -}}

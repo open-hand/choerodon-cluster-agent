@@ -1,9 +1,8 @@
 {{- if .Values.rbac.create }}
-apiVersion: v1
-kind: ServiceAccount
+kind: ClusterRoleBinding
+apiVersion: {{ include "common.capabilities.rbac.apiVersion" . }}
 metadata:
   name: {{ template "server.serviceAccountName" . }}
-  namespace: {{ .Release.Namespace }}
   labels: {{- include "common.labels.standard" . | nindent 4 }}
     {{- if .Values.commonLabels }}
     {{- include "common.tplvalues.render" ( dict "value" .Values.commonLabels "context" $ ) | nindent 4 }}
@@ -11,6 +10,12 @@ metadata:
   {{- if .Values.commonAnnotations }}
   annotations: {{- include "common.tplvalues.render" ( dict "value" .Values.commonAnnotations "context" $ ) | nindent 4 }}
   {{- end }}
-secrets:
-  - name: {{ include "common.names.fullname" . }}
-{{- end }}
+subjects:
+- kind: ServiceAccount
+  name: {{ template "server.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ template "server.serviceAccountName" . }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end -}}
