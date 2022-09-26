@@ -188,16 +188,14 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		}
 		errChan <- http.ListenAndServe(o.Listen, mux)
 	}()
-	
+
 	// 健康检查
 	go func() {
+		glog.Info("start health check server")
 		mux := http.ServeMux{}
 		mux.HandleFunc("/healthy", healthy)
 		HealthyProbServer := &http.Server{Addr: o.HealthyListen, Handler: &mux}
-		err := HealthyProbServer.ListenAndServe()
-		if err != nil {
-			glog.Error(err)
-		}
+		errChan <- HealthyProbServer.ListenAndServe()
 	}()
 
 	// for controller-manager
