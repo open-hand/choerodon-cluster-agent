@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/maorfr/helm-plugin-utils v0.6.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/open-hand/helm v0.0.0-20220915062652-4763b840d7cd
+	github.com/open-hand/helm v0.0.0-20220927055532-3a9ecc980e12
 	github.com/pkg/errors v0.9.1
 	github.com/qri-io/jsonschema v0.2.1
 	github.com/robfig/cron/v3 v3.0.1

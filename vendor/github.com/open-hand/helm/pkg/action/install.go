@@ -320,7 +320,7 @@ func (i *Install) RunWithContext(ctx context.Context, chrt *chart.Chart, vals ma
 
 	// 在这里对要创建的对象添加标签
 	for _, r := range resources {
-		err = action.AddLabel(i.ImagePullSecret, i.Command, i.V1Command, i.AppServiceId, i.V1AppServiceId, r, i.Commit, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.Namespace, i.IsTest)
+		err = action.AddLabel(i.ImagePullSecret, i.Command, i.V1Command, i.AppServiceId, i.V1AppServiceId, r, i.Commit, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.Namespace, i.IsTest, false, nil)
 		if err != nil {
 			return nil, err
 		}
