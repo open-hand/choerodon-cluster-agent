@@ -396,7 +396,7 @@ github.com/morikuni/aec
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg
-# github.com/open-hand/helm v0.0.0-20220915062652-4763b840d7cd
+# github.com/open-hand/helm v0.0.0-20220927055532-3a9ecc980e12
 ## explicit; go 1.17
 github.com/open-hand/helm/internal/fileutil
 github.com/open-hand/helm/internal/ignore

@@ -88,6 +88,8 @@ type Configuration struct {
 	// KubeClient is a Kubernetes API client.
 	KubeClient kube.Interface
 
+	ClientSet *kubernetes.Clientset
+
 	// RegistryClient is a client for working with registries
 	RegistryClient *registry.Client
 
@@ -372,6 +374,11 @@ func (cfg *Configuration) Init(getter genericclioptions.RESTClientGetter, namesp
 		clientFn:  kc.Factory.KubernetesClientSet,
 	}
 
+	clientset, err := kc.Factory.KubernetesClientSet()
+	if err != nil {
+		return err
+	}
+
 	var store *storage.Storage
 	switch helmDriver {
 	case "secret", "secrets", "":
@@ -416,5 +423,6 @@ func (cfg *Configuration) Init(getter genericclioptions.RESTClientGetter, namesp
 	cfg.KubeClient = kc
 	cfg.Releases = store
 	cfg.Log = log
+	cfg.ClientSet = clientset
 	return nil
 }

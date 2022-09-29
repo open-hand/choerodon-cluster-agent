@@ -330,7 +330,7 @@ func (u *Upgrade) performUpgrade(ctx context.Context, originalRelease, upgradedR
 	if u.ChartName != "choerodon-cluster-agent" {
 		// 在这里对要新chart包中的对象添加标签
 		for _, r := range target {
-			err = action.AddLabel(u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, r, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false)
+			err = action.AddLabel(u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, r, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false, true, u.cfg.ClientSet)
 			if err != nil {
 				return nil, err
 			}
