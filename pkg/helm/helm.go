@@ -455,6 +455,7 @@ func (c *client) getHelmReleaseNoResource(release *release.Release) (*Release, e
 		Manifest:     release.Manifest,
 		Hooks:        rlsHooks,
 		Config:       release.ConfigRaw,
+		ConfigMap:    release.Config,
 	}
 	return rls, nil
 }
@@ -581,6 +582,7 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, passwo
 		request.V1AppServiceId,
 		model.AgentVersion,
 		request.ReUseValues)
+	upgradeClient.ResetValues = true
 
 	chartPath, err := upgradeClient.ChartPathOptions.LocateChart(request.ChartName, envSettings)
 	if err != nil {

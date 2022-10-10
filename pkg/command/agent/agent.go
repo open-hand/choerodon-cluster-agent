@@ -13,9 +13,11 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
 	"github.com/golang/glog"
+	"github.com/open-hand/helm/pkg/chartutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/rand"
+	"sigs.k8s.io/yaml"
 	"time"
 )
 
@@ -121,27 +123,33 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 
 	req.Namespace = model.AgentNamespace
 
-	ch := opts.CrChan
-
 	username, password, err := helmcommon.GetCharUsernameAndPassword(opts, cmd)
 	if err != nil {
-		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+		return retryUpgrade(req, opts, cmd, err)
 	}
-	req.ReUseValues = true
+
+	base := make(map[string]interface{})
+
+	if err := yaml.Unmarshal([]byte(req.Values), &base); err != nil {
+		glog.Error("failed to parse agent upgrade values", err)
+		return retryUpgrade(req, opts, cmd, err)
+	}
+
+	release, err := opts.HelmClient.GetRelease(&helm.GetReleaseContentRequest{ReleaseName: req.ReleaseName, Namespace: req.Namespace})
+	if err != nil {
+		return retryUpgrade(req, opts, cmd, err)
+	}
+
+	newValuesMap := chartutil.CoalesceTables(release.ConfigMap, base)
+	marshal, err := yaml.Marshal(newValuesMap)
+	if err!=nil {
+		return retryUpgrade(req, opts, cmd, err)
+	}
+	req.Values=string(marshal)
 
 	resp, err := opts.HelmClient.UpgradeRelease(&req, username, password)
 	if err != nil {
-		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == model.AgentNamespace {
-			go func() {
-				//maybe avoid lot request devOps-service in a same time
-				rand.Seed(time.Now().UnixNano())
-				randWait := rand.Intn(20)
-				time.Sleep(time.Duration(randWait) * time.Second)
-				glog.Infof("start retry upgrade agent ...")
-				ch.CommandChan <- cmd
-			}()
-		}
-		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+		return retryUpgrade(req, opts, cmd, err)
 	}
 	respB, err := json.Marshal(resp)
 	if err != nil {
@@ -152,6 +160,20 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 		Type:    model.HelmReleaseUpgradeResourceInfo,
 		Payload: string(respB),
 	}
+}
+
+func retryUpgrade(req helm.UpgradeReleaseRequest, opts *commandutil.Opts, cmd *model.Packet, err error) ([]*model.Packet, *model.Packet) {
+	if req.ChartName == "choerodon-cluster-agent" && req.Namespace == model.AgentNamespace {
+		go func() {
+			//maybe avoid lot request devOps-service in a same time
+			rand.Seed(time.Now().UnixNano())
+			randWait := rand.Intn(20)
+			time.Sleep(time.Duration(randWait) * time.Second)
+			glog.Infof("start retry upgrade agent ...")
+			opts.CrChan.CommandChan <- cmd
+		}()
+	}
+	return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
 }
 
 func ReSyncAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
