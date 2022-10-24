@@ -173,22 +173,18 @@ func (w *workerManager) runWorker() {
 //监听cert-mgr的pod运行情况
 func (w *workerManager) monitorCertMgr() {
 
-	//临时存储pod status 每过10s判断pod状态是否更改，若更改则发送消息。
-	podStatusTmp := " "
 	for {
 		time.Sleep(10 * time.Second)
 		podStatusInfo, err := w.getPodStatus()
 		if err != nil {
+			glog.Error(err)
 			return
 		}
-		if podStatusInfo.Status != podStatusTmp {
-			podStatusTmp = podStatusInfo.Status
-			respB, _ := json.Marshal(podStatusInfo)
-			w.chans.ResponseChan <- &model.Packet{
-				Key:     "cluster:" + model.ClusterId,
-				Type:    model.CertManagerStatus,
-				Payload: string(respB),
-			}
+		respB, _ := json.Marshal(podStatusInfo)
+		w.chans.ResponseChan <- &model.Packet{
+			Key:     "cluster:" + model.ClusterId,
+			Type:    model.CertManagerStatus,
+			Payload: string(respB),
 		}
 	}
 }
