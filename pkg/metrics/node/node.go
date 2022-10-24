@@ -60,6 +60,11 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 			nodeList, err := no.Client.CoreV1().Nodes().List(context.TODO(), v1.ListOptions{})
 			if err != nil {
 				glog.Errorf("list node error :", err)
+				continue
+			}
+			if len(nodeList.Items) == 0 {
+				glog.Info("The count of listed node is 0.")
+				continue
 			}
 			for _, node := range nodeList.Items {
 				fieldSelector, err := fields.ParseSelector("spec.nodeName=" + node.Name + ",status.phase!=" + string(corev1.PodSucceeded) + ",status.phase!=" + string(corev1.PodFailed))
