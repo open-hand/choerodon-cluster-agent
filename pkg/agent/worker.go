@@ -170,11 +170,11 @@ func (w *workerManager) runWorker() {
 	}
 }
 
-//监听cert-mgr的pod运行情况
+// 监听cert-mgr的pod运行情况
 func (w *workerManager) monitorCertMgr() {
 
 	for {
-		time.Sleep(10 * time.Second)
+		time.Sleep(1 * time.Minute)
 		podStatusInfo, err := w.getPodStatus()
 		if err != nil {
 			glog.Error(err)
@@ -189,7 +189,7 @@ func (w *workerManager) monitorCertMgr() {
 	}
 }
 
-//得到pod的状态
+// 得到pod的状态
 func (w *workerManager) getPodStatus() (model.CertManagerStatusInfo, error) {
 	info := model.CertManagerStatusInfo{}
 	podList := &v1.PodList{}
