@@ -118,8 +118,8 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 					model.Initialized = false
 				}
 			}
-			// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
-			sleepTime := rand.Intn(60)
+			rand.Seed(time.Now().Unix())
+			sleepTime := rand.Intn(60) + 5
 			glog.Infof("websocket will reconnect after %d seconds", sleepTime)
 			time.Sleep(time.Duration(sleepTime) * time.Second)
 		case <-stop:
