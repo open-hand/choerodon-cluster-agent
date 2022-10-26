@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-cleanhttp"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sync"
@@ -89,7 +90,6 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 
 	glog.Info("Started websocket listening")
 
-	backOff := 5 * time.Second
 	errCh := make(chan error, 1)
 	for {
 		go func() {
@@ -118,7 +118,10 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 					model.Initialized = false
 				}
 			}
-			time.Sleep(backOff)
+			// repo.Start方法猜测是从gitlab拉取配置文件(注意只拉取.git目录下的文件)
+			sleepTime := rand.Intn(60)
+			glog.Infof("websocket will reconnect after %d seconds", sleepTime)
+			time.Sleep(time.Duration(sleepTime) * time.Second)
 		case <-stop:
 			glog.Info("Shutting down agent")
 			c.stop()
