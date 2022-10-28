@@ -115,6 +115,8 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 
 // 以前用于重新部署实例，现在仅用于升级Agent
 func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	// 这里设置为true，是为了让探针通过，不然会出现helm升级操作未完成，pod就被杀掉的情况
+	model.Initialized = true
 	var req helm.UpgradeReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -142,10 +144,10 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 
 	newValuesMap := chartutil.CoalesceTables(release.ConfigMap, base)
 	marshal, err := yaml.Marshal(newValuesMap)
-	if err!=nil {
+	if err != nil {
 		return retryUpgrade(req, opts, cmd, err)
 	}
-	req.Values=string(marshal)
+	req.Values = string(marshal)
 
 	resp, err := opts.HelmClient.UpgradeRelease(&req, username, password)
 	if err != nil {
