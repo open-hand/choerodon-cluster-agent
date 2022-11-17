@@ -51,7 +51,7 @@ type TestReleaseStatus struct {
 	Status      string `json:"status,omitempty"`
 }
 
-//安装或者升级 返回值。
+// 安装或者升级 返回值。
 type Release struct {
 	Name         string                 `json:"name,omitempty"`
 	Revision     int                    `json:"revision,omitempty"`
@@ -100,6 +100,7 @@ type UpgradeReleaseRequest struct {
 	V1AppServiceId   string                         `json:"v1AppServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	ReUseValues      bool                           `json:"reUseValues"`
+	ReplicasStrategy string                         `json:"replicasStrategy"`
 }
 
 type RollbackReleaseRequest struct {
