@@ -123,7 +123,8 @@ type Upgrade struct {
 	// Get missing dependencies
 	DependencyUpdate bool
 	// Lock to control raceconditions when the process receives a SIGTERM
-	Lock sync.Mutex
+	Lock             sync.Mutex
+	ReplicasStrategy string
 }
 
 type resultMessage struct {
@@ -144,7 +145,8 @@ func NewUpgrade(cfg *Configuration,
 	appServiceId int64,
 	v1AppServiceId string,
 	agentVersion string,
-	reuseValues bool) *Upgrade {
+	reuseValues bool,
+	replicasStrategy string) *Upgrade {
 	up := &Upgrade{
 		ChartPathOptions: chartPathOptions,
 		cfg:              cfg,
@@ -160,6 +162,7 @@ func NewUpgrade(cfg *Configuration,
 		AgentVersion:     agentVersion,
 		MaxHistory:       maxHistory,
 		ReuseValues:      reuseValues,
+		ReplicasStrategy: replicasStrategy,
 	}
 
 	up.ChartPathOptions.registryClient = cfg.RegistryClient
@@ -330,7 +333,7 @@ func (u *Upgrade) performUpgrade(ctx context.Context, originalRelease, upgradedR
 	if u.ChartName != "choerodon-cluster-agent" {
 		// 在这里对要新chart包中的对象添加标签
 		for _, r := range target {
-			err = action.AddLabel(u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, r, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false, true, u.cfg.ClientSet)
+			err = action.AddLabel(u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, r, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, u.ReplicasStrategy, false, true, u.cfg.ClientSet)
 			if err != nil {
 				return nil, err
 			}

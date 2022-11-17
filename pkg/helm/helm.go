@@ -581,7 +581,8 @@ func (c *client) UpgradeRelease(request *UpgradeReleaseRequest, username, passwo
 		request.AppServiceId,
 		request.V1AppServiceId,
 		model.AgentVersion,
-		request.ReUseValues)
+		request.ReUseValues,
+		request.ReplicasStrategy)
 	upgradeClient.ResetValues = true
 
 	chartPath, err := upgradeClient.ChartPathOptions.LocateChart(request.ChartName, envSettings)

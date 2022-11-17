@@ -320,7 +320,7 @@ func (i *Install) RunWithContext(ctx context.Context, chrt *chart.Chart, vals ma
 
 	// 在这里对要创建的对象添加标签
 	for _, r := range resources {
-		err = action.AddLabel(i.ImagePullSecret, i.Command, i.V1Command, i.AppServiceId, i.V1AppServiceId, r, i.Commit, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.Namespace, i.IsTest, false, nil)
+		err = action.AddLabel(i.ImagePullSecret, i.Command, i.V1Command, i.AppServiceId, i.V1AppServiceId, r, i.Commit, i.ChartVersion, i.ReleaseName, i.ChartName, i.AgentVersion, i.TestLabel, i.Namespace, "", i.IsTest, false, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -506,10 +506,10 @@ func (i *Install) failRelease(rel *release.Release, err error) (*release.Release
 //
 // Roughly, this will return an error if name is
 //
-//	- empty
-//	- too long
-//	- already in use, and not deleted
-//	- used by a deleted release, and i.Replace is false
+//   - empty
+//   - too long
+//   - already in use, and not deleted
+//   - used by a deleted release, and i.Replace is false
 func (i *Install) availableName() error {
 	start := i.ReleaseName
 
