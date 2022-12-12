@@ -171,7 +171,7 @@ func CreateResourceProviderFromAPI(kube kubernetes.Interface, clusterName string
 	}
 
 	api := ResourceProvider{
-		ServerVersion:          serverVersion.Major + "." + serverVersion.Minor,
+		ServerVersion:          serverVersion.GitVersion,
 		SourceType:             "Cluster",
 		SourceName:             clusterName,
 		CreationTime:           time.Now(),
