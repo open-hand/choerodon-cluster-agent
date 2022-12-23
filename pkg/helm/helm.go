@@ -200,6 +200,10 @@ func (c *client) InstallRelease(request *InstallReleaseRequest, username, passwo
 		"",
 		false)
 
+	if model.RestrictedModel {
+		installClient.CreateNamespace = false
+	}
+
 	// 如果是安装prometheus用v3定义创建容器的属性-operator，则先删掉集群中的prometheus相关crd
 	if request.ChartName == "prometheus-operator" {
 		kubectlPath, err := exec.LookPath("kubectl")
