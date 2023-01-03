@@ -19,6 +19,7 @@ package action
 import (
 	"bytes"
 	"fmt"
+	"github.com/golang/glog"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -184,12 +185,18 @@ func (s *Show) FindHooks(releaseName string, chrt *chart.Chart, vals map[string]
 		Namespace: s.Namespace,
 		Revision:  1,
 	}
+	glog.V(1).Info("================================================================get capabitities")
 	caps, err := s.cfg.getCapabilities()
+	glog.V(1).Info("================================================================get capabitities done")
 	if err != nil {
 		return nil, err
 	}
+	glog.V(1).Info("================================================================render chart values")
 	valuesToRender, err := chartutil.ToRenderValues(chrt, vals, options, caps)
+	glog.V(1).Info("================================================================render chart values done")
+	glog.V(1).Info("================================================================render resources")
 	hooks, _, _, err := s.cfg.renderResources(chrt, valuesToRender, releaseName, "", false, true, false, nil, false)
+	glog.V(1).Info("================================================================render resources done")
 	if err != nil {
 		return nil, err
 	}

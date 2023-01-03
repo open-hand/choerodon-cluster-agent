@@ -21,6 +21,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/open-hand/helm/pkg/agent/action"
 	"strings"
 	"sync"
@@ -178,9 +179,11 @@ func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface
 
 // RunWithContext executes the upgrade on the given release with context.
 func (u *Upgrade) RunWithContext(ctx context.Context, name string, chart *chart.Chart, vals map[string]interface{}, valuesRaw string) (*release.Release, error) {
+	glog.V(1).Info("================================================================check k8s reachable")
 	if err := u.cfg.KubeClient.IsReachable(); err != nil {
 		return nil, err
 	}
+	glog.V(1).Info("================================================================check k8s reachable done")
 
 	// Make sure if Atomic is set, that wait is set as well. This makes it so
 	// the user doesn't have to specify both
@@ -198,7 +201,9 @@ func (u *Upgrade) RunWithContext(ctx context.Context, name string, chart *chart.
 	u.cfg.Releases.MaxHistory = u.MaxHistory
 
 	u.cfg.Log("performing update for %s", name)
+	glog.V(1).Info("================================================================perform upgrade")
 	res, err := u.performUpgrade(ctx, currentRelease, upgradedRelease)
+	glog.V(1).Info("================================================================perform upgrade done")
 	if err != nil {
 		return res, err
 	}
@@ -220,7 +225,9 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 	}
 
 	// finds the last non-deleted release with the given name
+	glog.V(1).Info("================================================================get latest release")
 	lastRelease, err := u.cfg.Releases.Last(name)
+	glog.V(1).Info("================================================================get latest done")
 	if err != nil {
 		// to keep existing behavior of returning the "%q has no deployed releases" error when an existing release does not exist
 		if errors.Is(err, driver.ErrReleaseNotFound) {
@@ -281,7 +288,9 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 		return nil, nil, err
 	}
 
+	glog.V(1).Info("================================================================render chart values")
 	hooks, manifestDoc, notesTxt, err := u.cfg.renderResources(chart, valuesToRender, "", "", u.SubNotes, false, false, u.PostRenderer, u.DryRun)
+	glog.V(1).Info("================================================================render chart values done")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -307,11 +316,14 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 	if len(notesTxt) > 0 {
 		upgradedRelease.Info.Notes = notesTxt
 	}
+	glog.V(1).Info("================================================================validate manifest")
 	err = validateManifest(u.cfg.KubeClient, manifestDoc.Bytes(), !u.DisableOpenAPIValidation)
+	glog.V(1).Info("================================================================validate manifest done")
 	return currentRelease, upgradedRelease, err
 }
 
 func (u *Upgrade) performUpgrade(ctx context.Context, originalRelease, upgradedRelease *release.Release) (*release.Release, error) {
+	glog.V(1).Info("================================================================build resource target and add labels")
 	current, err := u.cfg.KubeClient.Build(bytes.NewBufferString(originalRelease.Manifest), false)
 	if err != nil {
 		// Checking for removed Kubernetes API error so can provide a more informative error message to the user
@@ -339,9 +351,13 @@ func (u *Upgrade) performUpgrade(ctx context.Context, originalRelease, upgradedR
 			}
 		}
 	}
+	glog.V(1).Info("================================================================build resource target and add labels down")
 
 	// It is safe to use force only on target because these are resources currently rendered by the chart.
+	glog.V(1).Info("================================================================build resource target and add labels")
+	glog.V(1).Info("================================================================validate resource target")
 	err = target.Visit(setMetadataVisitor(upgradedRelease.Name, upgradedRelease.Namespace, true))
+	glog.V(1).Info("================================================================validate resource target done")
 	if err != nil {
 		return upgradedRelease, err
 	}
@@ -427,6 +443,7 @@ func (u *Upgrade) handleContext(ctx context.Context, done chan interface{}, c ch
 func (u *Upgrade) releasingUpgrade(c chan<- resultMessage, upgradedRelease *release.Release, current kube.ResourceList, target kube.ResourceList, originalRelease *release.Release) {
 	// pre-upgrade hooks
 
+	glog.V(1).Info("================================================================execute webhook")
 	if !u.DisableHooks {
 		if err := u.cfg.execHook(upgradedRelease, release.HookPreUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false); err != nil {
 			u.reportToPerformUpgrade(c, upgradedRelease, kube.ResourceList{}, fmt.Errorf("pre-upgrade hooks failed: %s", err))
@@ -435,8 +452,11 @@ func (u *Upgrade) releasingUpgrade(c chan<- resultMessage, upgradedRelease *rele
 	} else {
 		u.cfg.Log("upgrade hooks disabled for %s", upgradedRelease.Name)
 	}
+	glog.V(1).Info("================================================================execute webhook done")
 
+	glog.V(1).Info("================================================================update resource")
 	results, err := u.cfg.KubeClient.Update(current, target, u.Force)
+	glog.V(1).Info("================================================================update resource done")
 	if err != nil {
 		u.cfg.recordRelease(originalRelease)
 		u.reportToPerformUpgrade(c, upgradedRelease, results.Created, err)

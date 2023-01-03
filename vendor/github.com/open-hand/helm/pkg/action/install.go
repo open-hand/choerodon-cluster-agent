@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/Masterminds/sprig/v3"
+	"github.com/golang/glog"
 	"github.com/open-hand/helm/pkg/agent/action"
 	"io/ioutil"
 	"os"
@@ -798,11 +799,14 @@ func (c *ChartPathOptions) LocateChart(name string, settings *cli.EnvSettings) (
 	//	dl.Options = append(dl.Options, getter.WithBasicAuth(c.Username, c.Password))
 	//}
 
+	glog.V(1).Info("================================================================mkdir repository dir")
 	if err := os.MkdirAll(settings.RepositoryCache, 0755); err != nil {
 		return "", err
 	}
-
+	glog.V(1).Info("================================================================mkdir repository dir done")
+	glog.V(1).Info("================================================================download chart")
 	filename, _, err := dl.DownloadTo(name, version, settings.RepositoryCache)
+	glog.V(1).Info("================================================================download chart done")
 	if err == nil {
 		lname, err := filepath.Abs(filename)
 		if err != nil {
