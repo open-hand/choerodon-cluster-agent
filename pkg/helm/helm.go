@@ -330,18 +330,9 @@ func (c *client) ApplyCertManagerCrd() error {
 	glog.Infof("kubectl %s", kubectlPath)
 	kubectlApplier := kubectl.NewKubectl(kubectlPath, c.config)
 
-	certManagerCrd := []byte{}
-	if util.CompareVersion(model.KubernetesVersion) {
-		certManagerCrd, err = ioutil.ReadFile("/choerodon/cert-manager.crds.yaml")
-		if err != nil {
-			return err
-		}
-	} else {
-		// 小于15版本
-		certManagerCrd, err = ioutil.ReadFile("/choerodon/cert-manager-legacy.crds.yaml")
-		if err != nil {
-			return err
-		}
+	certManagerCrd, err := ioutil.ReadFile(util.GetCertMangerCrdFilePath(model.KubernetesVersion))
+	if err != nil {
+		return err
 	}
 	return kubectlApplier.ApplySingleObj("cert-manager", string(certManagerCrd))
 }

@@ -43,3 +43,17 @@ func CompareVersion(currentK8sVersion *version.Info) bool {
 	}
 	return true
 }
+
+func GetCertMangerCrdFilePath(currentK8sVersion *version.Info) string {
+	minorVersion, err := strconv.Atoi(currentK8sVersion.Minor)
+	if err != nil {
+		glog.Error("failed to get k8s minorVersion: %s", currentK8sVersion.GitVersion)
+	}
+	if minorVersion < 15 {
+		return "/choerodon/cert-manager-legacy.crds.yaml"
+	} else if minorVersion < 22 {
+		return "/choerodon/cert-manager.crds-1.15-1.21.yaml"
+	} else {
+		return "/choerodon/cert-manager.crds-1.22.yaml"
+	}
+}
