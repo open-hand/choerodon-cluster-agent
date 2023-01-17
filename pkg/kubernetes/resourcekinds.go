@@ -248,7 +248,7 @@ func (s *secret) GetResources(c *Cluster, namespace string) ([]K8sResource, erro
 	var K8sResources []K8sResource
 	for i := range secrets.Items {
 		sc := secrets.Items[i]
-		if sc.Labels[model.TlsSecretLabel] == "" && sc.Labels[model.ReleaseLabel] == "" && sc.Labels[model.AgentVersionLabel] != "" {
+		if sc.Labels[model.TlsSecretLabel] != "" && sc.Labels[model.AgentVersionLabel] != "" {
 			K8sResources = append(K8sResources, makeSecretK8sResource(&secrets.Items[i]))
 		}
 	}
