@@ -165,7 +165,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		addTemplateAppLabels()
 		addImagePullSecrets()
 		if isUpgrade {
-			if kind == "StatefulSet" {
+			if kind == "StatefulSet" && replicasStrategy == "replicas" {
 				sts, err := clientSet.AppsV1().StatefulSets(namespace).Get(context.Background(), t.GetName(), metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					break
