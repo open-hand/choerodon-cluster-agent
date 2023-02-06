@@ -9,6 +9,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
@@ -23,20 +24,27 @@ import (
 
 func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	model.InitLock.Lock()
+	glog.Info(util.GetEnvStatus())
 	defer func() {
 		model.InitLock.Unlock()
 		model.Initialized = true
 	}()
 
-	if model.Initialized == true {
-		glog.Info("agent already initialized")
-		return getClusterInfo(opts, cmd)
-	}
-
 	var agentInitOpts model.AgentInitOptions
 	err := json.Unmarshal([]byte(cmd.Payload), &agentInitOpts)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+	}
+
+	allEnvs := "namespace to sync:"
+	for _, envParas := range agentInitOpts.Envs {
+		allEnvs += envParas.Namespace + " "
+	}
+	glog.Infof(allEnvs)
+
+	if model.Initialized == true {
+		glog.Info("agent already initialized")
+		return getClusterInfo(opts, cmd)
 	}
 
 	// 如果devops没有设置该参数，那么默认设为1

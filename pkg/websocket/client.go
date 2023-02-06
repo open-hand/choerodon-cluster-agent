@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	pipeutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/pipe"
 	"github.com/golang/glog"
 	"github.com/gorilla/websocket"
@@ -99,6 +100,7 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 		case err := <-errCh:
 			if err != nil {
 				glog.Error(err)
+				glog.Info(util.GetEnvStatus())
 				model.ReconnectFlag = true
 				// 只有在gitops监听运行中并且agent初始化完成后才会停止gitops监听并重新初始化
 				if model.Initialized {

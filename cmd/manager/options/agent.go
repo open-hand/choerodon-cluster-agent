@@ -14,6 +14,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/cron"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
@@ -194,6 +195,7 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		glog.Info("start health check server")
 		mux := http.ServeMux{}
 		mux.HandleFunc("/healthy", healthy)
+		mux.HandleFunc("/env_status", envStatus)
 		HealthyProbServer := &http.Server{Addr: fmt.Sprintf("0.0.0.0:%s", o.HealthyPort), Handler: &mux}
 		errChan <- HealthyProbServer.ListenAndServe()
 	}()
@@ -427,4 +429,12 @@ func healthy(resp http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+}
+
+func envStatus(resp http.ResponseWriter, req *http.Request) {
+	resp.WriteHeader(http.StatusOK)
+	_, err := resp.Write([]byte(util.GetEnvStatus()))
+	if err != nil {
+		glog.Error(err)
+	}
 }

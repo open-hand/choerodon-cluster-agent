@@ -2,6 +2,8 @@ package util
 
 import (
 	"bytes"
+	"fmt"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/golang/glog"
 	"k8s.io/apimachinery/pkg/version"
 	"os"
@@ -56,4 +58,18 @@ func GetCertMangerCrdFilePath(currentK8sVersion *version.Info) string {
 	} else {
 		return "/choerodon/cert-manager.crds-1.22.yaml"
 	}
+}
+
+func GetEnvStatus() string {
+	// 打印此时的状态信息
+	statusInfo := "\n"
+	statusInfo += "==============================status Info==============================\n"
+	statusInfo += fmt.Sprintf("Initialized flag:%v\n", model.Initialized)
+	statusInfo += fmt.Sprintf("GitRunning flag:%v\n", model.GitRunning)
+	statusInfo += fmt.Sprintf("Synchronized env:")
+	for k, _ := range model.GitStopChanMap {
+		statusInfo += k + " "
+	}
+	statusInfo += "\n=======================================================================\n"
+	return statusInfo
 }
