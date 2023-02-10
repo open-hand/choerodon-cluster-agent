@@ -21,6 +21,7 @@ import (
 	batch_v1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	batch_v1beta1 "k8s.io/client-go/kubernetes/typed/batch/v1beta1"
 	core_v1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	networking_v1 "k8s.io/client-go/kubernetes/typed/networking/v1"
 	networking_v1beta1 "k8s.io/client-go/kubernetes/typed/networking/v1beta1"
 )
 
@@ -30,6 +31,7 @@ type extendedClient struct {
 	batch_v1.BatchV1Interface
 	batch_v1beta1.BatchV1beta1Interface
 	networking_v1beta1.NetworkingV1beta1Interface
+	networking_v1.NetworkingV1Interface
 	v1.CertmanagerV1Interface
 	//v1alpha1.CertmanagerV1alpha1Interface
 }
@@ -94,6 +96,7 @@ func NewCluster(
 			clientset.BatchV1(),
 			clientset.BatchV1beta1(),
 			clientset.NetworkingV1beta1(),
+			clientset.NetworkingV1(),
 			v1CrdClientSet.CertmanagerV1(),
 			//v1alpha1ClientSet.Certmanager(),
 		},

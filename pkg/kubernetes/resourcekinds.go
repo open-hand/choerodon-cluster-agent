@@ -10,9 +10,12 @@ import (
 	batch_v1 "k8s.io/api/batch/v1"
 	batch_v1beata1 "k8s.io/api/batch/v1beta1"
 	core_v1 "k8s.io/api/core/v1"
+	ext_v1 "k8s.io/api/networking/v1"
 	ext_v1beta1 "k8s.io/api/networking/v1beta1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	client2 "sigs.k8s.io/controller-runtime/pkg/client"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -133,26 +136,57 @@ type ingressKind struct {
 }
 
 func (dk *ingressKind) GetResources(c *Cluster, namespace string) ([]K8sResource, error) {
-	ingresses, err := c.Client.Ingresses(namespace).List(context.TODO(), meta_v1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var K8sResources []K8sResource
-	for i := range ingresses.Items {
-		_, noDelete := ingresses.Items[i].Labels[model.NetworkNoDelLabel]
-		if _, ok := ingresses.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
-			continue
+	split := strings.Split(model.KubernetesVersion.GitVersion, ".")
+	minorVersion, _ := strconv.Atoi(split[1])
+	if minorVersion < 22 {
+		// k8s 22以下的版本使用此ingress
+		ingresses, err := c.Client.NetworkingV1beta1Interface.Ingresses(namespace).List(context.TODO(), meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
 		}
-		K8sResources = append(K8sResources, makeIngressK8sResource(&ingresses.Items[i]))
-	}
 
-	return K8sResources, nil
+		var K8sResources []K8sResource
+		for i := range ingresses.Items {
+			_, noDelete := ingresses.Items[i].Labels[model.NetworkNoDelLabel]
+			if _, ok := ingresses.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
+				continue
+			}
+			K8sResources = append(K8sResources, makeV1Beta1IngressK8sResource(&ingresses.Items[i]))
+		}
+
+		return K8sResources, nil
+	} else {
+		// k8s 22以下的版本使用此ingress
+		ingresses, err := c.Client.NetworkingV1Interface.Ingresses(namespace).List(context.TODO(), meta_v1.ListOptions{})
+		if err != nil {
+			return nil, err
+		}
+
+		var K8sResources []K8sResource
+		for i := range ingresses.Items {
+			_, noDelete := ingresses.Items[i].Labels[model.NetworkNoDelLabel]
+			if _, ok := ingresses.Items[i].Labels[model.NetworkLabel]; !ok || noDelete {
+				continue
+			}
+			K8sResources = append(K8sResources, makeV1IngressK8sResource(&ingresses.Items[i]))
+		}
+
+		return K8sResources, nil
+	}
 }
 
-func makeIngressK8sResource(ingress *ext_v1beta1.Ingress) K8sResource {
+func makeV1Beta1IngressK8sResource(ingress *ext_v1beta1.Ingress) K8sResource {
 	return K8sResource{
 		ApiVersion: "extensions/v1beta1",
+		Kind:       "Ingress",
+		Name:       ingress.Name,
+		K8sObject:  ingress,
+	}
+}
+
+func makeV1IngressK8sResource(ingress *ext_v1.Ingress) K8sResource {
+	return K8sResource{
+		ApiVersion: "networking.k8s.io/v1",
 		Kind:       "Ingress",
 		Name:       ingress.Name,
 		K8sObject:  ingress,
@@ -248,7 +282,7 @@ func (s *secret) GetResources(c *Cluster, namespace string) ([]K8sResource, erro
 	var K8sResources []K8sResource
 	for i := range secrets.Items {
 		sc := secrets.Items[i]
-		if sc.Labels[model.TlsSecretLabel] != "" && sc.Labels[model.AgentVersionLabel] != "" {
+		if sc.Labels[model.AgentVersionLabel] != "" {
 			K8sResources = append(K8sResources, makeSecretK8sResource(&secrets.Items[i]))
 		}
 	}
