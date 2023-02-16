@@ -15,9 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 )
@@ -86,7 +86,7 @@ type ReconcileJob struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileJob) Reconcile(ctx context.Context,request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileJob) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Job")
 
@@ -122,12 +122,13 @@ func (r *ReconcileJob) Reconcile(ctx context.Context,request reconcile.Request) 
 				}
 				responseChan <- newJobLogRep(instance.Name, instance.Labels[model.ReleaseLabel], jobLogs, request.Namespace)
 			}
-			err = kubeClient.DeleteJob(namespace, instance.Name)
-			if err != nil {
-				glog.Error("delete job error", err)
+			if _, ok := instance.Annotations["helm.sh/hook-delete-policy"]; !ok {
+				err = kubeClient.DeleteJob(namespace, instance.Name)
+				if err != nil {
+					glog.Error("delete job error", err)
+				}
 			}
 		}
-
 	} else if instance.Labels[model.TestLabel] != "" && instance.Labels[model.TestLabel] == r.args.PlatformCode {
 		//监听
 		//if finsish, succeed := IsJobFinished(instance); finsish {
