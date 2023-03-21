@@ -187,6 +187,22 @@ func DeleteCertManagerRelease(opts *command.Opts, cmd *model.Packet) ([]*model.P
 	}
 }
 
+// 用于停止job
+func DeleteHelmHookJob(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	var req helm.HookJobDeleteRequest
+	err := json.Unmarshal([]byte(cmd.Payload), &req)
+	if err != nil {
+		glog.Info("failed to unmarshal helm hook job delete request")
+		return nil, nil
+	}
+	err = opts.KubeClient.DeleteJob(req.Namespace, req.JobName)
+	if err != nil {
+		glog.Info("failed to delete helm hook job")
+		return nil, nil
+	}
+	return nil, nil
+}
+
 func deleteC7NHelmReleaseOperateAnnotation(client kube.Client, releaseName, namespace string) {
 	release := client.GetC7NHelmRelease(releaseName, namespace)
 	if release != nil {

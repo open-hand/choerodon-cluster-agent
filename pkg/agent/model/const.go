@@ -43,6 +43,7 @@ const (
 	HelmReleaseGetContentFailed     = "helm_release_get_content_failed"
 	ChartMuseumAuthentication       = "chart_museum_authentication"
 	ChartMuseumAuthenticationFailed = "chart_museum_authentication_failed"
+	DeleteHelmHookJob               = "delete_helm_hook_job"
 
 	HelmReleaseInstallResourceInfo = "helm_install_resource_info"
 	HelmReleaseUpgradeResourceInfo = "helm_upgrade_resource_info"

@@ -146,3 +146,8 @@ type SyncRequest struct {
 	Namespace      string `json:"namespace,omitempty"`
 	ResourceStatus string `json:"resourceStatus,omitempty"`
 }
+
+type HookJobDeleteRequest struct {
+	JobName   string `json:"jobName"`
+	Namespace string `json:"namespace"`
+}

@@ -575,6 +575,9 @@ func (c *Client) watchUntilReady(timeout time.Duration, info *resource.Info) err
 			return true, nil
 		case watch.Deleted:
 			c.Log("Deleted event for %s", info.Name)
+			if strings.HasSuffix(info.Name, "init-db") {
+				return true, errors.Errorf("init job deleted")
+			}
 			return true, nil
 		case watch.Error:
 			// Handle error and return with an error.

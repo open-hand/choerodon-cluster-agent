@@ -33,4 +33,6 @@ func init() {
 	//Funcs.Add(model.TestStatusRequest, helm.GetTestStatus)
 
 	Funcs.Add(model.ChartMuseumAuthentication, helm.AddHelmAccount)
+
+	Funcs.Add(model.DeleteHelmHookJob, helm.DeleteHelmHookJob)
 }
