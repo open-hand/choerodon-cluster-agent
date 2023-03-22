@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/controller/job"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -195,12 +196,33 @@ func DeleteHelmHookJob(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, 
 		glog.Info("failed to unmarshal helm hook job delete request")
 		return nil, nil
 	}
+
+	hookJob, err := opts.KubeClient.GetJob(req.Namespace, req.JobName)
+	if err != nil {
+		glog.Errorf("failed to get helm hook job info:%s", err.Error())
+	}
+
+	if hookJob.Labels[model.ReleaseLabel] != "" {
+		jobLogs, _, err := opts.KubeClient.LogsForJob(req.Namespace, req.JobName, model.ReleaseLabel)
+		if err != nil {
+			glog.Error("get job log error ", err)
+		} else if strings.TrimSpace(jobLogs) != "" {
+			lobLogLength := len(jobLogs)
+			if lobLogLength > model.MaxJobLogLength {
+				jobLogs = jobLogs[lobLogLength-model.MaxJobLogLength : lobLogLength]
+			}
+			opts.CrChan.ResponseChan <- job.NewJobLogRep(req.JobName, hookJob.Labels[model.ReleaseLabel], jobLogs, req.Namespace)
+		}
+	}
+
 	err = opts.KubeClient.DeleteJob(req.Namespace, req.JobName)
 	if err != nil {
 		glog.Info("failed to delete helm hook job")
 		return nil, nil
 	}
-	return nil, nil
+
+	hookJob.Status.Failed = 1
+	return nil, job.NewJobRep(hookJob)
 }
 
 func deleteC7NHelmReleaseOperateAnnotation(client kube.Client, releaseName, namespace string) {

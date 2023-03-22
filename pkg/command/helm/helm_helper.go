@@ -208,7 +208,7 @@ func SyncStatus(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, commit, "", syncRequest.Id))
 			}
 		case "job":
-			commit, err := kubeClient.GetJob(namespace, syncRequest.ResourceName)
+			commit, err := kubeClient.GetJobCommit(namespace, syncRequest.ResourceName)
 			if err != nil {
 				reps = append(reps, newSyncResponse(syncRequest.ResourceName, syncRequest.ResourceType, "", "", syncRequest.Id))
 			} else if commit != "" {

@@ -12,6 +12,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/golang/glog"
 	"io"
+	v1 "k8s.io/api/batch/v1"
 	core_v1 "k8s.io/api/core/v1"
 	ext_v1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -51,7 +52,8 @@ type Client interface {
 	GetPersistentVolume(namespace string, pvcName string) (string, string, error)
 	GetDeployment(namespace string, deploymentName string) (string, error)
 	GetStatefulSet(namespace string, statefulSetName string) (string, error)
-	GetJob(namespace string, jobName string) (string, error)
+	GetJobCommit(namespace string, jobName string) (string, error)
+	GetJob(namespace string, jobName string) (*v1.Job, error)
 	GetCronJob(namespace string, cronJobName string) (string, error)
 	GetDaemonSet(namespace string, daemonSetName string) (string, error)
 	GetNamespace(namespace string) error
@@ -900,7 +902,7 @@ func (c *client) GetStatefulSet(namespace string, statefulSetName string) (strin
 	}
 	return "", nil
 }
-func (c *client) GetJob(namespace string, jobName string) (string, error) {
+func (c *client) GetJobCommit(namespace string, jobName string) (string, error) {
 	job, err := c.client.BatchV1().Jobs(namespace).Get(context.TODO(), jobName, meta_v1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -913,6 +915,15 @@ func (c *client) GetJob(namespace string, jobName string) (string, error) {
 	}
 	return "", nil
 }
+
+func (c *client) GetJob(namespace string, jobName string) (*v1.Job, error) {
+	job, err := c.client.BatchV1().Jobs(namespace).Get(context.TODO(), jobName, meta_v1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return job, nil
+}
+
 func (c *client) GetCronJob(namespace string, cronJobName string) (string, error) {
 	cronJob, err := c.client.BatchV1beta1().CronJobs(namespace).Get(context.TODO(), cronJobName, meta_v1.GetOptions{})
 	if err != nil {
