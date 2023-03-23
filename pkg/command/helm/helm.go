@@ -9,6 +9,7 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kube"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/golang/glog"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -226,6 +227,12 @@ func DeleteHelmHookJob(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, 
 	}
 
 	hookJob.Status.Failed = 1
+	resourceVersion, err := strconv.Atoi(hookJob.ObjectMeta.ResourceVersion)
+	if err != nil {
+		glog.Info(err.Error())
+	}
+	finalResourceVersion := resourceVersion + 1000
+	hookJob.ObjectMeta.ResourceVersion = strconv.Itoa(finalResourceVersion)
 	return nil, job.NewJobRep(hookJob)
 }
 
