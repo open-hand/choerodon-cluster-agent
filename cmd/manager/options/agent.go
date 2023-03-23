@@ -315,6 +315,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 					glog.V(1).Info(err)
 				}
 			}
+
+			helmClient.ApplyCertManagerCrd()
 		}
 
 		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
