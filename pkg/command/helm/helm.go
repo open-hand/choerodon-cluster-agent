@@ -202,6 +202,10 @@ func DeleteHelmHookJob(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, 
 		glog.Errorf("failed to get helm hook job info:%s", err.Error())
 	}
 
+	if hookJob == nil {
+		return nil, nil
+	}
+
 	if hookJob.Labels[model.ReleaseLabel] != "" {
 		jobLogs, _, err := opts.KubeClient.LogsForJob(req.Namespace, req.JobName, model.ReleaseLabel)
 		if err != nil {
