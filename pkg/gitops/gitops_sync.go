@@ -355,7 +355,7 @@ func prepareSyncApply(res resource.Resource, sync *kubernetes.SyncDef) {
 
 func convertCertificateToSecret(repoResources map[string]resource.Resource, changedResources map[string]resource.Resource, namespace string, kubeClient kube.Client, fileCommitMap map[string]string) {
 	// cert-manager未安装或cert-manager版本是1.1.1的时候才需要转化
-	if model.CertManagerVersion == "" || model.CertManagerVersion == "1.1.1" {
+	if model.CertManagerVersion == "" || model.CertManagerVersion == "v1.1.1" {
 
 		repoResourceKeysToDelete := []string{}
 		changedResourcesKeysToDelete := []string{}
