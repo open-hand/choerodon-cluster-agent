@@ -38,7 +38,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -356,10 +355,10 @@ func (c *Client) watchTimeout(t time.Duration) func(*resource.Info) error {
 // For most kinds, it checks to see if the resource is marked as Added or Modified
 // by the Kubernetes event stream. For some kinds, it does more:
 //
-// - Jobs: A job is marked "Ready" when it has successfully completed. This is
-//   ascertained by watching the Status fields in a job's output.
-// - Pods: A pod is marked "Ready" when it has successfully completed. This is
-//   ascertained by watching the status.phase field in a pod's output.
+//   - Jobs: A job is marked "Ready" when it has successfully completed. This is
+//     ascertained by watching the Status fields in a job's output.
+//   - Pods: A pod is marked "Ready" when it has successfully completed. This is
+//     ascertained by watching the status.phase field in a pod's output.
 //
 // Handling for other kinds will be added as necessary.
 func (c *Client) WatchUntilReady(resources ResourceList, timeout time.Duration) error {
@@ -541,11 +540,15 @@ func (c *Client) watchUntilReady(timeout time.Duration, info *resource.Info) err
 
 	// Use a selector on the name of the resource. This should be unique for the
 	// given version and kind
-	selector, err := fields.ParseSelector(fmt.Sprintf("metadata.name=%s", info.Name))
+	l, _, err := unstructured.NestedStringMap(info.Object.(*unstructured.Unstructured).Object, "metadata", "labels")
 	if err != nil {
 		return err
 	}
-	lw := cachetools.NewListWatchFromClient(info.Client, info.Mapping.Resource.Resource, info.Namespace, selector)
+
+	optionsModifier := func(options *metav1.ListOptions) {
+		options.LabelSelector = fmt.Sprintf("%s=%s", "choerodon.io/commit", l["choerodon.io/commit"])
+	}
+	lw := cachetools.NewFilteredListWatchFromClient(info.Client, info.Mapping.Resource.Resource, info.Namespace, optionsModifier)
 
 	// What we watch for depends on the Kind.
 	// - For a Job, we watch for completion.
