@@ -21,6 +21,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/open-hand/helm/pkg/agent/action"
 	"strings"
 	"sync"
@@ -228,7 +229,8 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 
 	// Concurrent `helm upgrade`s will either fail here with `errPending` or when creating the release with "already exists". This should act as a pessimistic lock.
 	if lastRelease.Info.Status.IsPending() {
-		return nil, nil, errPending
+		glog.Info("The last release status is pending.Being waiting for 60s ")
+		time.Sleep(60 * time.Second)
 	}
 
 	var currentRelease *release.Release
