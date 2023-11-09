@@ -19,9 +19,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 )
@@ -83,7 +83,7 @@ type ReconcileC7NHelmRelease struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // ResourceList.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileC7NHelmRelease) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileC7NHelmRelease) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	namespace := request.Namespace
 	//对应实例的名字 如：helm-lll-1f3b8
 	name := request.Name
@@ -227,6 +227,7 @@ func upgradeHelmReleaseCmd(instance *choerodonv1alpha1.C7NHelmRelease) *model.Pa
 		AppServiceId:     instance.Spec.AppServiceId,
 		V1AppServiceId:   instance.Spec.V1AppServiceId,
 		ImagePullSecrets: instance.Spec.ImagePullSecrets,
+		ReplicasStrategy: instance.Annotations[model.ReplicasStrategy],
 	}
 	reqBytes, err := json.Marshal(req)
 	if err != nil {

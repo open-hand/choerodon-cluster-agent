@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
@@ -8,32 +9,42 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/gitops"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/helm"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/operator"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	commandutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/errors"
 	"github.com/golang/glog"
+	"github.com/open-hand/helm/pkg/chartutil"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/rand"
+	"sigs.k8s.io/yaml"
 	"time"
 )
 
 func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	model.InitLock.Lock()
+	glog.Info(util.GetEnvStatus())
 	defer func() {
 		model.InitLock.Unlock()
 		model.Initialized = true
 	}()
 
-	if model.Initialized == true {
-		glog.Info("agent already initialized")
-		return getClusterInfo(opts, cmd)
-	}
-
 	var agentInitOpts model.AgentInitOptions
 	err := json.Unmarshal([]byte(cmd.Payload), &agentInitOpts)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
+	}
+
+	allEnvs := "namespace to sync:"
+	for _, envParas := range agentInitOpts.Envs {
+		allEnvs += envParas.Namespace + " "
+	}
+	glog.Infof(allEnvs)
+
+	if model.Initialized == true {
+		glog.Info("agent already initialized")
+		return getClusterInfo(opts, cmd)
 	}
 
 	// 如果devops没有设置该参数，那么默认设为1
@@ -85,18 +96,18 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	}
 
 	for _, ns := range nsList {
-		if opts.Mgrs.IsExist(ns) {
+		currentNamespace := ns
+		if opts.Mgrs.IsExist(currentNamespace) {
 			continue
 		}
-		mgr, err := operator.New(cfg, ns, args)
+		mgr, err := operator.New(cfg, currentNamespace, args)
 		if err != nil {
 			return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 		}
-		stopCh := make(chan struct{}, 1)
 		// check success added avoid repeat watch
-		if opts.Mgrs.AddStop(ns, mgr, stopCh) {
+		if opts.Mgrs.AddStop(currentNamespace, mgr) {
 			go func() {
-				if err := mgr.Start(stopCh); err != nil {
+				if err := mgr.Start(opts.Mgrs.GetCtx(currentNamespace)); err != nil {
 					opts.CrChan.ResponseChan <- commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 				}
 			}()
@@ -112,6 +123,8 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 
 // 以前用于重新部署实例，现在仅用于升级Agent
 func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	// 这里设置为true，是为了让探针通过，不然会出现helm升级操作未完成，pod就被杀掉的情况
+	model.Initialized = true
 	var req helm.UpgradeReleaseRequest
 	err := json.Unmarshal([]byte(cmd.Payload), &req)
 	if err != nil {
@@ -120,26 +133,33 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 
 	req.Namespace = model.AgentNamespace
 
-	ch := opts.CrChan
-
 	username, password, err := helmcommon.GetCharUsernameAndPassword(opts, cmd)
 	if err != nil {
-		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+		return retryUpgrade(req, opts, cmd, err)
 	}
+
+	base := make(map[string]interface{})
+
+	if err := yaml.Unmarshal([]byte(req.Values), &base); err != nil {
+		glog.Error("failed to parse agent upgrade values", err)
+		return retryUpgrade(req, opts, cmd, err)
+	}
+
+	release, err := opts.HelmClient.GetRelease(&helm.GetReleaseContentRequest{ReleaseName: req.ReleaseName, Namespace: req.Namespace})
+	if err != nil {
+		return retryUpgrade(req, opts, cmd, err)
+	}
+
+	newValuesMap := chartutil.CoalesceTables(release.ConfigMap, base)
+	marshal, err := yaml.Marshal(newValuesMap)
+	if err != nil {
+		return retryUpgrade(req, opts, cmd, err)
+	}
+	req.Values = string(marshal)
 
 	resp, err := opts.HelmClient.UpgradeRelease(&req, username, password)
 	if err != nil {
-		if req.ChartName == "choerodon-cluster-agent" && req.Namespace == model.AgentNamespace {
-			go func() {
-				//maybe avoid lot request devOps-service in a same time
-				rand.Seed(time.Now().UnixNano())
-				randWait := rand.Intn(20)
-				time.Sleep(time.Duration(randWait) * time.Second)
-				glog.Infof("start retry upgrade agent ...")
-				ch.CommandChan <- cmd
-			}()
-		}
-		return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+		return retryUpgrade(req, opts, cmd, err)
 	}
 	respB, err := json.Marshal(resp)
 	if err != nil {
@@ -152,6 +172,20 @@ func UpgradeAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *
 	}
 }
 
+func retryUpgrade(req helm.UpgradeReleaseRequest, opts *commandutil.Opts, cmd *model.Packet, err error) ([]*model.Packet, *model.Packet) {
+	if req.ChartName == "choerodon-cluster-agent" && req.Namespace == model.AgentNamespace {
+		go func() {
+			//maybe avoid lot request devOps-service in a same time
+			rand.Seed(time.Now().UnixNano())
+			randWait := rand.Intn(20)
+			time.Sleep(time.Duration(randWait) * time.Second)
+			glog.Infof("start retry upgrade agent ...")
+			opts.CrChan.CommandChan <- cmd
+		}()
+	}
+	return nil, commandutil.NewResponseErrorWithCommit(cmd.Key, req.Commit, model.HelmReleaseInstallFailed, err)
+}
+
 func ReSyncAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	fmt.Println("get command re_sync")
 	opts.ControllerContext.ReSync()
@@ -162,15 +196,15 @@ func ReSyncAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *m
 // 如果命名空间存在则检查labels，是否设置 "choerodon.io/helm-version":"helm3"
 // 未设置helm标签，则添加helm标签并调用helm升级函数，将helm实例从helm2升级到helm3
 func createNamespace(opts *commandutil.Opts, namespaceName string, releases []string) error {
-	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Get(namespaceName, metav1.GetOptions{})
+	_, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Get(context.TODO(), namespaceName, metav1.GetOptions{})
 	if err != nil {
 		// 如果命名空间不存在的话，则创建
 		if errors.IsNotFound(err) {
-			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(&corev1.Namespace{
+			_, err = opts.KubeClient.GetKubeClient().CoreV1().Namespaces().Create(context.TODO(), &corev1.Namespace{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: namespaceName,
 				},
-			})
+			}, metav1.CreateOptions{})
 			return err
 		}
 		return err
@@ -186,21 +220,23 @@ func getClusterInfo(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet,
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}
 
-	namespaceList, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().List(listOpts)
+	namespaceList, err := opts.KubeClient.GetKubeClient().CoreV1().Namespaces().List(context.TODO(), listOpts)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}
-	nodeList, err := opts.KubeClient.GetKubeClient().CoreV1().Nodes().List(listOpts)
+	nodeList, err := opts.KubeClient.GetKubeClient().CoreV1().Nodes().List(context.TODO(), listOpts)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}
-	podList, err := opts.KubeClient.GetKubeClient().CoreV1().Pods("").List(listOpts)
+	podList, err := opts.KubeClient.GetKubeClient().CoreV1().Pods("").List(context.TODO(), listOpts)
 	if err != nil {
 		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
 	}
 
+	glog.Infof("current k8s version: %s", serverVersion.GitVersion)
+
 	clusterInfo := ClusterInfo{
-		Version:    serverVersion.Major + "." + serverVersion.Minor,
+		Version:    serverVersion.GitVersion,
 		Pods:       len(podList.Items),
 		Namespaces: len(namespaceList.Items),
 		Nodes:      len(nodeList.Items),
@@ -218,9 +254,31 @@ func getClusterInfo(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet,
 	}
 }
 
+func returnClusterInfoResult(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	serverVersion, err := opts.KubeClient.GetKubeClient().Discovery().ServerVersion()
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+	glog.Infof("current k8s version: %s", serverVersion.GitVersion)
+	clusterInfo := ClusterInfo{
+		Version:   serverVersion.GitVersion,
+		ClusterId: model.ClusterId,
+	}
+	response, err := json.Marshal(clusterInfo)
+	if err != nil {
+		return nil, commandutil.NewResponseError(cmd.Key, model.ClusterGetInfoFailed, err)
+	}
+
+	return nil, &model.Packet{
+		Key:     cmd.Key,
+		Type:    model.ClusterGetInfo,
+		Payload: string(response),
+	}
+}
+
 func returnInitResult(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
 	if model.RestrictedModel {
-		return nil, nil
+		return returnClusterInfoResult(opts, cmd)
 	} else {
 		return getClusterInfo(opts, cmd)
 	}

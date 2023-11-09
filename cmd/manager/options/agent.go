@@ -1,7 +1,6 @@
 package options
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent"
@@ -15,17 +14,14 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubectl"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/kubernetes"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/polaris/config"
+	"github.com/choerodon/choerodon-cluster-agent/pkg/util"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/cron"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/version"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/websocket"
 	"github.com/golang/glog"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8sclient "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/homedir"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"net/http"
@@ -36,7 +32,10 @@ import (
 	"os/signal"
 	"path"
 	"runtime"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"strconv"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -54,6 +53,7 @@ var (
 
 type AgentOptions struct {
 	Listen       string
+	HealthyPort  string
 	UpstreamURL  string
 	Token        string
 	PrintVersion bool
@@ -99,7 +99,6 @@ func printVersion() {
 
 func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 
-	logf.SetLogger(zap.Logger())
 	options := NewAgentOptions()
 	cmd := &cobra.Command{
 		Use:  "choerodon-cluster-agent",
@@ -118,6 +117,7 @@ func NewAgentCommand(f cmdutil.Factory) *cobra.Command {
 func NewAgentOptions() *AgentOptions {
 	a := &AgentOptions{
 		Listen:                        "0.0.0.0:8088",
+		HealthyPort:                   "8000",
 		ConcurrentEndpointSyncs:       5,
 		ConcurrentServiceSyncs:        1,
 		ConcurrentRSSyncs:             1,
@@ -134,6 +134,12 @@ func NewAgentOptions() *AgentOptions {
 }
 
 func Run(o *AgentOptions, f cmdutil.Factory) {
+	opts := zap.Options{
+		Development: false,
+	}
+	opts.BindFlags(flag.CommandLine)
+
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
 	printVersion()
 
@@ -169,16 +175,30 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		errChan <- fmt.Errorf("%s", <-c)
 	}()
 
-	// --------------- operator sdk start  -----------------  //
-	ctx := context.TODO()
+	// pprof
+	go func() {
+		var mux *http.ServeMux
+		if o.pprof {
+			mux = http.NewServeMux()
+			mux.HandleFunc("/debug/pprof/", pprof.Index)
+			mux.HandleFunc("/debug/pprof/heap", pprof.Index)
+			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+		}
+		errChan <- http.ListenAndServe(o.Listen, mux)
+	}()
 
-	// Become the leader before proceeding
-	err := leader.Become(ctx, "c7n-agent-lock-"+o.ClusterId)
-	if err != nil {
-		errChan <- err
-		return
-	}
-	glog.Info("become leader success")
+	// 健康检查
+	go func() {
+		glog.Info("start health check server")
+		mux := http.ServeMux{}
+		mux.HandleFunc("/healthy", healthy)
+		mux.HandleFunc("/env_status", envStatus)
+		HealthyProbServer := &http.Server{Addr: fmt.Sprintf("0.0.0.0:%s", o.HealthyPort), Handler: &mux}
+		errChan <- HealthyProbServer.ListenAndServe()
+	}()
 
 	// for controller-manager
 	mgrs := &operatorutil.MgrList{}
@@ -193,7 +213,19 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 	}
 	k8sVersion, err := discoveryClient.ServerVersion()
 	if err == nil {
-		model.KubernetesVersion = k8sVersion.GitVersion
+		model.KubernetesVersion = k8sVersion
+		split := strings.Split(k8sVersion.GitVersion, ".")
+		minorVersion, err := strconv.Atoi(split[1])
+		if err != nil {
+			errChan <- err
+			return
+		}
+		if minorVersion < 22 {
+			model.OldKubernetesVersion = true
+		} else {
+			model.OldKubernetesVersion = false
+		}
+
 	}
 
 	// new kubernetes clientf
@@ -260,7 +292,8 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 			_, err = os.Stat(kubectlPath)
 		}
 		if err != nil {
-			glog.Fatal(err)
+			errChan <- err
+			return
 		}
 		glog.Infof("kubectl %s", kubectlPath)
 		cfg, _ := f.ToRESTConfig()
@@ -269,15 +302,26 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 		kubectlScaler := kubectl.NewKubectl(kubectlPath, cfg)
 
 		if !model.RestrictedModel {
-			for _, crdYaml := range model.CRD_YAMLS {
-				if err := kubectlApplier.ApplySingleObj("kube-system", crdYaml); err != nil {
+			if model.OldKubernetesVersion {
+				// k8s 22以下的版本使用此crd
+				glog.Infof("k8s version:%s use v1beta1 crd", model.KubernetesVersion)
+				if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAMLS[model.V1_BETA1]); err != nil {
+					glog.V(1).Info(err)
+				}
+			} else {
+				// k8s 22及以上的版本使用此crd
+				glog.Infof("k8s version:%s use v1 crd", model.KubernetesVersion)
+				if err := kubectlApplier.ApplySingleObj("kube-system", model.CRD_YAMLS[model.V1]); err != nil {
 					glog.V(1).Info(err)
 				}
 			}
+
+			helmClient.ApplyCertManagerCrd()
 		}
 
-		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), kubeClient.GetV1alpha1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
+		k8s = kubernetes.NewCluster(kubeClient.GetKubeClient(), kubeClient.GetV1CrdClient(), mgrs, kubectlApplier, kubectlDescriber, kubectlScaler)
 	}
+
 	var polarisConfig *config.Configuration
 
 	if !o.restrictedMod {
@@ -311,20 +355,6 @@ func Run(o *AgentOptions, f cmdutil.Factory) {
 
 	go workerManager.Start()
 
-	go func() {
-		var mux *http.ServeMux
-		if o.pprof {
-			mux = http.NewServeMux()
-			mux.HandleFunc("/debug/pprof/", pprof.Index)
-			mux.HandleFunc("/debug/pprof/heap", pprof.Index)
-			mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-			mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-			mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-			mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-		}
-		errChan <- http.ListenAndServe(o.Listen, mux)
-	}()
-
 	glog.Infof("cron: %s", o.clearHelmCacheCron)
 	cron.AddCronJob(o.clearHelmCacheCron, func() {
 		glog.Info("start to delete helm cache")
@@ -346,6 +376,7 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.clearHelmCacheCron, "clear-helm-cache-cron", "0 0 * * *", "cron jon for clear cache of helm")
 	fs.BoolVar(&o.PrintVersion, "version", false, "print the version number")
 	fs.StringVar(&o.Listen, "listen", o.Listen, "address:port to listen on")
+	fs.StringVar(&o.HealthyPort, "healthy-listen", o.HealthyPort, "address:port for healthy check")
 	fs.StringVar(&model.AgentVersion, "agent-version", "", "agent version")
 	fs.IntVar(&model.MaxWebsocketMessageLength, "max-websocket-message-length", 131072, "the max length of websocket message")
 	fs.IntVar(&model.MaxJobLogLength, "max-job-log-length", 102400, "the max length of job log")
@@ -385,12 +416,27 @@ func (o *AgentOptions) BindFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.clearHelmHistory, "clear-helm-history", false, "clear helm2 release deploy history")
 }
 
-func checkKube(client *k8sclient.Clientset) {
-	glog.Infof("check k8s role binding...")
-	_, err := client.CoreV1().Pods("").List(meta_v1.ListOptions{})
-	if err != nil {
-		glog.Errorf("check role binding failed, %v", err)
-		os.Exit(0)
+func healthy(resp http.ResponseWriter, req *http.Request) {
+	if model.Initialized {
+		resp.WriteHeader(http.StatusOK)
+		_, err := resp.Write([]byte("healthy"))
+		if err != nil {
+			glog.Error(err)
+		}
+	} else {
+		resp.WriteHeader(http.StatusServiceUnavailable)
+		_, err := resp.Write([]byte("unhealthy"))
+		if err != nil {
+			glog.Error(err)
+		}
 	}
-	glog.Infof("k8s role binding succeed.")
+
+}
+
+func envStatus(resp http.ResponseWriter, req *http.Request) {
+	resp.WriteHeader(http.StatusOK)
+	_, err := resp.Write([]byte(util.GetEnvStatus()))
+	if err != nil {
+		glog.Error(err)
+	}
 }

@@ -15,9 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strings"
 )
@@ -86,7 +86,7 @@ type ReconcileJob struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileJob) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Job")
 
@@ -110,7 +110,7 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 
 	if instance.Labels[model.ReleaseLabel] != "" && instance.Labels[model.TestLabel] == "" {
 		glog.V(2).Info(instance.Labels[model.ReleaseLabel], ":", instance)
-		responseChan <- newJobRep(instance)
+		responseChan <- NewJobRep(instance)
 		if finish, _ := IsJobFinished(instance); finish {
 			jobLogs, _, err := kubeClient.LogsForJob(request.Namespace, instance.Name, model.ReleaseLabel)
 			if err != nil {
@@ -120,14 +120,15 @@ func (r *ReconcileJob) Reconcile(request reconcile.Request) (reconcile.Result, e
 				if lobLogLength > model.MaxJobLogLength {
 					jobLogs = jobLogs[lobLogLength-model.MaxJobLogLength : lobLogLength]
 				}
-				responseChan <- newJobLogRep(instance.Name, instance.Labels[model.ReleaseLabel], jobLogs, request.Namespace)
+				responseChan <- NewJobLogRep(instance.Name, instance.Labels[model.ReleaseLabel], jobLogs, request.Namespace)
 			}
-			err = kubeClient.DeleteJob(namespace, instance.Name)
-			if err != nil {
-				glog.Error("delete job error", err)
+			if _, ok := instance.Annotations["helm.sh/hook-delete-policy"]; !ok {
+				err = kubeClient.DeleteJob(namespace, instance.Name)
+				if err != nil {
+					glog.Error("delete job error", err)
+				}
 			}
 		}
-
 	} else if instance.Labels[model.TestLabel] != "" && instance.Labels[model.TestLabel] == r.args.PlatformCode {
 		//监听
 		//if finsish, succeed := IsJobFinished(instance); finsish {
@@ -162,7 +163,7 @@ func newJobDelRep(name string, namespace string) *model.Packet {
 	}
 }
 
-func newJobLogRep(name string, release string, jobLogs string, namespace string) *model.Packet {
+func NewJobLogRep(name string, release string, jobLogs string, namespace string) *model.Packet {
 	return &model.Packet{
 		Key:     fmt.Sprintf("env:%s.release:%s.Job:%s", namespace, release, name),
 		Type:    model.HelmJobLog,
@@ -186,7 +187,7 @@ func newTestJobLogRep(label string, release string, jobLogs string, namespace st
 	}
 }
 
-func newJobRep(job *v1.Job) *model.Packet {
+func NewJobRep(job *v1.Job) *model.Packet {
 	payload, err := json.Marshal(job)
 	release := job.Labels[model.ReleaseLabel]
 	if err != nil {

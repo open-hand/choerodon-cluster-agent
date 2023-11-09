@@ -1,6 +1,7 @@
 package node
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
@@ -56,9 +57,14 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 		case <-time.Tick(time.Second * 30):
 			glog.Infof("[Goroutine %d] node_sync", util.GetGID())
 			nodes := make([]NodeInfo, 0)
-			nodeList, err := no.Client.CoreV1().Nodes().List(v1.ListOptions{})
+			nodeList, err := no.Client.CoreV1().Nodes().List(context.TODO(), v1.ListOptions{})
 			if err != nil {
 				glog.Errorf("list node error :", err)
+				continue
+			}
+			if len(nodeList.Items) == 0 {
+				glog.Info("The count of listed node is 0.")
+				continue
 			}
 			for _, node := range nodeList.Items {
 				fieldSelector, err := fields.ParseSelector("spec.nodeName=" + node.Name + ",status.phase!=" + string(corev1.PodSucceeded) + ",status.phase!=" + string(corev1.PodFailed))
@@ -66,7 +72,7 @@ func (no *Node) Run(stopCh <-chan struct{}) error {
 					glog.Errorf("parse field selector error: %v", err)
 					continue
 				}
-				podList, err := no.Client.CoreV1().Pods("").List(v1.ListOptions{
+				podList, err := no.Client.CoreV1().Pods("").List(context.TODO(), v1.ListOptions{
 					FieldSelector: fieldSelector.String(),
 				})
 				if err != nil {

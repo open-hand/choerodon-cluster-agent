@@ -94,7 +94,6 @@ func (c *Kubectl) ApplySingleObj(namespace string, resourceFile string) error {
 	r := bytes.NewReader([]byte(resourceFile))
 	err := c.doCommand(r, "apply")
 	if err != nil {
-		glog.Errorf("app k8s resource error %v\n%s\n", err, resourceFile)
 		return err
 	}
 	return nil

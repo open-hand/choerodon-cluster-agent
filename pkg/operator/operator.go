@@ -4,10 +4,10 @@ import (
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/schemafunc"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/controller"
 	controllerutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/controller"
-	"github.com/operator-framework/operator-sdk/pkg/restmapper"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 var log = logf.Log.WithName("cmd")
@@ -21,9 +21,8 @@ var (
 
 func NewMgr(cfg *rest.Config, namespace string) (crmanager.Manager, error) {
 	// Create a new Cmd to provide shared dependencies and start components
-	return crmanager.New(cfg, crmanager.Options{
+	return ctrl.NewManager(cfg, ctrl.Options{
 		Namespace:              namespace,
-		MapperProvider:         restmapper.NewDynamicRESTMapper,
 		MetricsBindAddress:     "0",
 		HealthProbeBindAddress: "0",
 	})

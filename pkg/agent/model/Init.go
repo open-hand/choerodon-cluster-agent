@@ -2,10 +2,15 @@ package model
 
 import "time"
 
-var CRD_YAMLS []string
+var CRD_YAMLS = make(map[string]string)
+
+const (
+	V1       = "v1"
+	V1_BETA1 = "v1beta1"
+)
 
 func init() {
-	CrdC7NHemReleaseYaml := "apiVersion: apiextensions.k8s.io/v1beta1\n" +
+	CrdC7NHemReleaseYamlV1Beta1 := "apiVersion: apiextensions.k8s.io/v1beta1\n" +
 		"kind: CustomResourceDefinition\n" +
 		"metadata:\n" +
 		"  name: c7nhelmreleases.choerodon.io\n" +
@@ -18,7 +23,57 @@ func init() {
 		"    singular: c7nhelmrelease\n" +
 		"  scope: Namespaced\n" +
 		"  version: v1alpha1\n"
-	CRD_YAMLS = append(CRD_YAMLS, CrdC7NHemReleaseYaml)
+	CRD_YAMLS[V1_BETA1] = CrdC7NHemReleaseYamlV1Beta1
+
+	CrdC7NHemReleaseYamlV1 := "apiVersion: apiextensions.k8s.io/v1\n" +
+		"kind: CustomResourceDefinition\n" +
+		"metadata:\n" +
+		"  name: c7nhelmreleases.choerodon.io\n" +
+		"spec:\n" +
+		"  group: choerodon.io\n" +
+		"  names:\n" +
+		"    kind: C7NHelmRelease\n" +
+		"    listKind: C7NHelmReleaseList\n" +
+		"    plural: c7nhelmreleases\n" +
+		"    singular: c7nhelmrelease\n" +
+		"  scope: Namespaced\n" +
+		"  versions: \n" +
+		"    - name: v1alpha1 \n" +
+		"      storage: true \n" +
+		"      served: true \n" +
+		"      schema:\n" +
+		"        openAPIV3Schema:\n" +
+		"          type: object\n" +
+		"          properties:\n" +
+		"            spec:\n" +
+		"              type: object\n" +
+		"              properties:\n" +
+		"                chartName:\n" +
+		"                  type: string\n" +
+		"                chartVersion:\n" +
+		"                  type: string\n" +
+		"                commandId:\n" +
+		"                  type: integer\n" +
+		"                imagePullSecrets:\n" +
+		"                  type: array\n" +
+		"                  items: \n" +
+		"                    type: object\n" +
+		"                    properties:\n" +
+		"                      name:\n" +
+		"                        type: string\n" +
+		"                repoUrl:\n" +
+		"                  type: string\n" +
+		"                source:\n" +
+		"                  type: string\n" +
+		"                v1AppServiceId:\n" +
+		"                  type: string\n" +
+		"                v1CommandId:\n" +
+		"                  type: string\n" +
+		"                appServiceId:\n" +
+		"                  type: integer\n" +
+		"                values:\n" +
+		"                  type: string"
+	CRD_YAMLS[V1] = CrdC7NHemReleaseYamlV1
 }
 
 const CertManagerClusterIssuer = `apiVersion: cert-manager.io/v1

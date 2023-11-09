@@ -51,21 +51,22 @@ type TestReleaseStatus struct {
 	Status      string `json:"status,omitempty"`
 }
 
-//安装或者升级 返回值。
+// 安装或者升级 返回值。
 type Release struct {
-	Name         string             `json:"name,omitempty"`
-	Revision     int                `json:"revision,omitempty"`
-	Namespace    string             `json:"namespace,omitempty"`
-	Status       string             `json:"status,omitempty"`
-	ChartName    string             `json:"chartName,omitempty"`
-	ChartVersion string             `json:"chartVersion,omitempty"`
-	Manifest     string             `json:"-"`
-	Hooks        []*ReleaseHook     `json:"hooks,omitempty"`
-	Resources    []*ReleaseResource `json:"resources,omitempty"`
-	Config       string             `json:"config,omitempty"`
-	Commit       string             `json:"commit,omitempty"`
-	Command      int64              `json:"command,omitempty"`
-	V1Command    string             `json:"v1Command,omitempty"`
+	Name         string                 `json:"name,omitempty"`
+	Revision     int                    `json:"revision,omitempty"`
+	Namespace    string                 `json:"namespace,omitempty"`
+	Status       string                 `json:"status,omitempty"`
+	ChartName    string                 `json:"chartName,omitempty"`
+	ChartVersion string                 `json:"chartVersion,omitempty"`
+	Manifest     string                 `json:"-"`
+	Hooks        []*ReleaseHook         `json:"hooks,omitempty"`
+	Resources    []*ReleaseResource     `json:"resources,omitempty"`
+	Config       string                 `json:"config,omitempty"`
+	Commit       string                 `json:"commit,omitempty"`
+	Command      int64                  `json:"command,omitempty"`
+	V1Command    string                 `json:"v1Command,omitempty"`
+	ConfigMap    map[string]interface{} `json:"configMap"`
 }
 
 type ReleaseResource struct {
@@ -99,6 +100,7 @@ type UpgradeReleaseRequest struct {
 	V1AppServiceId   string                         `json:"v1AppServiceId,omitempty"`
 	ImagePullSecrets []core_v1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 	ReUseValues      bool                           `json:"reUseValues"`
+	ReplicasStrategy string                         `json:"replicasStrategy"`
 }
 
 type RollbackReleaseRequest struct {
@@ -143,4 +145,9 @@ type SyncRequest struct {
 	Id             int64  `json:"id,omitempty"`
 	Namespace      string `json:"namespace,omitempty"`
 	ResourceStatus string `json:"resourceStatus,omitempty"`
+}
+
+type HookJobDeleteRequest struct {
+	JobName   string `json:"jobName"`
+	Namespace string `json:"namespace"`
 }

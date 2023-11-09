@@ -72,7 +72,7 @@ func (c *challenges) Get(ctx context.Context, name string, options metav1.GetOpt
 		Resource("challenges").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -89,7 +89,7 @@ func (c *challenges) List(ctx context.Context, opts metav1.ListOptions) (result 
 		Resource("challenges").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -106,7 +106,7 @@ func (c *challenges) Watch(ctx context.Context, opts metav1.ListOptions) (watch.
 		Resource("challenges").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a challenge and creates it.  Returns the server's representation of the challenge, and an error, if there is any.
@@ -117,7 +117,7 @@ func (c *challenges) Create(ctx context.Context, challenge *v1.Challenge, opts m
 		Resource("challenges").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(challenge).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -131,7 +131,7 @@ func (c *challenges) Update(ctx context.Context, challenge *v1.Challenge, opts m
 		Name(challenge.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(challenge).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -147,7 +147,7 @@ func (c *challenges) UpdateStatus(ctx context.Context, challenge *v1.Challenge, 
 		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(challenge).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -159,7 +159,7 @@ func (c *challenges) Delete(ctx context.Context, name string, opts metav1.Delete
 		Resource("challenges").
 		Name(name).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -175,7 +175,7 @@ func (c *challenges) DeleteCollection(ctx context.Context, opts metav1.DeleteOpt
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -189,7 +189,7 @@ func (c *challenges) Patch(ctx context.Context, name string, pt types.PatchType,
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

@@ -52,7 +52,6 @@ func (g *GitOps) Process() {
 
 func (g *GitOps) WithStop() {
 	g.Process()
-	// GitStopped置为false
 	model.GitRunning = true
 }
 
