@@ -1,6 +1,7 @@
 package kubernetes
 
 import (
+	"context"
 	"encoding/json"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/util/command"
@@ -25,7 +26,7 @@ func DeletePod(opts *command.Opts, cmd *model.Packet) ([]*model.Packet, *model.P
 
 	namespace := req.Namespace
 	podName := req.PodName
-	err = opts.KubeClient.GetKubeClient().CoreV1().Pods(namespace).Delete(podName, &metav1.DeleteOptions{})
+	err = opts.KubeClient.GetKubeClient().CoreV1().Pods(namespace).Delete(context.TODO(),podName, metav1.DeleteOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, deletePodRespPacket(cmd.Key,"success",&req)

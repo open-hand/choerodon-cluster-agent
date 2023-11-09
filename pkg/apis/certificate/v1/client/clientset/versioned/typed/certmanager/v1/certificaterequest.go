@@ -72,7 +72,7 @@ func (c *certificateRequests) Get(ctx context.Context, name string, options meta
 		Resource("certificaterequests").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -89,7 +89,7 @@ func (c *certificateRequests) List(ctx context.Context, opts metav1.ListOptions)
 		Resource("certificaterequests").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -106,7 +106,7 @@ func (c *certificateRequests) Watch(ctx context.Context, opts metav1.ListOptions
 		Resource("certificaterequests").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a certificateRequest and creates it.  Returns the server's representation of the certificateRequest, and an error, if there is any.
@@ -117,7 +117,7 @@ func (c *certificateRequests) Create(ctx context.Context, certificateRequest *v1
 		Resource("certificaterequests").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(certificateRequest).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -131,7 +131,7 @@ func (c *certificateRequests) Update(ctx context.Context, certificateRequest *v1
 		Name(certificateRequest.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(certificateRequest).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -147,7 +147,7 @@ func (c *certificateRequests) UpdateStatus(ctx context.Context, certificateReque
 		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(certificateRequest).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -159,7 +159,7 @@ func (c *certificateRequests) Delete(ctx context.Context, name string, opts meta
 		Resource("certificaterequests").
 		Name(name).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -175,7 +175,7 @@ func (c *certificateRequests) DeleteCollection(ctx context.Context, opts metav1.
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -189,7 +189,7 @@ func (c *certificateRequests) Patch(ctx context.Context, name string, pt types.P
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

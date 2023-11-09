@@ -23,18 +23,21 @@ import (
 	"io"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -42,13 +45,14 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/scale"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	utilexec "k8s.io/utils/exec"
 )
 
 const (
 	ApplyAnnotationsFlag = "save-config"
 	DefaultErrorExitCode = 1
+	DefaultChunkSize     = 500
 )
 
 type debugError interface {
@@ -60,10 +64,10 @@ type debugError interface {
 // source is the filename or URL to the template file(*.json or *.yaml), or stdin to use to handle the resource.
 func AddSourceToErr(verb string, source string, err error) error {
 	if source != "" {
-		if statusError, ok := err.(kerrors.APIStatus); ok {
+		if statusError, ok := err.(apierrors.APIStatus); ok {
 			status := statusError.Status()
 			status.Message = fmt.Sprintf("error when %s %q: %v", verb, source, status.Message)
-			return &kerrors.StatusError{ErrStatus: status}
+			return &apierrors.StatusError{ErrStatus: status}
 		}
 		return fmt.Errorf("error when %s %q: %v", verb, source, err)
 	}
@@ -85,10 +89,13 @@ func DefaultBehaviorOnFatal() {
 	fatalErrHandler = fatal
 }
 
-// fatal prints the message (if provided) and then exits. If V(2) or greater,
-// klog.Fatal is invoked for extended information.
+// fatal prints the message (if provided) and then exits. If V(99) or greater,
+// klog.Fatal is invoked for extended information. This is intended for maintainer
+// debugging and out of a reasonable range for users.
 func fatal(msg string, code int) {
-	if klog.V(2) {
+	// nolint:logcheck // Not using the result of klog.V(99) inside the if
+	// branch is okay, we just use it to determine how to terminate.
+	if klog.V(99).Enabled() {
 		klog.FatalDepth(2, msg)
 	}
 	if len(msg) > 0 {
@@ -114,6 +121,18 @@ func CheckErr(err error) {
 	checkErr(err, fatalErrHandler)
 }
 
+// CheckDiffErr prints a user friendly error to STDERR and exits with a
+// non-zero and non-one exit code. Unrecognized errors will be printed
+// with an "error: " prefix.
+//
+// This method is meant specifically for `kubectl diff` and may be used
+// by other commands.
+func CheckDiffErr(err error) {
+	checkErr(err, func(msg string, code int) {
+		fatalErrHandler(msg, code+1)
+	})
+}
+
 // checkErr formats a given error as a string and calls the passed handleErr
 // func with that string and an kubectl exit code.
 func checkErr(err error, handleErr func(string, int)) {
@@ -129,8 +148,8 @@ func checkErr(err error, handleErr func(string, int)) {
 	switch {
 	case err == ErrExit:
 		handleErr("", DefaultErrorExitCode)
-	case kerrors.IsInvalid(err):
-		details := err.(*kerrors.StatusError).Status().Details
+	case apierrors.IsInvalid(err):
+		details := err.(*apierrors.StatusError).Status().Details
 		s := "The request is invalid"
 		if details == nil {
 			handleErr(s, DefaultErrorExitCode)
@@ -202,7 +221,7 @@ func StandardErrorMessage(err error) (string, bool) {
 	if debugErr, ok := err.(debugError); ok {
 		klog.V(4).Infof(debugErr.DebugError())
 	}
-	status, isStatus := err.(kerrors.APIStatus)
+	status, isStatus := err.(apierrors.APIStatus)
 	switch {
 	case isStatus:
 		switch s := status.Status(); {
@@ -213,7 +232,7 @@ func StandardErrorMessage(err error) (string, bool) {
 		default:
 			return fmt.Sprintf("Error from server: %s", err.Error()), true
 		}
-	case kerrors.IsUnexpectedObjectError(err):
+	case apierrors.IsUnexpectedObjectError(err):
 		return fmt.Sprintf("Server returned an unexpected response: %s", err.Error()), true
 	}
 	switch t := err.(type) {
@@ -259,7 +278,7 @@ func MultilineError(prefix string, err error) string {
 // Returns true if a case exists to handle the error type, or false otherwise.
 func PrintErrorWithCauses(err error, errOut io.Writer) bool {
 	switch t := err.(type) {
-	case *kerrors.StatusError:
+	case *apierrors.StatusError:
 		errorDetails := t.Status().Details
 		if errorDetails != nil {
 			fmt.Fprintf(errOut, "error: %s %q is invalid\n\n", errorDetails.Kind, errorDetails.Name)
@@ -380,11 +399,14 @@ func GetPodRunningTimeoutFlag(cmd *cobra.Command) (time.Duration, error) {
 }
 
 func AddValidateFlags(cmd *cobra.Command) {
-	cmd.Flags().Bool("validate", true, "If true, use a schema to validate the input before sending it")
-}
-
-func AddValidateOptionFlags(cmd *cobra.Command, options *ValidateOptions) {
-	cmd.Flags().BoolVar(&options.EnableValidation, "validate", options.EnableValidation, "If true, use a schema to validate the input before sending it")
+	cmd.Flags().String(
+		"validate",
+		"strict",
+		`Must be one of: strict (or true), warn, ignore (or false).
+		"true" or "strict" will use a schema to validate the input and fail the request if invalid. It will perform server side validation if ServerSideFieldValidation is enabled on the api-server, but will fall back to less reliable client-side validation if not.
+		"warn" will warn about unknown or duplicate fields without blocking the request if server-side field validation is enabled on the API server, and behave as "ignore" otherwise.
+		"false" or "ignore" will not perform any schema validation, silently dropping any unknown or duplicate fields.`,
+	)
 }
 
 func AddFilenameOptionFlags(cmd *cobra.Command, options *resource.FilenameOptions, usage string) {
@@ -409,13 +431,25 @@ func AddKustomizeFlag(flags *pflag.FlagSet, value *string) {
 
 // AddDryRunFlag adds dry-run flag to a command. Usually used by mutations.
 func AddDryRunFlag(cmd *cobra.Command) {
-	cmd.Flags().Bool("dry-run", false, "If true, only print the object that would be sent, without sending it.")
+	cmd.Flags().String(
+		"dry-run",
+		"none",
+		`Must be "none", "server", or "client". If client strategy, only print the object that would be sent, without sending it. If server strategy, submit server-side request without persisting the resource.`,
+	)
+	cmd.Flags().Lookup("dry-run").NoOptDefVal = "unchanged"
+}
+
+func AddFieldManagerFlagVar(cmd *cobra.Command, p *string, defaultFieldManager string) {
+	cmd.Flags().StringVar(p, "field-manager", defaultFieldManager, "Name of the manager used to track field ownership.")
+}
+
+func AddContainerVarFlags(cmd *cobra.Command, p *string, containerName string) {
+	cmd.Flags().StringVarP(p, "container", "c", containerName, "Container name. If omitted, use the kubectl.kubernetes.io/default-container annotation for selecting the container to be attached or the first container in the pod will be chosen")
 }
 
 func AddServerSideApplyFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool("server-side", false, "If true, apply runs in the server instead of the client.")
 	cmd.Flags().Bool("force-conflicts", false, "If true, server-side apply will force the changes against conflicts.")
-	cmd.Flags().String("field-manager", "kubectl", "Name of the manager used to track field ownership.")
 }
 
 func AddPodRunningTimeoutFlag(cmd *cobra.Command, defaultTimeout time.Duration) {
@@ -430,18 +464,25 @@ func AddApplyAnnotationVarFlags(cmd *cobra.Command, applyAnnotation *bool) {
 	cmd.Flags().BoolVar(applyAnnotation, ApplyAnnotationsFlag, *applyAnnotation, "If true, the configuration of current object will be saved in its annotation. Otherwise, the annotation will be unchanged. This flag is useful when you want to perform kubectl apply on this object in the future.")
 }
 
-// AddGeneratorFlags adds flags common to resource generation commands
-// TODO: need to take a pass at other generator commands to use this set of flags
-func AddGeneratorFlags(cmd *cobra.Command, defaultGenerator string) {
-	cmd.Flags().String("generator", defaultGenerator, "The name of the API generator to use.")
-	AddDryRunFlag(cmd)
+func AddChunkSizeFlag(cmd *cobra.Command, value *int64) {
+	cmd.Flags().Int64Var(value, "chunk-size", *value,
+		"Return large lists in chunks rather than all at once. Pass 0 to disable. This flag is beta and may change in the future.")
+}
+
+func AddLabelSelectorFlagVar(cmd *cobra.Command, p *string) {
+	cmd.Flags().StringVarP(p, "selector", "l", *p, "Selector (label query) to filter on, supports '=', '==', and '!='.(e.g. -l key1=value1,key2=value2). Matching objects must satisfy all of the specified label constraints.")
+}
+
+func AddSubresourceFlags(cmd *cobra.Command, subresource *string, usage string, allowedSubresources ...string) {
+	cmd.Flags().StringVar(subresource, "subresource", "", fmt.Sprintf("%s Must be one of %v. This flag is alpha and may change in the future.", usage, allowedSubresources))
 }
 
 type ValidateOptions struct {
-	EnableValidation bool
+	ValidationDirective string
 }
 
-// Merge requires JSON serialization
+// Merge converts the passed in object to JSON, merges the fragment into it using an RFC7396 JSON Merge Patch,
+// and returns the resulting object
 // TODO: merge assumes JSON serialization, and does not properly abstract API retrieval
 func Merge(codec runtime.Codec, dst runtime.Object, fragment string) (runtime.Object, error) {
 	// encode dst into versioned json and apply fragment directly too it
@@ -450,6 +491,46 @@ func Merge(codec runtime.Codec, dst runtime.Object, fragment string) (runtime.Ob
 		return nil, err
 	}
 	patched, err := jsonpatch.MergePatch(target, []byte(fragment))
+	if err != nil {
+		return nil, err
+	}
+	out, err := runtime.Decode(codec, patched)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// StrategicMerge converts the passed in object to JSON, merges the fragment into it using a Strategic Merge Patch,
+// and returns the resulting object
+func StrategicMerge(codec runtime.Codec, dst runtime.Object, fragment string, dataStruct runtime.Object) (runtime.Object, error) {
+	target, err := runtime.Encode(codec, dst)
+	if err != nil {
+		return nil, err
+	}
+	patched, err := strategicpatch.StrategicMergePatch(target, []byte(fragment), dataStruct)
+	if err != nil {
+		return nil, err
+	}
+	out, err := runtime.Decode(codec, patched)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// JSONPatch converts the passed in object to JSON, performs an RFC6902 JSON Patch using operations specified in the
+// fragment, and returns the resulting object
+func JSONPatch(codec runtime.Codec, dst runtime.Object, fragment string) (runtime.Object, error) {
+	target, err := runtime.Encode(codec, dst)
+	if err != nil {
+		return nil, err
+	}
+	patch, err := jsonpatch.DecodePatch([]byte(fragment))
+	if err != nil {
+		return nil, err
+	}
+	patched, err := patch.Apply(target)
 	if err != nil {
 		return nil, err
 	}
@@ -498,8 +579,95 @@ func GetFieldManagerFlag(cmd *cobra.Command) string {
 	return GetFlagString(cmd, "field-manager")
 }
 
-func GetDryRunFlag(cmd *cobra.Command) bool {
-	return GetFlagBool(cmd, "dry-run")
+func GetValidationDirective(cmd *cobra.Command) (string, error) {
+	var validateFlag = GetFlagString(cmd, "validate")
+	b, err := strconv.ParseBool(validateFlag)
+	if err != nil {
+		switch validateFlag {
+		case cmd.Flag("validate").NoOptDefVal:
+			return metav1.FieldValidationStrict, nil
+		case "strict":
+			return metav1.FieldValidationStrict, nil
+		case "warn":
+			return metav1.FieldValidationWarn, nil
+		case "ignore":
+			return metav1.FieldValidationIgnore, nil
+		default:
+			return metav1.FieldValidationStrict, fmt.Errorf(`invalid - validate option %q; must be one of: strict (or true), warn, ignore (or false)`, validateFlag)
+		}
+	}
+	// The flag was a boolean
+	if b {
+		return metav1.FieldValidationStrict, nil
+	}
+	return metav1.FieldValidationIgnore, nil
+}
+
+type DryRunStrategy int
+
+const (
+	// DryRunNone indicates the client will make all mutating calls
+	DryRunNone DryRunStrategy = iota
+
+	// DryRunClient, or client-side dry-run, indicates the client will prevent
+	// making mutating calls such as CREATE, PATCH, and DELETE
+	DryRunClient
+
+	// DryRunServer, or server-side dry-run, indicates the client will send
+	// mutating calls to the APIServer with the dry-run parameter to prevent
+	// persisting changes.
+	//
+	// Note that clients sending server-side dry-run calls should verify that
+	// the APIServer and the resource supports server-side dry-run, and otherwise
+	// clients should fail early.
+	//
+	// If a client sends a server-side dry-run call to an APIServer that doesn't
+	// support server-side dry-run, then the APIServer will persist changes inadvertently.
+	DryRunServer
+)
+
+func GetDryRunStrategy(cmd *cobra.Command) (DryRunStrategy, error) {
+	var dryRunFlag = GetFlagString(cmd, "dry-run")
+	b, err := strconv.ParseBool(dryRunFlag)
+	// The flag is not a boolean
+	if err != nil {
+		switch dryRunFlag {
+		case cmd.Flag("dry-run").NoOptDefVal:
+			klog.Warning(`--dry-run is deprecated and can be replaced with --dry-run=client.`)
+			return DryRunClient, nil
+		case "client":
+			return DryRunClient, nil
+		case "server":
+			return DryRunServer, nil
+		case "none":
+			return DryRunNone, nil
+		default:
+			return DryRunNone, fmt.Errorf(`Invalid dry-run value (%v). Must be "none", "server", or "client".`, dryRunFlag)
+		}
+	}
+	// The flag was a boolean
+	if b {
+		klog.Warningf(`--dry-run=%v is deprecated (boolean value) and can be replaced with --dry-run=%s.`, dryRunFlag, "client")
+		return DryRunClient, nil
+	}
+	klog.Warningf(`--dry-run=%v is deprecated (boolean value) and can be replaced with --dry-run=%s.`, dryRunFlag, "none")
+	return DryRunNone, nil
+}
+
+// PrintFlagsWithDryRunStrategy sets a success message at print time for the dry run strategy
+//
+// TODO(juanvallejo): This can be cleaned up even further by creating
+// a PrintFlags struct that binds the --dry-run flag, and whose
+// ToPrinter method returns a printer that understands how to print
+// this success message.
+func PrintFlagsWithDryRunStrategy(printFlags *genericclioptions.PrintFlags, dryRunStrategy DryRunStrategy) *genericclioptions.PrintFlags {
+	switch dryRunStrategy {
+	case DryRunClient:
+		printFlags.Complete("%s (dry run)")
+	case DryRunServer:
+		printFlags.Complete("%s (server dry run)")
+	}
+	return printFlags
 }
 
 // GetResourcesAndPairs retrieves resources and "KEY=VALUE or KEY-" pair args from given args
@@ -608,7 +776,9 @@ func ManualStrip(file []byte) []byte {
 	stripped := []byte{}
 	lines := bytes.Split(file, []byte("\n"))
 	for i, line := range lines {
-		if bytes.HasPrefix(bytes.TrimSpace(line), []byte("#")) {
+		trimline := bytes.TrimSpace(line)
+
+		if bytes.HasPrefix(trimline, []byte("#")) && !bytes.HasPrefix(trimline, []byte("#!")) {
 			continue
 		}
 		stripped = append(stripped, line...)
@@ -658,4 +828,19 @@ func Warning(cmdErr io.Writer, newGeneratorName, oldGeneratorName string) {
 		newGeneratorName,
 		oldGeneratorName,
 	)
+}
+
+// Difference removes any elements of subArray from fullArray and returns the result
+func Difference(fullArray []string, subArray []string) []string {
+	exclude := make(map[string]bool, len(subArray))
+	for _, elem := range subArray {
+		exclude[elem] = true
+	}
+	var result []string
+	for _, elem := range fullArray {
+		if _, found := exclude[elem]; !found {
+			result = append(result, elem)
+		}
+	}
+	return result
 }

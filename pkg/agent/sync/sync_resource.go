@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
@@ -33,7 +34,7 @@ func syncStatefulSet(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
 
-		instances, err := ctx.KubeClient.GetKubeClient().AppsV1().StatefulSets(ns).List(metav1.ListOptions{})
+		instances, err := ctx.KubeClient.GetKubeClient().AppsV1().StatefulSets(ns).List(context.TODO(),metav1.ListOptions{})
 		if err != nil {
 			glog.Warning("StatefulSets v1 not support on your cluster ", err)
 		} else {
@@ -67,7 +68,7 @@ func syncReplicaSet(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
 
-		rsList, err := ctx.KubeClient.GetKubeClient().AppsV1().ReplicaSets(ns).List(metav1.ListOptions{})
+		rsList, err := ctx.KubeClient.GetKubeClient().AppsV1().ReplicaSets(ns).List(context.TODO(),metav1.ListOptions{})
 		if err != nil {
 			glog.Fatal(err)
 		} else {
@@ -100,7 +101,7 @@ func syncReplicaSet(ctx *Context) error {
 func syncService(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
-		instances, err := ctx.KubeClient.GetKubeClient().CoreV1().Services(ns).List(metav1.ListOptions{})
+		instances, err := ctx.KubeClient.GetKubeClient().CoreV1().Services(ns).List(context.TODO(),metav1.ListOptions{})
 		if err != nil {
 			glog.Fatal(err)
 		} else {
@@ -135,7 +136,7 @@ func syncNamespace(ctx *Context) error {
 	if model.RestrictedModel {
 		return nil
 	}
-	namespaces, err := ctx.KubeClient.GetKubeClient().CoreV1().Namespaces().List(metav1.ListOptions{})
+	namespaces, err := ctx.KubeClient.GetKubeClient().CoreV1().Namespaces().List(context.TODO(),metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -147,7 +148,7 @@ func syncPod(ctx *Context) error {
 	namespaces := ctx.Namespaces.GetAll()
 	for _, ns := range namespaces {
 
-		pods, err := ctx.KubeClient.GetKubeClient().CoreV1().Pods(ns).List(metav1.ListOptions{})
+		pods, err := ctx.KubeClient.GetKubeClient().CoreV1().Pods(ns).List(context.TODO(),metav1.ListOptions{})
 		if err != nil {
 			glog.Fatal("can not list resource, no rabc bind, exit !")
 		} else {
