@@ -1,6 +1,7 @@
 package action
 
 import (
+	"context"
 	"fmt"
 	"github.com/golang/glog"
 	"github.com/open-hand/helm/pkg/agent/model"
@@ -19,7 +20,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	appServiceId int64,
 	V1AppServiceId string,
 	info *resource.Info,
-	commit, version, releaseName, chartName, agentVersion, testLabel, namespace string,
+	commit, version, releaseName, chartName, agentVersion, testLabel, namespace, replicasStrategy string,
 	isTest bool,
 	isUpgrade bool,
 	clientSet *kubernetes.Clientset) error {
@@ -107,34 +108,36 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		addSelectorAppLabels()
 		addImagePullSecrets()
 		if isUpgrade {
-			if kind == "ReplicaSet" {
-				rs, err := clientSet.AppsV1().ReplicaSets(namespace).Get(t.GetName(), metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					break
+			if replicasStrategy == "replicas" {
+				if kind == "ReplicaSet" {
+					rs, err := clientSet.AppsV1().ReplicaSets(namespace).Get(context.Background(), t.GetName(), metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						break
+					}
+					if err != nil {
+						glog.Warningf("Failed to get ReplicaSet,error is %s.", err.Error())
+						return err
+					}
+					err = setReplicas(t.Object, int64(*rs.Spec.Replicas))
+					if err != nil {
+						glog.Warningf("Failed to set replicas,error is %s", err.Error())
+						return err
+					}
 				}
-				if err != nil {
-					glog.Warningf("Failed to get ReplicaSet,error is %s.", err.Error())
-					return err
-				}
-				err = setReplicas(t.Object, int64(*rs.Spec.Replicas))
-				if err != nil {
-					glog.Warningf("Failed to set replicas,error is %s", err.Error())
-					return err
-				}
-			}
-			if kind == "Deployment" {
-				dp, err := clientSet.AppsV1().Deployments(namespace).Get(t.GetName(), metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					break
-				}
-				if err != nil {
-					glog.Warningf("Failed to get ReplicaSet,error is %s.", err.Error())
-					return err
-				}
-				err = setReplicas(t.Object, int64(*dp.Spec.Replicas))
-				if err != nil {
-					glog.Warningf("Failed to set replicas,error is %s", err.Error())
-					return err
+				if kind == "Deployment" {
+					dp, err := clientSet.AppsV1().Deployments(namespace).Get(context.Background(), t.GetName(), metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						break
+					}
+					if err != nil {
+						glog.Warningf("Failed to get ReplicaSet,error is %s.", err.Error())
+						return err
+					}
+					err = setReplicas(t.Object, int64(*dp.Spec.Replicas))
+					if err != nil {
+						glog.Warningf("Failed to set replicas,error is %s", err.Error())
+						return err
+					}
 				}
 			}
 		}
@@ -163,7 +166,7 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 		addImagePullSecrets()
 		if isUpgrade {
 			if kind == "StatefulSet" {
-				sts, err := clientSet.AppsV1().StatefulSets(namespace).Get(t.GetName(), metav1.GetOptions{})
+				sts, err := clientSet.AppsV1().StatefulSets(namespace).Get(context.Background(), t.GetName(), metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					break
 				}
@@ -192,6 +195,13 @@ func AddLabel(imagePullSecret []v1.LocalObjectReference,
 	// add base labels
 	addBaseLabels()
 	t.SetLabels(l)
+
+	annotations := t.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+	annotations[model.CommitLabel] = commit
+	t.SetAnnotations(annotations)
 	return nil
 }
 

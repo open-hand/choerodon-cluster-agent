@@ -39,7 +39,7 @@ func AddServicePod(mgr manager.Manager, args *controllerutil.Args) error {
 }
 
 // watch pod change
-func (r *ReconcileServicePod) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileServicePod) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling Service")
 

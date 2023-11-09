@@ -1,6 +1,7 @@
 package helm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/model"
@@ -22,7 +23,7 @@ func GetCharUsernameAndPassword(opts *command.Opts, cmd *model.Packet) (string, 
 	if repoUrl == nil {
 		return "", "", nil
 	}
-	
+
 	repo, err := url.Parse(repoUrl.(string))
 	if err != nil {
 		return "", "", err
@@ -30,7 +31,7 @@ func GetCharUsernameAndPassword(opts *command.Opts, cmd *model.Packet) (string, 
 
 	repoHost := strings.TrimSuffix(fmt.Sprintf("%s://%s", repo.Scheme, repo.Host), "/")
 
-	secret, err := opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Get(SecretName, metav1.GetOptions{})
+	secret, err := opts.KubeClient.GetKubeClient().CoreV1().Secrets(model.AgentNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return "", "", nil

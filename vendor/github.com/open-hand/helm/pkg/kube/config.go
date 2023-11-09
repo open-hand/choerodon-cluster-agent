@@ -14,11 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package kube // import "helm.sh/helm/v3/pkg/kube"
+package kube // import "github.com/open-hand/helm/pkg/kube"
 
 import "k8s.io/cli-runtime/pkg/genericclioptions"
 
 // GetConfig returns a Kubernetes client config.
+//
+// Deprecated
 func GetConfig(kubeconfig, context, namespace string) *genericclioptions.ConfigFlags {
 	cf := genericclioptions.NewConfigFlags(true)
 	cf.Namespace = &namespace

@@ -37,6 +37,7 @@ var InstallOrder KindSortOrder = []string{
 	"PodDisruptionBudget",
 	"ServiceAccount",
 	"Secret",
+	"SecretList",
 	"ConfigMap",
 	"StorageClass",
 	"PersistentVolume",
@@ -60,6 +61,7 @@ var InstallOrder KindSortOrder = []string{
 	"StatefulSet",
 	"Job",
 	"CronJob",
+	"IngressClass",
 	"Ingress",
 	"APIService",
 }
@@ -70,6 +72,7 @@ var InstallOrder KindSortOrder = []string{
 var UninstallOrder KindSortOrder = []string{
 	"APIService",
 	"Ingress",
+	"IngressClass",
 	"Service",
 	"CronJob",
 	"Job",
@@ -93,6 +96,7 @@ var UninstallOrder KindSortOrder = []string{
 	"PersistentVolume",
 	"StorageClass",
 	"ConfigMap",
+	"SecretList",
 	"Secret",
 	"ServiceAccount",
 	"PodDisruptionBudget",

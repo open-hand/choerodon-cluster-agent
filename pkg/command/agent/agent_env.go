@@ -65,12 +65,10 @@ func AddEnv(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.
 		return nil, commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 	}
 
-	stopCh := make(chan struct{}, 1)
-
 	// check success added avoid repeat watch
-	if opts.Mgrs.AddStop(namespace, mgr, stopCh) {
+	if opts.Mgrs.AddStop(namespace, mgr) {
 		go func() {
-			if err := mgr.Start(stopCh); err != nil {
+			if err := mgr.Start(opts.Mgrs.GetCtx(namespace)); err != nil {
 				opts.CrChan.ResponseChan <- commandutil.NewResponseError(cmd.Key, model.InitAgentFailed, err)
 			}
 		}()

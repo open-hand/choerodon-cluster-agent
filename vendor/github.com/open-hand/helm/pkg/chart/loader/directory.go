@@ -17,6 +17,7 @@ limitations under the License.
 package loader
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,6 +30,8 @@ import (
 	"github.com/open-hand/helm/internal/sympath"
 	"github.com/open-hand/helm/pkg/chart"
 )
+
+var utf8bom = []byte{0xEF, 0xBB, 0xBF}
 
 // DirLoader loads a chart from a directory
 type DirLoader string
@@ -103,6 +106,8 @@ func LoadDir(dir string) (*chart.Chart, error) {
 		if err != nil {
 			return errors.Wrapf(err, "error reading %s", n)
 		}
+
+		data = bytes.TrimPrefix(data, utf8bom)
 
 		files = append(files, &BufferedFile{Name: n, Data: data})
 		return nil

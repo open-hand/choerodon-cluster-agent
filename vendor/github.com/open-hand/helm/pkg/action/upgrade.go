@@ -18,14 +18,17 @@ package action
 
 import (
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
+	"github.com/golang/glog"
 	"github.com/open-hand/helm/pkg/agent/action"
-	v1 "k8s.io/api/core/v1"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/cli-runtime/pkg/resource"
 
@@ -35,6 +38,7 @@ import (
 	"github.com/open-hand/helm/pkg/postrender"
 	"github.com/open-hand/helm/pkg/release"
 	"github.com/open-hand/helm/pkg/releaseutil"
+	"github.com/open-hand/helm/pkg/storage/driver"
 )
 
 // Upgrade is the action for upgrading releases.
@@ -52,27 +56,59 @@ type Upgrade struct {
 
 	ChartPathOptions
 
-	Install   bool
-	Devel     bool
+	// Install is a purely informative flag that indicates whether this upgrade was done in "install" mode.
+	//
+	// Applications may use this to determine whether this Upgrade operation was done as part of a
+	// pure upgrade (Upgrade.Install == false) or as part of an install-or-upgrade operation
+	// (Upgrade.Install == true).
+	//
+	// Setting this to `true` will NOT cause `Upgrade` to perform an install if the release does not exist.
+	// That process must be handled by creating an Install action directly. See cmd/upgrade.go for an
+	// example of how this flag is used.
+	Install bool
+	// Devel indicates that the operation is done in devel mode.
+	Devel bool
+	// Namespace is the namespace in which this operation should be performed.
 	Namespace string
-	// SkipCRDs skip installing CRDs when install flag is enabled during upgrade
-	SkipCRDs     bool
-	Timeout      time.Duration
-	Wait         bool
+	// SkipCRDs skips installing CRDs when install flag is enabled during upgrade
+	SkipCRDs bool
+	// Timeout is the timeout for this operation
+	Timeout time.Duration
+	// Wait determines whether the wait operation should be performed after the upgrade is requested.
+	Wait bool
+	// WaitForJobs determines whether the wait operation for the Jobs should be performed after the upgrade is requested.
+	WaitForJobs bool
+	// DisableHooks disables hook processing if set to true.
 	DisableHooks bool
-	DryRun       bool
-	Force        bool
-	ResetValues  bool
-	ReuseValues  bool
+	// DryRun controls whether the operation is prepared, but not executed.
+	// If `true`, the upgrade is prepared but not performed.
+	DryRun bool
+	// Force will, if set to `true`, ignore certain warnings and perform the upgrade anyway.
+	//
+	// This should be used with caution.
+	Force bool
+	// ResetValues will reset the values to the chart's built-ins rather than merging with existing.
+	ResetValues bool
+	// ReuseValues will re-use the user's last supplied values.
+	ReuseValues bool
 	// Recreate will (if true) recreate pods after a rollback.
 	Recreate bool
 	// MaxHistory limits the maximum number of revisions saved per release
-	MaxHistory               int
-	Atomic                   bool
-	CleanupOnFail            bool
-	SubNotes                 bool
-	Description              string
-	PostRenderer             postrender.PostRenderer
+	MaxHistory int
+	// Atomic, if true, will roll back on failure.
+	Atomic bool
+	// CleanupOnFail will, if true, cause the upgrade to delete newly-created resources on a failed update.
+	CleanupOnFail bool
+	// SubNotes determines whether sub-notes are rendered in the chart.
+	SubNotes bool
+	// Description is the description of this operation
+	Description string
+	// PostRender is an optional post-renderer
+	//
+	// If this is non-nil, then after templates are rendered, they will be sent to the
+	// post renderer before sending to the Kubernetes API server.
+	PostRenderer postrender.PostRenderer
+	// DisableOpenAPIValidation controls whether OpenAPI validation is enforced.
 	DisableOpenAPIValidation bool
 
 	ReleaseName     string
@@ -85,6 +121,16 @@ type Upgrade struct {
 	AppServiceId    int64
 	V1AppServiceId  string
 	AgentVersion    string
+	// Get missing dependencies
+	DependencyUpdate bool
+	// Lock to control raceconditions when the process receives a SIGTERM
+	Lock             sync.Mutex
+	ReplicasStrategy string
+}
+
+type resultMessage struct {
+	r *release.Release
+	e error
 }
 
 // NewUpgrade creates a new Upgrade object with the given configuration.
@@ -100,8 +146,9 @@ func NewUpgrade(cfg *Configuration,
 	appServiceId int64,
 	v1AppServiceId string,
 	agentVersion string,
-	reuseValues bool) *Upgrade {
-	return &Upgrade{
+	reuseValues bool,
+	replicasStrategy string) *Upgrade {
+	up := &Upgrade{
 		ChartPathOptions: chartPathOptions,
 		cfg:              cfg,
 		Commit:           commit,
@@ -116,20 +163,33 @@ func NewUpgrade(cfg *Configuration,
 		AgentVersion:     agentVersion,
 		MaxHistory:       maxHistory,
 		ReuseValues:      reuseValues,
+		ReplicasStrategy: replicasStrategy,
 	}
+
+	up.ChartPathOptions.registryClient = cfg.RegistryClient
+
+	return up
 }
 
 // Run executes the upgrade on the given release.
 func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface{}, valuesRaw string) (*release.Release, error) {
+	ctx := context.Background()
+	return u.RunWithContext(ctx, name, chart, vals, valuesRaw)
+}
+
+// RunWithContext executes the upgrade on the given release with context.
+func (u *Upgrade) RunWithContext(ctx context.Context, name string, chart *chart.Chart, vals map[string]interface{}, valuesRaw string) (*release.Release, error) {
+	glog.V(1).Info("================================================================check k8s reachable")
 	if err := u.cfg.KubeClient.IsReachable(); err != nil {
 		return nil, err
 	}
+	glog.V(1).Info("================================================================check k8s reachable done")
 
 	// Make sure if Atomic is set, that wait is set as well. This makes it so
 	// the user doesn't have to specify both
 	u.Wait = u.Wait || u.Atomic
 
-	if err := validateReleaseName(name); err != nil {
+	if err := chartutil.ValidateReleaseName(name); err != nil {
 		return nil, errors.Errorf("release name is invalid: %s", name)
 	}
 	u.cfg.Log("preparing upgrade for %s", name)
@@ -141,7 +201,9 @@ func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface
 	u.cfg.Releases.MaxHistory = u.MaxHistory
 
 	u.cfg.Log("performing update for %s", name)
-	res, err := u.performUpgrade(currentRelease, upgradedRelease)
+	glog.V(1).Info("================================================================perform upgrade")
+	res, err := u.performUpgrade(ctx, currentRelease, upgradedRelease)
+	glog.V(1).Info("================================================================perform upgrade done")
 	if err != nil {
 		return res, err
 	}
@@ -156,28 +218,44 @@ func (u *Upgrade) Run(name string, chart *chart.Chart, vals map[string]interface
 	return res, nil
 }
 
-func validateReleaseName(releaseName string) error {
-	if releaseName == "" {
-		return errMissingRelease
-	}
-
-	if !ValidName.MatchString(releaseName) || (len(releaseName) > releaseNameMaxLen) {
-		return errInvalidName
-	}
-
-	return nil
-}
-
 // prepareUpgrade builds an upgraded release for an upgrade operation.
 func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[string]interface{}, valuesRaw string) (*release.Release, *release.Release, error) {
 	if chart == nil {
 		return nil, nil, errMissingChart
 	}
 
-	// finds the installed release with the given name
-	currentRelease, err := u.cfg.Releases.Installed(name)
+	// finds the last non-deleted release with the given name
+	glog.V(1).Info("================================================================get latest release")
+	lastRelease, err := u.cfg.Releases.Last(name)
+	glog.V(1).Info("================================================================get latest done")
 	if err != nil {
+		// to keep existing behavior of returning the "%q has no deployed releases" error when an existing release does not exist
+		if errors.Is(err, driver.ErrReleaseNotFound) {
+			return nil, nil, driver.NewErrNoDeployedReleases(name)
+		}
 		return nil, nil, err
+	}
+
+	// Concurrent `helm upgrade`s will either fail here with `errPending` or when creating the release with "already exists". This should act as a pessimistic lock.
+	if lastRelease.Info.Status.IsPending() {
+		return nil, nil, errPending
+	}
+
+	var currentRelease *release.Release
+	if lastRelease.Info.Status == release.StatusDeployed {
+		// no need to retrieve the last deployed release from storage as the last release is deployed
+		currentRelease = lastRelease
+	} else {
+		// finds the deployed release with the given name
+		currentRelease, err = u.cfg.Releases.Deployed(name)
+		if err != nil {
+			if errors.Is(err, driver.ErrNoDeployedReleases) &&
+				(lastRelease.Info.Status == release.StatusFailed || lastRelease.Info.Status == release.StatusSuperseded) {
+				currentRelease = lastRelease
+			} else {
+				return nil, nil, err
+			}
+		}
 	}
 
 	// determine if values will be reused
@@ -187,12 +265,6 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 	}
 
 	if err := chartutil.ProcessDependencies(chart, vals); err != nil {
-		return nil, nil, err
-	}
-
-	// finds the non-deleted release with the given name
-	lastRelease, err := u.cfg.Releases.Last(name)
-	if err != nil {
 		return nil, nil, err
 	}
 
@@ -216,7 +288,9 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 		return nil, nil, err
 	}
 
-	hooks, manifestDoc, notesTxt, err := u.cfg.renderResources(chart, valuesToRender, "", "", u.SubNotes, false, false, u.PostRenderer)
+	glog.V(1).Info("================================================================render chart values")
+	hooks, manifestDoc, notesTxt, err := u.cfg.renderResources(chart, valuesToRender, "", "", u.SubNotes, false, false, u.PostRenderer, u.DryRun)
+	glog.V(1).Info("================================================================render chart values done")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -242,34 +316,48 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 	if len(notesTxt) > 0 {
 		upgradedRelease.Info.Notes = notesTxt
 	}
+	glog.V(1).Info("================================================================validate manifest")
 	err = validateManifest(u.cfg.KubeClient, manifestDoc.Bytes(), !u.DisableOpenAPIValidation)
+	glog.V(1).Info("================================================================validate manifest done")
 	return currentRelease, upgradedRelease, err
 }
 
-func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Release) (*release.Release, error) {
+func (u *Upgrade) performUpgrade(ctx context.Context, originalRelease, upgradedRelease *release.Release) (*release.Release, error) {
+	glog.V(1).Info("================================================================build resource target and add labels")
 	current, err := u.cfg.KubeClient.Build(bytes.NewBufferString(originalRelease.Manifest), false)
 	if err != nil {
+		// Checking for removed Kubernetes API error so can provide a more informative error message to the user
+		// Ref: https://github.com/helm/helm/issues/7219
+		if strings.Contains(err.Error(), "unable to recognize \"\": no matches for kind") {
+			return upgradedRelease, errors.Wrap(err, "current release manifest contains removed kubernetes api(s) for this "+
+				"kubernetes version and it is therefore unable to build the kubernetes "+
+				"objects for performing the diff. error from kubernetes")
+		}
 		return upgradedRelease, errors.Wrap(err, "unable to build kubernetes objects from current release manifest")
 	}
 	target, err := u.cfg.KubeClient.Build(bytes.NewBufferString(upgradedRelease.Manifest), !u.DisableOpenAPIValidation)
-
-	// 如果是agent升级，则跳过添加标签这一步，因为agent原本是直接在集群中安装的没有对应标签，如果在这里加标签k8s会报错
-	if u.ChartName != "choerodon-cluster-agent" {
-		// 在这里对要新chart包中的对象添加标签
-		for _, r := range target {
-			err = action.AddLabel(u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, r, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false, true, u.cfg.ClientSet)
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
 
 	if err != nil {
 		return upgradedRelease, errors.Wrap(err, "unable to build kubernetes objects from new release manifest")
 	}
 
+	// 如果是agent升级，则跳过添加标签这一步，因为agent原本是直接在集群中安装的没有对应标签，如果在这里加标签k8s会报错
+	if u.ChartName != "choerodon-cluster-agent" {
+		// 在这里对要新chart包中的对象添加标签
+		for _, r := range target {
+			err = action.AddLabel(u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, r, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, u.ReplicasStrategy, false, true, u.cfg.ClientSet)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	glog.V(1).Info("================================================================build resource target and add labels down")
+
 	// It is safe to use force only on target because these are resources currently rendered by the chart.
+	glog.V(1).Info("================================================================build resource target and add labels")
+	glog.V(1).Info("================================================================validate resource target")
 	err = target.Visit(setMetadataVisitor(upgradedRelease.Name, upgradedRelease.Namespace, true))
+	glog.V(1).Info("================================================================validate resource target done")
 	if err != nil {
 		return upgradedRelease, err
 	}
@@ -314,20 +402,65 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 	if err := u.cfg.Releases.Create(upgradedRelease); err != nil {
 		return nil, err
 	}
+	rChan := make(chan resultMessage)
+	ctxChan := make(chan resultMessage)
+	doneChan := make(chan interface{})
+	defer close(doneChan)
+	go u.releasingUpgrade(rChan, upgradedRelease, current, target, originalRelease)
+	go u.handleContext(ctx, doneChan, ctxChan, upgradedRelease)
+	select {
+	case result := <-rChan:
+		return result.r, result.e
+	case result := <-ctxChan:
+		return result.r, result.e
+	}
+}
 
+// Function used to lock the Mutex, this is important for the case when the atomic flag is set.
+// In that case the upgrade will finish before the rollback is finished so it is necessary to wait for the rollback to finish.
+// The rollback will be trigger by the function failRelease
+func (u *Upgrade) reportToPerformUpgrade(c chan<- resultMessage, rel *release.Release, created kube.ResourceList, err error) {
+	u.Lock.Lock()
+	if err != nil {
+		rel, err = u.failRelease(rel, created, err)
+	}
+	c <- resultMessage{r: rel, e: err}
+	u.Lock.Unlock()
+}
+
+// Setup listener for SIGINT and SIGTERM
+func (u *Upgrade) handleContext(ctx context.Context, done chan interface{}, c chan<- resultMessage, upgradedRelease *release.Release) {
+	select {
+	case <-ctx.Done():
+		err := ctx.Err()
+
+		// when the atomic flag is set the ongoing release finish first and doesn't give time for the rollback happens.
+		u.reportToPerformUpgrade(c, upgradedRelease, kube.ResourceList{}, err)
+	case <-done:
+		return
+	}
+}
+func (u *Upgrade) releasingUpgrade(c chan<- resultMessage, upgradedRelease *release.Release, current kube.ResourceList, target kube.ResourceList, originalRelease *release.Release) {
 	// pre-upgrade hooks
+
+	glog.V(1).Info("================================================================execute webhook")
 	if !u.DisableHooks {
 		if err := u.cfg.execHook(upgradedRelease, release.HookPreUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false); err != nil {
-			return u.failRelease(upgradedRelease, kube.ResourceList{}, fmt.Errorf("pre-upgrade hooks failed: %s", err))
+			u.reportToPerformUpgrade(c, upgradedRelease, kube.ResourceList{}, fmt.Errorf("pre-upgrade hooks failed: %s", err))
+			return
 		}
 	} else {
 		u.cfg.Log("upgrade hooks disabled for %s", upgradedRelease.Name)
 	}
+	glog.V(1).Info("================================================================execute webhook done")
 
+	glog.V(1).Info("================================================================update resource")
 	results, err := u.cfg.KubeClient.Update(current, target, u.Force)
+	glog.V(1).Info("================================================================update resource done")
 	if err != nil {
 		u.cfg.recordRelease(originalRelease)
-		return u.failRelease(upgradedRelease, results.Created, err)
+		u.reportToPerformUpgrade(c, upgradedRelease, results.Created, err)
+		return
 	}
 
 	if u.Recreate {
@@ -341,16 +474,29 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 	}
 
 	if u.Wait {
-		if err := u.cfg.KubeClient.Wait(target, u.Timeout); err != nil {
-			u.cfg.recordRelease(originalRelease)
-			return u.failRelease(upgradedRelease, results.Created, err)
+		u.cfg.Log(
+			"waiting for release %s resources (created: %d updated: %d  deleted: %d)",
+			upgradedRelease.Name, len(results.Created), len(results.Updated), len(results.Deleted))
+		if u.WaitForJobs {
+			if err := u.cfg.KubeClient.WaitWithJobs(target, u.Timeout); err != nil {
+				u.cfg.recordRelease(originalRelease)
+				u.reportToPerformUpgrade(c, upgradedRelease, results.Created, err)
+				return
+			}
+		} else {
+			if err := u.cfg.KubeClient.Wait(target, u.Timeout); err != nil {
+				u.cfg.recordRelease(originalRelease)
+				u.reportToPerformUpgrade(c, upgradedRelease, results.Created, err)
+				return
+			}
 		}
 	}
 
 	// post-upgrade hooks
 	if !u.DisableHooks {
 		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout, u.ImagePullSecret, u.Command, u.V1Command, u.AppServiceId, u.V1AppServiceId, u.Commit, u.ChartVersion, u.ReleaseName, u.ChartName, u.AgentVersion, "", originalRelease.Namespace, false); err != nil {
-			return u.failRelease(upgradedRelease, results.Created, fmt.Errorf("post-upgrade hooks failed: %s", err))
+			u.reportToPerformUpgrade(c, upgradedRelease, results.Created, fmt.Errorf("post-upgrade hooks failed: %s", err))
+			return
 		}
 	}
 
@@ -363,8 +509,7 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 	} else {
 		upgradedRelease.Info.Description = "Upgrade complete"
 	}
-
-	return upgradedRelease, nil
+	u.reportToPerformUpgrade(c, upgradedRelease, nil, nil)
 }
 
 func (u *Upgrade) failRelease(rel *release.Release, created kube.ResourceList, err error) (*release.Release, error) {
@@ -412,6 +557,7 @@ func (u *Upgrade) failRelease(rel *release.Release, created kube.ResourceList, e
 		rollin := NewRollback(u.cfg)
 		rollin.Version = filteredHistory[0].Version
 		rollin.Wait = true
+		rollin.WaitForJobs = u.WaitForJobs
 		rollin.DisableHooks = u.DisableHooks
 		rollin.Recreate = u.Recreate
 		rollin.Force = u.Force
@@ -487,7 +633,7 @@ func recreate(cfg *Configuration, resources kube.ResourceList) error {
 			return errors.Wrapf(err, "unable to recreate pods for object %s/%s because an error occurred", res.Namespace, res.Name)
 		}
 
-		pods, err := client.CoreV1().Pods(res.Namespace).List(metav1.ListOptions{
+		pods, err := client.CoreV1().Pods(res.Namespace).List(context.Background(), metav1.ListOptions{
 			LabelSelector: selector.String(),
 		})
 		if err != nil {
@@ -497,7 +643,7 @@ func recreate(cfg *Configuration, resources kube.ResourceList) error {
 		// Restart pods
 		for _, pod := range pods.Items {
 			// Delete each pod for get them restarted with changed spec.
-			if err := client.CoreV1().Pods(pod.Namespace).Delete(pod.Name, metav1.NewPreconditionDeleteOptions(string(pod.UID))); err != nil {
+			if err := client.CoreV1().Pods(pod.Namespace).Delete(context.Background(), pod.Name, *metav1.NewPreconditionDeleteOptions(string(pod.UID))); err != nil {
 				return errors.Wrapf(err, "unable to recreate pods for object %s/%s because an error occurred", res.Namespace, res.Name)
 			}
 		}
