@@ -17,6 +17,7 @@ limitations under the License.
 package engine
 
 import (
+	"context"
 	"log"
 	"strings"
 
@@ -31,8 +32,12 @@ import (
 
 type lookupFunc = func(apiversion string, resource string, namespace string, name string) (map[string]interface{}, error)
 
-// NewLookupFunction returns a function for looking up objects in the cluster. If the resource does not exist, no error
-// is raised.
+// NewLookupFunction returns a function for looking up objects in the cluster.
+//
+// If the resource does not exist, no error is raised.
+//
+// This function is considered deprecated, and will be renamed in Helm 4. It will no
+// longer be a public function.
 func NewLookupFunction(config *rest.Config) lookupFunc {
 	return func(apiversion string, resource string, namespace string, name string) (map[string]interface{}, error) {
 		var client dynamic.ResourceInterface
@@ -47,7 +52,7 @@ func NewLookupFunction(config *rest.Config) lookupFunc {
 		}
 		if name != "" {
 			// this will return a single object
-			obj, err := client.Get(name, metav1.GetOptions{})
+			obj, err := client.Get(context.Background(), name, metav1.GetOptions{})
 			if err != nil {
 				if apierrors.IsNotFound(err) {
 					// Just return an empty interface when the object was not found.
@@ -58,8 +63,8 @@ func NewLookupFunction(config *rest.Config) lookupFunc {
 			}
 			return obj.UnstructuredContent(), nil
 		}
-		//this will return a list
-		obj, err := client.List(metav1.ListOptions{})
+		// this will return a list
+		obj, err := client.List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			if apierrors.IsNotFound(err) {
 				// Just return an empty interface when the object was not found.
@@ -75,7 +80,7 @@ func NewLookupFunction(config *rest.Config) lookupFunc {
 // getDynamicClientOnUnstructured returns a dynamic client on an Unstructured type. This client can be further namespaced.
 func getDynamicClientOnKind(apiversion string, kind string, config *rest.Config) (dynamic.NamespaceableResourceInterface, bool, error) {
 	gvk := schema.FromAPIVersionAndKind(apiversion, kind)
-	apiRes, err := getAPIReourceForGVK(gvk, config)
+	apiRes, err := getAPIResourceForGVK(gvk, config)
 	if err != nil {
 		log.Printf("[ERROR] unable to get apiresource from unstructured: %s , error %s", gvk.String(), err)
 		return nil, false, errors.Wrapf(err, "unable to get apiresource from unstructured: %s", gvk.String())
@@ -94,7 +99,7 @@ func getDynamicClientOnKind(apiversion string, kind string, config *rest.Config)
 	return res, apiRes.Namespaced, nil
 }
 
-func getAPIReourceForGVK(gvk schema.GroupVersionKind, config *rest.Config) (metav1.APIResource, error) {
+func getAPIResourceForGVK(gvk schema.GroupVersionKind, config *rest.Config) (metav1.APIResource, error) {
 	res := metav1.APIResource{}
 	discoveryClient, err := discovery.NewDiscoveryClientForConfig(config)
 	if err != nil {
@@ -107,7 +112,7 @@ func getAPIReourceForGVK(gvk schema.GroupVersionKind, config *rest.Config) (meta
 		return res, err
 	}
 	for _, resource := range resList.APIResources {
-		//if a resource contains a "/" it's referencing a subresource. we don't support suberesource for now.
+		// if a resource contains a "/" it's referencing a subresource. we don't support suberesource for now.
 		if resource.Kind == gvk.Kind && !strings.Contains(resource.Name, "/") {
 			res = resource
 			res.Group = gvk.Group

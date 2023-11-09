@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/agent/channel"
@@ -169,11 +170,11 @@ func (w *workerManager) runWorker() {
 	}
 }
 
-//监听cert-mgr的pod运行情况
+// 监听cert-mgr的pod运行情况
 func (w *workerManager) monitorCertMgr() {
 
 	for {
-		time.Sleep(10 * time.Second)
+		time.Sleep(1 * time.Minute)
 		podStatusInfo, err := w.getPodStatus()
 		if err != nil {
 			glog.Error(err)
@@ -188,7 +189,7 @@ func (w *workerManager) monitorCertMgr() {
 	}
 }
 
-//得到pod的状态
+// 得到pod的状态
 func (w *workerManager) getPodStatus() (model.CertManagerStatusInfo, error) {
 	info := model.CertManagerStatusInfo{}
 	podList := &v1.PodList{}
@@ -199,7 +200,7 @@ func (w *workerManager) getPodStatus() (model.CertManagerStatusInfo, error) {
 		info.ChartVersion = "1.1.1"
 		info.ReleaseName = "cert-manager"
 
-		podList, err = w.kubeClient.GetKubeClient().CoreV1().Pods("cert-manager").List(metav1.ListOptions{
+		podList, err = w.kubeClient.GetKubeClient().CoreV1().Pods("cert-manager").List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "app=cert-manager",
 		})
 	} else {
@@ -207,7 +208,7 @@ func (w *workerManager) getPodStatus() (model.CertManagerStatusInfo, error) {
 		info.ChartVersion = "0.1.0"
 		info.ReleaseName = "choerodon-cert-manager"
 
-		podList, err = w.kubeClient.GetKubeClient().CoreV1().Pods("choerodon").List(metav1.ListOptions{
+		podList, err = w.kubeClient.GetKubeClient().CoreV1().Pods("choerodon").List(context.TODO(), metav1.ListOptions{
 			LabelSelector: "choerodon.io/release=choerodon-cert-manager",
 		})
 	}

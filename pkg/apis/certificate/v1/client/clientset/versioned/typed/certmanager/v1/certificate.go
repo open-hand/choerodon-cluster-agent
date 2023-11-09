@@ -72,7 +72,7 @@ func (c *certificates) Get(ctx context.Context, name string, options metav1.GetO
 		Resource("certificates").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -89,7 +89,7 @@ func (c *certificates) List(ctx context.Context, opts metav1.ListOptions) (resul
 		Resource("certificates").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -106,7 +106,7 @@ func (c *certificates) Watch(ctx context.Context, opts metav1.ListOptions) (watc
 		Resource("certificates").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a certificate and creates it.  Returns the server's representation of the certificate, and an error, if there is any.
@@ -117,7 +117,7 @@ func (c *certificates) Create(ctx context.Context, certificate *v1.Certificate, 
 		Resource("certificates").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(certificate).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -131,7 +131,7 @@ func (c *certificates) Update(ctx context.Context, certificate *v1.Certificate, 
 		Name(certificate.Name).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(certificate).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -147,7 +147,7 @@ func (c *certificates) UpdateStatus(ctx context.Context, certificate *v1.Certifi
 		SubResource("status").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(certificate).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -159,7 +159,7 @@ func (c *certificates) Delete(ctx context.Context, name string, opts metav1.Dele
 		Resource("certificates").
 		Name(name).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -175,7 +175,7 @@ func (c *certificates) DeleteCollection(ctx context.Context, opts metav1.DeleteO
 		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
 		Body(&opts).
-		Do().
+		Do(ctx).
 		Error()
 }
 
@@ -189,7 +189,7 @@ func (c *certificates) Patch(ctx context.Context, name string, pt types.PatchTyp
 		SubResource(subresources...).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

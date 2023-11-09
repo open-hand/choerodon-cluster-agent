@@ -75,7 +75,7 @@ func (cfg *Configuration) execHook(rl *release.Release, hook release.HookEvent, 
 		if chartName != "choerodon-cluster-agent" {
 			// 在这里对要新chart包中的对象添加标签
 			for _, r := range resources {
-				err = action.AddLabel(imagePullSecret, command, v1Command, appServiceId, v1AppServiceId, r, commit, chartVersion, releaseName, chartName, agentVersion, testLabel, namespace, isTest, false, nil)
+				err = action.AddLabel(imagePullSecret, command, v1Command, appServiceId, v1AppServiceId, r, commit, chartVersion, releaseName, chartName, agentVersion, testLabel, namespace, "", isTest, false, nil)
 				if err != nil {
 					return err
 				}

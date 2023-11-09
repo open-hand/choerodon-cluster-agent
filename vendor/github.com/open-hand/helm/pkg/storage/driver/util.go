@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package driver // import "helm.sh/helm/v3/pkg/storage/driver"
+package driver // import "github.com/open-hand/helm/pkg/storage/driver"
 
 import (
 	"bytes"
@@ -67,6 +67,7 @@ func decodeRelease(data string) (*rspb.Release, error) {
 		if err != nil {
 			return nil, err
 		}
+		defer r.Close()
 		b2, err := ioutil.ReadAll(r)
 		if err != nil {
 			return nil, err
