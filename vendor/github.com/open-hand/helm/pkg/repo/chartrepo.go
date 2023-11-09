@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package repo // import "helm.sh/helm/v3/pkg/repo"
+package repo // import "github.com/open-hand/helm/pkg/repo"
 
 import (
 	"crypto/rand"
@@ -56,6 +56,7 @@ type Entry struct {
 	KeyFile               string `json:"keyFile"`
 	CAFile                string `json:"caFile"`
 	InsecureSkipTLSverify bool   `json:"insecure_skip_tls_verify"`
+	PassCredentialsAll    bool   `json:"pass_credentials_all"`
 }
 
 // ChartRepository represents a chart repository
@@ -90,6 +91,8 @@ func NewChartRepository(cfg *Entry, getters getter.Providers) (*ChartRepository,
 // Load loads a directory of charts as if it were a repository.
 //
 // It requires the presence of an index.yaml file in the directory.
+//
+// Deprecated: remove in Helm 4.
 func (r *ChartRepository) Load() error {
 	dirInfo, err := os.Stat(r.Config.Name)
 	if err != nil {
@@ -107,7 +110,7 @@ func (r *ChartRepository) Load() error {
 			if strings.Contains(f.Name(), "-index.yaml") {
 				i, err := LoadIndexFile(path)
 				if err != nil {
-					return nil
+					return err
 				}
 				r.IndexFile = i
 			} else if strings.HasSuffix(f.Name(), ".tgz") {
@@ -135,6 +138,7 @@ func (r *ChartRepository) DownloadIndexFile() (*IndexFile, string, error) {
 		getter.WithInsecureSkipVerifyTLS(r.Config.InsecureSkipTLSverify),
 		getter.WithTLSClientConfig(r.Config.CertFile, r.Config.KeyFile, r.Config.CAFile),
 		getter.WithBasicAuth(r.Config.Username, r.Config.Password),
+		getter.WithPassCredentialsAll(r.Config.PassCredentialsAll),
 	)
 	if err != nil {
 		return nil, "", err
@@ -145,7 +149,7 @@ func (r *ChartRepository) DownloadIndexFile() (*IndexFile, string, error) {
 		return nil, "", err
 	}
 
-	indexFile, err := loadIndex(index)
+	indexFile, err := loadIndex(index, r.Config.URL)
 	if err != nil {
 		return nil, "", err
 	}
@@ -195,7 +199,9 @@ func (r *ChartRepository) generateIndex() error {
 		}
 
 		if !r.IndexFile.Has(ch.Name(), ch.Metadata.Version) {
-			r.IndexFile.Add(ch.Metadata, path, r.Config.URL, digest)
+			if err := r.IndexFile.MustAdd(ch.Metadata, path, r.Config.URL, digest); err != nil {
+				return errors.Wrapf(err, "failed adding to %s to index", path)
+			}
 		}
 		// TODO: If a chart exists, but has a different Digest, should we error?
 	}
@@ -266,7 +272,8 @@ func FindChartInAuthRepoURL(repoURL, username, password, chartName, chartVersion
 // ResolveReferenceURL resolves refURL relative to baseURL.
 // If refURL is absolute, it simply returns refURL.
 func ResolveReferenceURL(baseURL, refURL string) (string, error) {
-	parsedBaseURL, err := url.Parse(baseURL)
+	// We need a trailing slash for ResolveReference to work, but make sure there isn't already one
+	parsedBaseURL, err := url.Parse(strings.TrimSuffix(baseURL, "/") + "/")
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse %s as URL", baseURL)
 	}
@@ -276,8 +283,6 @@ func ResolveReferenceURL(baseURL, refURL string) (string, error) {
 		return "", errors.Wrapf(err, "failed to parse %s as URL", refURL)
 	}
 
-	// We need a trailing slash for ResolveReference to work, but make sure there isn't already one
-	parsedBaseURL.Path = strings.TrimSuffix(parsedBaseURL.Path, "/") + "/"
 	return parsedBaseURL.ResolveReference(parsedRefURL).String(), nil
 }
 

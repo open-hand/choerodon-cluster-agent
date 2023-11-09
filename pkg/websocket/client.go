@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-cleanhttp"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sync"
@@ -89,7 +90,6 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 
 	glog.Info("Started websocket listening")
 
-	backOff := 5 * time.Second
 	errCh := make(chan error, 1)
 	for {
 		go func() {
@@ -101,22 +101,27 @@ func (c *appClient) Loop(stop <-chan struct{}, done *sync.WaitGroup) {
 				glog.Error(err)
 				model.ReconnectFlag = true
 				// 只有在gitops监听运行中并且agent初始化完成后才会停止gitops监听并重新初始化
-				if model.GitRunning && model.Initialized {
+				if model.Initialized {
 					defer func() {
 						if e := recover(); e != nil {
 							fmt.Println(e)
 						}
 					}()
-					glog.Info("websocket disconnected, all gitops goroutines exit")
-					for k, v := range model.GitStopChanMap {
-						close(v)
-						delete(model.GitStopChanMap, k)
+					if model.GitRunning {
+						glog.Info("websocket disconnected, all gitops goroutines exit")
+						for k, v := range model.GitStopChanMap {
+							close(v)
+							delete(model.GitStopChanMap, k)
+						}
 					}
 					model.GitRunning = false
 					model.Initialized = false
 				}
 			}
-			time.Sleep(backOff)
+			rand.Seed(time.Now().Unix())
+			sleepTime := rand.Intn(60) + 5
+			glog.Infof("websocket will reconnect after %d seconds", sleepTime)
+			time.Sleep(time.Duration(sleepTime) * time.Second)
 		case <-stop:
 			glog.Info("Shutting down agent")
 			c.stop()
@@ -355,7 +360,7 @@ func (c *appClient) closePipeConn(id string) {
 	}
 }
 
-func (c *appClient) pipeConnection(id string, key string, token string, pipe pipeutil.Pipe, ) (bool, error) {
+func (c *appClient) pipeConnection(id string, key string, token string, pipe pipeutil.Pipe) (bool, error) {
 	newURL, err := util_url.ParseURL(c.url, pipe.PipeType())
 	if err != nil {
 		return false, err

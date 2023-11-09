@@ -16,6 +16,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"context"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/clientset/versioned/scheme"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/choerodon/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,15 +33,15 @@ type C7nHelmReleaseGetter interface {
 
 // CertificateInterface has methods to work with Certificate resources.
 type C7nHelmReleaseInterface interface {
-	Create(*v1alpha1.C7NHelmRelease) (*v1alpha1.C7NHelmRelease, error)
-	Update(*v1alpha1.C7NHelmRelease) (*v1alpha1.C7NHelmRelease, error)
-	UpdateStatus(*v1alpha1.C7NHelmRelease) (*v1alpha1.C7NHelmRelease, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v1alpha1.C7NHelmRelease, error)
-	List(opts v1.ListOptions) (*v1alpha1.C7NHelmReleaseList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.C7NHelmRelease, err error)
+	Create(ctx context.Context, c7NHelmRelease *v1alpha1.C7NHelmRelease) (*v1alpha1.C7NHelmRelease, error)
+	Update(ctx context.Context, c7NHelmRelease *v1alpha1.C7NHelmRelease) (*v1alpha1.C7NHelmRelease, error)
+	UpdateStatus(ctx context.Context, c7NHelmRelease *v1alpha1.C7NHelmRelease) (*v1alpha1.C7NHelmRelease, error)
+	Delete(ctx context.Context, name string, options *v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, options *v1.DeleteOptions, listOptions v1.ListOptions) error
+	Get(ctx context.Context, name string, options v1.GetOptions) (*v1alpha1.C7NHelmRelease, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v1alpha1.C7NHelmReleaseList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.C7NHelmRelease, err error)
 }
 
 // c7NHelmReleases implements C7NHelmReleaseInterface
@@ -58,61 +59,61 @@ func newC7NHelmReleases(c *C7nHelmReleaseGetterV1alpha1Client, namespace string)
 }
 
 // Get takes name of the c7NHelmRelease, and returns the corresponding c7NHelmRelease object, and an error if there is any.
-func (c *c7NHelmReleases) Get(name string, options v1.GetOptions) (result *v1alpha1.C7NHelmRelease, err error) {
+func (c *c7NHelmReleases) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.C7NHelmRelease, err error) {
 	result = &v1alpha1.C7NHelmRelease{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("C7NHelmReleases").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of C7NHelmReleases that match those selectors.
-func (c *c7NHelmReleases) List(opts v1.ListOptions) (result *v1alpha1.C7NHelmReleaseList, err error) {
+func (c *c7NHelmReleases) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha1.C7NHelmReleaseList, err error) {
 	result = &v1alpha1.C7NHelmReleaseList{}
 	err = c.client.Get().
 		Namespace(c.ns).
 		Resource("C7NHelmReleases").
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested c7NHelmReleases.
-func (c *c7NHelmReleases) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *c7NHelmReleases) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	opts.Watch = true
 	return c.client.Get().
 		Namespace(c.ns).
 		Resource("C7NHelmReleases").
 		VersionedParams(&opts, scheme.ParameterCodec).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a c7NHelmRelease and creates it.  Returns the server's representation of the c7NHelmRelease, and an error, if there is any.
-func (c *c7NHelmReleases) Create(c7NHelmRelease *v1alpha1.C7NHelmRelease) (result *v1alpha1.C7NHelmRelease, err error) {
+func (c *c7NHelmReleases) Create(ctx context.Context, c7NHelmRelease *v1alpha1.C7NHelmRelease) (result *v1alpha1.C7NHelmRelease, err error) {
 	result = &v1alpha1.C7NHelmRelease{}
 	err = c.client.Post().
 		Namespace(c.ns).
 		Resource("C7NHelmReleases").
 		Body(c7NHelmRelease).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a c7NHelmRelease and updates it. Returns the server's representation of the c7NHelmRelease, and an error, if there is any.
-func (c *c7NHelmReleases) Update(c7NHelmRelease *v1alpha1.C7NHelmRelease) (result *v1alpha1.C7NHelmRelease, err error) {
+func (c *c7NHelmReleases) Update(ctx context.Context, c7NHelmRelease *v1alpha1.C7NHelmRelease) (result *v1alpha1.C7NHelmRelease, err error) {
 	result = &v1alpha1.C7NHelmRelease{}
 	err = c.client.Put().
 		Namespace(c.ns).
 		Resource("C7NHelmReleases").
 		Name(c7NHelmRelease.Name).
 		Body(c7NHelmRelease).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
@@ -120,7 +121,7 @@ func (c *c7NHelmReleases) Update(c7NHelmRelease *v1alpha1.C7NHelmRelease) (resul
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 
-func (c *c7NHelmReleases) UpdateStatus(c7NHelmRelease *v1alpha1.C7NHelmRelease) (result *v1alpha1.C7NHelmRelease, err error) {
+func (c *c7NHelmReleases) UpdateStatus(ctx context.Context, c7NHelmRelease *v1alpha1.C7NHelmRelease) (result *v1alpha1.C7NHelmRelease, err error) {
 	result = &v1alpha1.C7NHelmRelease{}
 	err = c.client.Put().
 		Namespace(c.ns).
@@ -128,35 +129,35 @@ func (c *c7NHelmReleases) UpdateStatus(c7NHelmRelease *v1alpha1.C7NHelmRelease) 
 		Name(c7NHelmRelease.Name).
 		SubResource("status").
 		Body(c7NHelmRelease).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the c7NHelmRelease and deletes it. Returns an error if one occurs.
-func (c *c7NHelmReleases) Delete(name string, options *v1.DeleteOptions) error {
+func (c *c7NHelmReleases) Delete(ctx context.Context, name string, options *v1.DeleteOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("C7NHelmReleases").
 		Name(name).
 		Body(options).
-		Do().
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *c7NHelmReleases) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *c7NHelmReleases) DeleteCollection(ctx context.Context, options *v1.DeleteOptions, listOptions v1.ListOptions) error {
 	return c.client.Delete().
 		Namespace(c.ns).
 		Resource("C7NHelmReleases").
 		VersionedParams(&listOptions, scheme.ParameterCodec).
 		Body(options).
-		Do().
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched c7NHelmRelease.
-func (c *c7NHelmReleases) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.C7NHelmRelease, err error) {
+func (c *c7NHelmReleases) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, subresources ...string) (result *v1alpha1.C7NHelmRelease, err error) {
 	result = &v1alpha1.C7NHelmRelease{}
 	err = c.client.Patch(pt).
 		Namespace(c.ns).
@@ -164,7 +165,7 @@ func (c *c7NHelmReleases) Patch(name string, pt types.PatchType, data []byte, su
 		SubResource(subresources...).
 		Name(name).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

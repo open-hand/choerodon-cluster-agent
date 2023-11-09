@@ -1,12 +1,16 @@
 package model
 
 import (
+	"k8s.io/apimachinery/pkg/version"
 	"sync"
 )
 
 var CertManagerVersion string
 
-var KubernetesVersion string
+var KubernetesVersion *version.Info
+
+// 是否为旧版k8s，当前集群版本<=v1.21时值为true，>=v1.22时值为false
+var OldKubernetesVersion bool
 
 var ClusterId string
 

@@ -8,8 +8,6 @@ import (
 	"bytes"
 	v1_versioned "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/client/clientset/versioned"
 	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1/client/clientset/versioned/typed/certmanager/v1"
-	v1alpha1_versioned "github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/client/clientset/versioned"
-	"github.com/choerodon/choerodon-cluster-agent/pkg/apis/certificate/v1alpha1/client/clientset/versioned/typed/certmanager/v1alpha1"
 	operatorutil "github.com/choerodon/choerodon-cluster-agent/pkg/util/operator"
 	"sync"
 
@@ -33,7 +31,7 @@ type extendedClient struct {
 	batch_v1beta1.BatchV1beta1Interface
 	networking_v1beta1.NetworkingV1beta1Interface
 	v1.CertmanagerV1Interface
-	v1alpha1.CertmanagerV1alpha1Interface
+	//v1alpha1.CertmanagerV1alpha1Interface
 }
 
 type ChangeSet struct {
@@ -84,7 +82,6 @@ type Cluster struct {
 func NewCluster(
 	clientset k8sclient.Interface,
 	v1CrdClientSet v1_versioned.Interface,
-	v1alpha1ClientSet v1alpha1_versioned.Interface,
 	mgrs *operatorutil.MgrList,
 	applier Applier,
 	describer Describer,
@@ -98,7 +95,7 @@ func NewCluster(
 			clientset.BatchV1beta1(),
 			clientset.NetworkingV1beta1(),
 			v1CrdClientSet.CertmanagerV1(),
-			v1alpha1ClientSet.Certmanager(),
+			//v1alpha1ClientSet.Certmanager(),
 		},
 		Mgrs:      mgrs,
 		Applier:   applier,
