@@ -3,6 +3,7 @@ package model
 const (
 	//manager
 	InitAgent    = "agent_init"
+	RestartAgent = "restart_agent"
 	AgentUpgrade = "agent_upgrade"
 	ReSyncAgent  = "re_sync"
 	// devOps-service暂无处理失败的逻辑

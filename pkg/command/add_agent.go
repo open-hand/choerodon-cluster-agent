@@ -7,6 +7,7 @@ import (
 
 func init() {
 	Funcs.Add(model.InitAgent, agent.InitAgent)
+	Funcs.Add(model.RestartAgent, agent.RestartAgent)
 
 	Funcs.Add(model.ReSyncAgent, agent.ReSyncAgent)
 

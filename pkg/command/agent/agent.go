@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"math/rand"
+	"os"
 	"time"
 )
 
@@ -108,6 +109,12 @@ func InitAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *mod
 	go g.WithStop()
 
 	return returnInitResult(opts, cmd)
+}
+
+func RestartAgent(opts *commandutil.Opts, cmd *model.Packet) ([]*model.Packet, *model.Packet) {
+	glog.Info("restart agent")
+	os.Exit(0)
+	return nil, nil
 }
 
 // 以前用于重新部署实例，现在仅用于升级Agent
